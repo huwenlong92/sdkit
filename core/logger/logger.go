@@ -20,16 +20,18 @@ const KeyLogger runtime.Key = "logger"
 
 const (
 	defaultRootDir    = "logs"
+	defaultRotateMode = "size"
 	defaultMaxSize    = 10
 	defaultMaxBackups = 5
 	defaultMaxAge     = 30
 )
 
 type RotationConfig struct {
-	MaxSize    int  `mapstructure:"max_size" yaml:"max_size"`
-	MaxBackups int  `mapstructure:"max_backups" yaml:"max_backups"`
-	MaxAge     int  `mapstructure:"max_age" yaml:"max_age"`
-	Compress   bool `mapstructure:"compress" yaml:"compress"`
+	Mode       string `mapstructure:"mode" yaml:"mode"`
+	MaxSize    int    `mapstructure:"max_size" yaml:"max_size"`
+	MaxBackups int    `mapstructure:"max_backups" yaml:"max_backups"`
+	MaxAge     int    `mapstructure:"max_age" yaml:"max_age"`
+	Compress   bool   `mapstructure:"compress" yaml:"compress"`
 }
 
 type Config struct {
@@ -93,6 +95,20 @@ func Writer(name, filename string) (io.Writer, error) {
 	dir := filepath.Join(cfg.RootDir, name)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, err
+	}
+	if cfg.Rotation.Mode == "daily" {
+		ext := filepath.Ext(filename)
+		base := strings.TrimSuffix(filepath.Base(filename), ext)
+		if base == "" {
+			base = name
+		}
+		return newDailyWriter(dailyWriterConfig{
+			Dir:    dir,
+			Name:   base,
+			Ext:    ext,
+			MaxAge: cfg.Rotation.MaxAge,
+			Now:    time.Now,
+		}), nil
 	}
 	return &lumberjack.Logger{
 		Filename:   filepath.Join(dir, filename),
@@ -201,6 +217,13 @@ func normalizeConfig(cfg Config) Config {
 	}
 	if cfg.RootDir == "" {
 		cfg.RootDir = defaultRootDir
+	}
+	cfg.Rotation.Mode = strings.ToLower(strings.TrimSpace(cfg.Rotation.Mode))
+	if cfg.Rotation.Mode == "" {
+		cfg.Rotation.Mode = defaultRotateMode
+	}
+	if cfg.Rotation.Mode != "daily" {
+		cfg.Rotation.Mode = defaultRotateMode
 	}
 	if cfg.Rotation.MaxSize <= 0 {
 		cfg.Rotation.MaxSize = defaultMaxSize

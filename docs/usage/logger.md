@@ -199,6 +199,7 @@ cron.New(
 
 | 参数 | 默认值 |
 |------|------|
+| `mode` | `size` |
 | `MaxSize` | 10 MB |
 | `MaxBackups` | 5 |
 | `MaxAge` | 30 天 |
@@ -212,11 +213,23 @@ log:
   format: json
   root_dir: logs
   rotation:
+    mode: size
     max_size: 50
     max_backups: 10
     max_age: 30
     compress: true
 ```
+
+按日期分割：
+
+```yaml
+log:
+  rotation:
+    mode: daily
+    max_age: 30
+```
+
+`mode=size` 是默认模式，使用 lumberjack 按文件大小分割。`mode=daily` 会写入 `<filename-base>-YYYY-MM-DD.log`，例如 `logger.Named("api")` 写入 `logs/api/api-2026-05-17.log`，并按 `max_age` 清理旧日期文件；`max_size`、`max_backups` 和 `compress` 当前仅对 `size` 模式生效。
 
 `bootstrap` 会把这些配置传给 `core/logger`。`logger.Named("xxx")` 创建的组件日志会复用同一套 level、format、root_dir 和 rotation 配置。
 

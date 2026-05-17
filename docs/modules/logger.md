@@ -52,7 +52,7 @@ logger.Init("queue", "info", "dev")
 | `Mode` | `dev` 时控制台优先输出 stdout，否则输出 stderr |
 | `Format` | `console` / `json` |
 | `RootDir` | 日志根目录，默认 `logs` |
-| `Rotation` | lumberjack 分割配置 |
+| `Rotation` | 日志分割配置，默认按大小分割，可配置为按日期分割 |
 
 配置文件示例：
 
@@ -62,11 +62,17 @@ log:
   format: console
   root_dir: logs
   rotation:
+    mode: size
     max_size: 10
     max_backups: 5
     max_age: 30
     compress: false
 ```
+
+`rotation.mode` 支持：
+
+- `size`：默认模式，使用 lumberjack 按文件大小分割。
+- `daily`：按日期分割，文件名为 `<filename-base>-YYYY-MM-DD.log`，例如 `logs/api/api-2026-05-17.log`。该模式按 `max_age` 清理旧日期文件，`max_size`、`max_backups` 和 `compress` 当前仅对 `size` 模式生效。
 
 ## 对外接口
 
