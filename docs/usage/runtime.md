@@ -30,6 +30,7 @@ err := app.RegisterCapabilities(
 	cachecap.Use(),
 	ratelimitcap.Use(),
 	sessioncap.Use(),
+	validatorcap.Use(),
 	eventbus.Use(),
 )
 ```
@@ -46,6 +47,7 @@ app.RegisterCapabilities(
 	cachecap.Use(cachecap.WithConfig(cacheCfg)),
 	ratelimitcap.Use(),
 	sessioncap.Use(sessioncap.WithConfig(sessionCfg)),
+	validatorcap.Use(),
 	eventbus.Use(eventbus.WithConfig(eventbusCfg)),
 )
 ```
@@ -149,7 +151,7 @@ svc, err := registry.BuildService(
 )
 ```
 
-构建后的 `ServiceInfo()` 会带上注册时的 `Type`、`Kind` 和本地能力名。能力名如果带服务名前缀，例如 `api.queue.producer`，展示时会压缩为 `queue.producer`。
+构建后的 `ServiceInfo()` 会带上注册时的 `Type`、`Kind` 和本地能力名。能力名如果带服务名前缀，例如 `api.queue.producer`，展示时会压缩为 `queue.producer`。上层启动器可以通过 `registry.ServiceKind(serviceType)` 按 `http` / `queue` / `cli` 类型声明公共 capability 依赖，例如只让 HTTP 服务依赖 `validator`。
 
 如果服务需要运行时私有 capability，用 `RuntimeCapabilityFactory`：
 
@@ -783,6 +785,7 @@ runtime.NewCapabilityWithShutdown(
 - `databasecap.Use()`：关闭默认数据库连接。
 - `ratelimitcap.Use()`：恢复默认限流 store。
 - `sessioncap.Use()`：绑定默认会话 store。
+- `validatorcap.Use()`：关闭阶段 no-op。
 - `eventbus.Use()`：关闭默认事件总线。
 - `loggercap.Use()`：flush logger。
 
@@ -859,6 +862,7 @@ if err := app.RegisterCapabilities(
 	cachecap.Use(),
 	ratelimitcap.Use(),
 	sessioncap.Use(),
+	validatorcap.Use(),
 	eventbus.Use(),
 ); err != nil {
 	return err

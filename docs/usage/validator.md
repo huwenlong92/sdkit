@@ -1,5 +1,17 @@
 # 自定义验证规则
 
+## 初始化
+
+HTTP runtime host 应通过 runtime capability 初始化 validator：
+
+```go
+app.RegisterCapabilities(
+    validatorfacade.Use(),
+)
+```
+
+`validatorfacade.Use()` 只注册 Gin binding validator 的 JSON 字段名、中文翻译和自定义规则，不持有外部资源，关闭阶段是 no-op。`validator.Init()` 内部幂等，可以被测试或旧入口重复调用；新增 runtime 接线优先使用 capability，并让 HTTP 服务声明依赖 `validator`。
+
 ## 快速使用
 
 handler 中统一使用 helper，不再手写 `ShouldBind...` 后再调用 `HandlerValidatorError`：

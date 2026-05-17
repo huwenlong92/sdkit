@@ -19,18 +19,15 @@ bootstrap 不直接持有 provider 生命周期、signal 或 shutdown。
 
 - 配置加载
 - 日志
-- Gin 模式
-- Validator
 - Database
 - Redis
 - Cache
 - RateLimit
 - Session
-- Auth 基础默认值
 - BBR 公共配置
 - Casbin
 
-`sdkitgo serve` 聚合启动不再让 `RuntimeCapability` 直接初始化全部公共基础设施。`RuntimeCapability` 只加载公共配置；logger、tracing、database、redis、cache、ratelimit、session 等由 `bootstrap.RuntimeCapabilities(...)` 返回为独立 runtime capability，交给主 runtime 统一初始化和关闭。
+`sdkitgo serve` 聚合启动不再让 `RuntimeCapability` 直接初始化全部公共基础设施。`RuntimeCapability` 只加载公共配置；logger、tracing、database、redis、cache、ratelimit、session 等由 `bootstrap.RuntimeCapabilities(...)` 返回为独立 runtime capability，交给主 runtime 统一初始化和关闭。Gin mode、auth guard 和业务迁移/种子数据由具体 HTTP 服务或命令自己处理；validator 由 HTTP 类型服务声明全局 runtime capability。
 
 `BootConfig` 用来声明当前命令/服务的必需基础设施：
 

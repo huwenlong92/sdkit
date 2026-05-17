@@ -5,6 +5,7 @@ import (
 	stderrors "errors"
 	"reflect"
 	"strings"
+	"sync"
 
 	apperrors "github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/response"
@@ -19,10 +20,19 @@ import (
 )
 
 var (
-	trans ut.Translator
+	trans   ut.Translator
+	once    sync.Once
+	initErr error
 )
 
-func Init() {
+func Init() error {
+	once.Do(func() {
+		initErr = initValidator()
+	})
+	return initErr
+}
+
+func initValidator() error {
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterTagNameFunc(func(field reflect.StructField) string {
 			name := strings.SplitN(field.Tag.Get("json"), ",", 2)[0]
@@ -35,10 +45,13 @@ func Init() {
 		zhT := zh.New()
 		uni := ut.New(zhT, zhT)
 		trans, _ = uni.GetTranslator("zh")
-		zhTranslations.RegisterDefaultTranslations(v, trans)
+		if err := zhTranslations.RegisterDefaultTranslations(v, trans); err != nil {
+			return err
+		}
 
-		custom.RegisterAll(v, trans)
+		return custom.RegisterAll(v, trans)
 	}
+	return nil
 }
 
 func HandlerValidatorError(c *gin.Context, err error) {

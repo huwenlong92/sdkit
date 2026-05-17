@@ -18,10 +18,12 @@ func Register(r Rule) {
 	rules = append(rules, r)
 }
 
-func RegisterAll(v *validator.Validate, trans ut.Translator) {
+func RegisterAll(v *validator.Validate, trans ut.Translator) error {
 	for _, r := range rules {
-		v.RegisterValidation(r.Tag, r.Validate)
-		v.RegisterTranslation(r.Tag, trans, func(ut ut.Translator) error {
+		if err := v.RegisterValidation(r.Tag, r.Validate); err != nil {
+			return err
+		}
+		if err := v.RegisterTranslation(r.Tag, trans, func(ut ut.Translator) error {
 			return ut.Add(r.Tag, r.Translate, true)
 		}, func(ut ut.Translator, fe validator.FieldError) string {
 			if r.TranslateFunc != nil {
@@ -29,6 +31,9 @@ func RegisterAll(v *validator.Validate, trans ut.Translator) {
 			}
 			t, _ := ut.T(r.Tag, fe.Field())
 			return t
-		})
+		}); err != nil {
+			return err
+		}
 	}
+	return nil
 }

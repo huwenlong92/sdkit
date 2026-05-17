@@ -168,7 +168,7 @@ type ServiceInfo struct {
 
 - `bootstrap.New` 创建 runtime app。
 - `bootstrap.RuntimeCapability` 加载公共配置。
-- `bootstrap.RuntimeCapabilities` 生成 logger、tracing、database、redis、cache、ratelimit、session 和 bootstrap post capability，由主 runtime 统一初始化和关闭。
+- `bootstrap.RuntimeCapabilities` 生成 logger、tracing、database、redis、cache、ratelimit、session、filesystem 等公共 capability，由主 runtime 统一初始化和关闭；HTTP 服务按 `ServiceKindHTTP` 额外注册并依赖 validator capability。
 - Provider 声明的 `RuntimeCapabilities` 会在 provider `Register` 前收集、依赖排序、初始化，并以 service-local scope 纳入统一 shutdown。
 - `bootstrap.BuildServices` 根据配置构建服务。
 - 每个服务自己决定接入哪些 core/pkg 能力。
@@ -203,7 +203,8 @@ Runtime 关闭顺序：
 - 2026-05-16：ServiceBuilder 新增 `RuntimeCapabilities`，服务级能力通过 provider-local capability 接入 runtime，并自动写入 `ServiceContext.Capabilities`。
 - 2026-05-16：移除旧泛型注册器和服务构造期能力注册方式，Admin/Worker/Crontab 的本地能力统一由 Provider 声明并交给 runtime 管理。
 - 2026-05-16：Queue 接入 `core/queue/facade/producer` 和 `core/queue/facade/operations` Runtime Capability；bootstrap 不再注册 queue 公共能力或 marker，Worker queue runtime 由 Worker 服务自行初始化。
-- 2026-05-16：Session 和 RateLimit 接入 `core/*/facade` Runtime Capability，由 `bootstrap.RuntimeCapabilities` 注册并在 bootstrap post 前完成初始化。
+- 2026-05-17：移除 bootstrap post 初始化，Gin mode、auth guard、migrate/seed 下沉到服务或命令；HTTP 服务按 kind 使用 validator runtime capability。
+- 2026-05-16：Session 和 RateLimit 接入 `core/*/facade` Runtime Capability，由 `bootstrap.RuntimeCapabilities` 注册并在服务启动前完成初始化。
 - 2026-05-15：公共能力加载收敛到 `bootstrap.RuntimeCapabilities`，`RuntimeCapability` 只负责加载配置，logger/database/redis/cache/tracing 等作为独立 runtime capability 由主 runtime 管生命周期。
 - 2026-05-15：Phase 6 将 bootstrap 明确为 runtime facade，run/serve 的 signal、shutdown 和 provider lifecycle 统一归 runtime。
 - 2026-05-12：统一 `sdkitgo serve`、单服务、Worker、Crontab、WebSocket/SSE 的关闭约定；启动失败会回滚已构建服务，并统一释放 Queue、Cache、Redis、Database、Tracing 和 Logger。

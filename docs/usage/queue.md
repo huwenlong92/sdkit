@@ -1173,7 +1173,7 @@ type FailureWriter interface {
 - `worker/bootstrap/failure_writer.go`
 - `models.SystemQueueFailureLog`
 
-`models.AutoMigrate()` 会创建失败日志分区父表 `system_queue_failure_log`，按 `created_at` 做 PostgreSQL `RANGE` 月分区，并预创建当前月和下月分区。`payload` 使用 `jsonb`，便于后续按原 payload 重新投递任务。生产环境如果通过独立迁移流程建表，需要同步 `models.SystemQueueFailureLog` 对应结构。
+项目自己的 migrate 命令需要显式创建失败日志分区父表 `system_queue_failure_log`，按 `created_at` 做 PostgreSQL `RANGE` 月分区，并预创建当前月和下月分区。`payload` 使用 `jsonb`，便于后续按原 payload 重新投递任务。生产环境如果通过独立迁移流程建表，需要同步 `models.SystemQueueFailureLog` 对应结构；bootstrap 不再隐式执行 `models.AutoMigrate()`。
 
 表内保留 `task_id`、`queue`、`type`、`payload`、`retry_count`、`max_retry`、`rate_limited`、`track_id`、`request_id`、`trace_id`、`span_id` 和 `error`，用于后台排查、删除队列内已有失败任务，以及按原任务内容重新投递。
 

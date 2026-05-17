@@ -594,7 +594,7 @@ HTTP API 约束：
 
 `core/queue` 提供 `Outbox` 接口、`OutboxTask` 和 `OutboxPoller`；Gorm 实现位于 `pkg/queue/outbox/gorm`，用于“业务数据库事务成功后再投递队列”的场景，避免业务数据已提交但队列投递失败导致状态不一致。
 
-表结构由 `gormoutbox.MigrateOutbox(ctx, db)` 迁移，`models.AutoMigrate()` 已接入。表名为 `system_queue_outbox`，保存：
+表结构由 `gormoutbox.MigrateOutbox(ctx, db)` 迁移。项目如果需要通过统一模型迁移管理该表，应在自己的 migrate 命令中显式调用对应迁移；bootstrap 不再隐式执行业务 `models.AutoMigrate()`。表名为 `system_queue_outbox`，保存：
 
 - `task_id`、`queue`、`type`
 - `payload`、`headers`、`options`

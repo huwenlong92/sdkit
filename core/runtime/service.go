@@ -171,6 +171,17 @@ func (r *ServiceRegistry[T]) RuntimeCapabilitiesForService(ctx RuntimeCapability
 	return out
 }
 
+func (r *ServiceRegistry[T]) ServiceKind(serviceType string) (ServiceKind, bool) {
+	if r == nil || serviceType == "" {
+		return "", false
+	}
+	reg, ok := r.factories[serviceType]
+	if !ok {
+		return "", false
+	}
+	return reg.Kind, true
+}
+
 func (r *ServiceRegistry[T]) buildService(configFile string, name string, serviceType string, configKey string, base T, capabilities *LocalCapabilityRegistry) (Service, serviceRegistration[T], error) {
 	if serviceType == "" {
 		return nil, serviceRegistration[T]{}, errors.New("runtime: service " + name + " type is required")
