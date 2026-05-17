@@ -1,0 +1,609 @@
+
+2026/05/10 11:00:21  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[3.701ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 11:00:21 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[9.499ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:00:21 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[9.127ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:00:21 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[6.046ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:00:21 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[17.379ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:00:22  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[3.736ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 11:00:22 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[11.446ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:00:22 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[6.763ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:00:22 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[3.555ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:00:22 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[3.409ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:00:22 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[3.650ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:00:22 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[3.203ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:07:03  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[4.430ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 11:07:04 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[7.032ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:07:04 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[6.854ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:07:04 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[3.115ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:07:04 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[17.553ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:07:05  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[3.769ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 11:07:05 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[9.783ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:07:05 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[6.944ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:07:05 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[3.496ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:07:05 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[4.216ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:07:05 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[4.409ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:07:05 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[3.861ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:20:36  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[4.029ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 11:20:36 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[7.686ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:20:36 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[6.590ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:20:36 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[3.317ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:20:37 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[17.092ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:20:38  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[4.183ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 11:20:38 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[7.410ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:20:38 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[6.833ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:20:38 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[3.676ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:20:38 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[3.786ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:20:38 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[5.065ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:20:38 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[3.609ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:34:26  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[3.992ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 11:34:26 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[5.394ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:34:26 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[5.387ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:34:26 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[2.490ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:34:27 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[29.125ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:34:27  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[2.855ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 11:34:28 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[7.080ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:34:28 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[5.313ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:34:28 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[2.842ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:34:28 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[3.054ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:34:28 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[4.306ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 11:34:28 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[2.689ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 16:37:38  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[3.998ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 16:37:39 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[6.611ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 16:37:39 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[6.974ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 16:37:39 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[3.587ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 16:37:39 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[18.064ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 16:37:40  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[4.593ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 16:37:40 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[7.278ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 16:37:40 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[8.510ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 16:37:40 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[3.755ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 16:37:40 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[3.951ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 16:37:40 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[2.947ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 16:37:40 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[3.885ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:29:14  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[4.496ms] [rows:0] ALTER TABLE "sd_system_crontab" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 17:29:14 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[7.443ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:29:14 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[6.773ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:29:14 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[3.516ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:29:15 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[18.033ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:29:16  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[3.318ms] [rows:0] ALTER TABLE "sd_system_crontab" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 17:29:16 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[9.226ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:29:16 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[7.995ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:29:16 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[4.573ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:29:16 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[4.085ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:29:16 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[4.669ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:29:16 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[7.801ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:30:43  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[2.929ms] [rows:0] ALTER TABLE "sd_system_crontab" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 17:30:43 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[7.394ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:30:43 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[7.287ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:30:43 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[3.614ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:30:44 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[19.061ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:30:44  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[2.866ms] [rows:0] ALTER TABLE "sd_system_crontab" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 17:30:45 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[9.044ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:30:45 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[9.119ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:30:45 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[3.489ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:30:45 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[3.392ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:30:45 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[6.258ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:30:45 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[3.973ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:32:38 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:32:38 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:32:38 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:34:23 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:34:23 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:34:23 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:35:08  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[3.216ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 17:35:09 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[7.789ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:35:09 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[6.996ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:35:09 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[5.426ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:35:09 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[19.848ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:35:10  ERROR: cannot cast type timestamp with time zone to bigint (SQLSTATE 42846)
+[4.189ms] [rows:0] ALTER TABLE "sd_system_access_log" ALTER COLUMN "created_at" TYPE bigint USING "created_at"::bigint
+
+2026/05/10 17:35:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[7.761ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:35:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[7.571ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:35:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[4.522ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:35:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[4.554ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:35:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[6.349ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:35:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[4.250ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:35:53 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:35:53 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:35:53 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:41:23 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:41:23 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:41:23 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:41:45 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:41:45 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:41:45 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:43:59 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:43:59 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:43:59 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 17:48:16 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[9.565ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:48:16 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[10.277ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:48:16 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[3.320ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:48:17 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[19.520ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:48:18 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[7.169ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:48:18 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[8.065ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:48:18 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[3.160ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:48:18 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[3.757ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:48:18 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[4.355ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:48:18 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[2.853ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:55:42 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[30.563ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:55:42 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[13.198ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:55:42 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[4.553ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:55:42 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[20.381ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:55:43 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[9.756ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:55:43 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[6.516ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:55:43 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[3.260ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:55:43 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[3.091ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:55:43 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[3.503ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:55:44 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[3.765ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:57:23 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[7.287ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:57:23 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[7.650ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:57:23 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[3.420ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:57:23 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[20.123ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:57:25 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[22.243ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:57:25 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[6.919ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:57:25 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[3.649ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:57:25 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[3.997ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:57:25 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[5.125ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 17:57:25 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[2.970ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 18:36:00 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[9.366ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 18:36:00 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[7.109ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 18:36:00 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[3.436ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 18:36:01 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[22.329ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 18:36:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[10.393ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 18:36:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[10.861ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 18:36:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[4.766ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 18:36:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[3.375ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 18:36:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[4.086ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 18:36:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[4.282ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 20:59:44 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[7.932ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 20:59:44 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[6.726ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 20:59:44 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[3.627ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 20:59:45 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[18.717ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 20:59:46 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[8.477ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 20:59:46 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[6.951ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 20:59:46 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[3.361ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 20:59:46 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[4.309ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 20:59:46 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[3.475ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 20:59:46 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[5.488ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:10:05 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[8.108ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:10:05 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[7.750ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:10:05 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[3.271ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:10:06 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[18.472ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:10:07 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[8.657ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:10:07 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[7.367ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:10:07 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[4.308ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:10:07 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[3.594ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:10:07 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[3.987ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:10:07 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[4.265ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:12:08 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[10.176ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:12:08 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[8.867ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:12:08 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[4.034ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:12:08 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[19.400ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:12:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[8.462ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:12:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[7.644ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:12:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[4.150ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:12:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[4.378ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:12:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[4.159ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:12:10 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[3.586ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:12:13 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 21:12:13 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 21:12:13 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:12
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/10 21:13:00 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:81 record not found
+[7.386ms] [rows:0] SELECT * FROM "sd_system_access_log" ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:13:00 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:97 record not found
+[5.630ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/binary' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:13:00 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:104 record not found
+[4.100ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/test/error' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:13:01 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:158 record not found
+[16.151ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/me' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:13:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:282 record not found
+[9.497ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/upload' AND method = 'POST' ORDER BY id ASC,"sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:13:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:291 record not found
+[8.482ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/login' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:13:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:300 record not found
+[4.339ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/empty' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:13:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:309 record not found
+[3.954ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/proxy-upload' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:13:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:323 record not found
+[4.227ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/notfound' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/10 21:13:02 /Users/huwenlong/data/lab/sdkitgo/core/accesslog/tests/accesslog_integration_test.go:328 record not found
+[4.021ms] [rows:0] SELECT * FROM "sd_system_access_log" WHERE path = '/badreq' ORDER BY "sd_system_access_log"."id" LIMIT 1
+
+2026/05/13 21:13:21 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:14
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/13 21:13:21 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:14
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/13 21:13:21 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:14
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/13 21:13:50 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:14
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/13 21:13:50 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:14
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
+
+2026/05/13 21:13:50 /Users/huwenlong/data/lab/sdkitgo/core/database/gorm.go:14
+[error] failed to initialize database, got error failed to connect to `user=sdkitgo database=sdkitgo`: 192.168.1.126:5432 (192.168.1.126): dial error: dial tcp 192.168.1.126:5432: connect: operation not permitted
