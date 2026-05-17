@@ -109,6 +109,67 @@ func (p *Provider) Dependencies() []runtime.Dependency {
 
 简单 facade 能力直接写在 `RuntimeCapabilities` 返回值里，不再额外定义 `apiQueueCapability(ctx)`、`adminSessionCapability(ctx)` 这类只做转调的薄函数。只有存在服务私有初始化、默认实例设置、自定义 metadata 或关闭逻辑时，才单独拆出 capability 函数或放进 `infra/capability`。
 
+## Service Skeleton
+
+业务项目可以用 runtime 的通用 service skeleton 承载服务注册、构建和 service-local capability：
+
+```go
+type Config struct {
+	ConfigFile string
+}
+
+registry := runtime.NewServiceRegistry[*Config]()
+
+registry.RegisterServiceDefinition(runtime.ServiceDefinition[*Config]{
+	Type: "api",
+	Kind: runtime.ServiceKindHTTP,
+	ContextFactory: func(ctx runtime.ServiceContext[*Config]) (runtime.Service, error) {
+		ctx.Capabilities.Set(ctx.Name+".queue.producer", producer)
+		return runtime.HTTPService{
+			InfoValue: runtime.ServiceInfo{
+				Name:    ctx.Name,
+				Enabled: true,
+			},
+			StartFunc: func() error {
+				return server.ListenAndServe()
+			},
+			StopFunc: func(ctx context.Context) error {
+				return server.Shutdown(ctx)
+			},
+		}, nil
+	},
+})
+
+svc, err := registry.BuildService(
+	"configs/config.yaml",
+	"api",
+	"api",
+	"api",
+	&Config{ConfigFile: "configs/config.yaml"},
+)
+```
+
+构建后的 `ServiceInfo()` 会带上注册时的 `Type`、`Kind` 和本地能力名。能力名如果带服务名前缀，例如 `api.queue.producer`，展示时会压缩为 `queue.producer`。
+
+如果服务需要运行时私有 capability，用 `RuntimeCapabilityFactory`：
+
+```go
+registry.RegisterServiceDefinition(runtime.ServiceDefinition[*Config]{
+	Type: "api",
+	RuntimeCapabilityFactory: func(ctx runtime.RuntimeCapabilityContext[*Config]) []runtime.CapabilityContract {
+		return []runtime.CapabilityContract{
+			openai.Use(openai.WithName(ctx.LocalName("openai"))),
+		}
+	},
+})
+
+caps := registry.RuntimeCapabilitiesForService(
+	runtime.NewRuntimeCapabilityContext("configs/config.yaml", "api", "api", "", baseConfig),
+)
+```
+
+`RuntimeCapabilitiesForService` 返回的 capability 会被标记为 `runtime.ScopeServiceLocal`。业务项目仍然负责读取 `services` 配置、注册实际 service factory，并决定这些 capability 如何进入 runtime app。
+
 如果某个 provider `Start` 失败，runtime 会对当前失败 provider 和已经启动成功的 provider 按倒序调用 `Stop(ctx)` 做 rollback。
 
 Phase 5 起，正常关闭、signal 关闭和 rollback 都统一走 runtime lifecycle：

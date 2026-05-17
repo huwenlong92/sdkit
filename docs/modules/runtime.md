@@ -222,6 +222,71 @@ Capability 分为两类 scope：
 
 服务本地能力优先放在 `<service>/infra/capability/<name>`。简单 facade bridge 直接在该服务的 `RuntimeCapabilities` 列表中声明，不再包一层 `apiQueueCapability(ctx)` / `adminSessionCapability(ctx)` 这类只转调 facade 的薄函数；只有存在服务私有初始化、默认实例设置、自定义 metadata 或关闭逻辑时，才单独拆出 capability 函数或 infra package。该层负责第三方 SDK 或服务私有 runtime 的初始化、默认实例设置和关闭；业务目录只调用该 package 或 `infra/*` adapter 暴露的 API。
 
+## Service Skeleton
+
+Runtime 提供业务框架可复用的 service skeleton，但不读取业务配置，也不持有具体业务装配。
+
+核心类型：
+
+- `ServiceKind`：`http`、`queue`、`cli`
+- `ServiceInfo`：服务名称、类型、地址、启用状态和本地能力展示信息
+- `Service`：`Start(context.Context)` / `Shutdown(context.Context)` 生命周期接口
+- `ServiceSpec`：`services.<name>` 下的 `type`、`enabled`、`config_key` 通用结构
+- `ServiceContext[T]`：服务构建上下文，`T` 是业务项目自己的总配置类型
+- `ServiceRegistry[T]`：按 service type 注册工厂并构建服务
+- `LocalCapabilityRegistry`：保存 service-local 能力实例，关闭时按注册倒序释放
+
+`ServiceRegistry[T]` 只负责框架规则：
+
+- 根据 `ServiceSpec.Type` 查找服务工厂
+- 把 `config_file`、`name`、`type`、`config_key`、`base config` 和本地能力注册表传给工厂
+- 把工厂声明的本地能力名合并进 `ServiceInfo.Capabilities`
+- 把 service runtime capability 标记为 `ScopeServiceLocal`
+
+业务项目仍然负责：
+
+- 从配置文件读取 `services` map
+- 定义自己的总配置结构
+- 注册具体 service factory
+- 装配 database、redis、auth、models、migrate、seed 等业务初始化逻辑
+
+示例：
+
+```go
+registry := runtime.NewServiceRegistry[*Config]()
+
+registry.RegisterServiceDefinition(runtime.ServiceDefinition[*Config]{
+	Type: "api",
+	Kind: runtime.ServiceKindHTTP,
+	ContextFactory: func(ctx runtime.ServiceContext[*Config]) (runtime.Service, error) {
+		cfg, err := api.Load(ctx.ConfigFile, ctx.Name, ctx.Base, ctx.ConfigKey)
+		if err != nil {
+			return nil, runtime.WrapServiceConfigError(ctx.Name, ctx.Type, ctx.ConfigKey, err)
+		}
+		return api.NewServerWithContext(cfg, &ctx)
+	},
+})
+```
+
+`RuntimeCapabilityContext[T]` 用于声明 service-local runtime capability：
+
+```go
+registry.RegisterServiceDefinition(runtime.ServiceDefinition[*Config]{
+	Type: "api",
+	RuntimeCapabilityFactory: func(ctx runtime.RuntimeCapabilityContext[*Config]) []runtime.CapabilityContract {
+		cfg, err := api.Load(ctx.ConfigFile, ctx.Name, ctx.BaseConfig(), ctx.ConfigKey)
+		if err != nil {
+			return []runtime.CapabilityContract{
+				runtime.NewCapability(ctx.LocalName("config.error"), func(*runtime.App) error { return err }),
+			}
+		}
+		return []runtime.CapabilityContract{
+			sessioncap.Use(sessioncap.WithName(ctx.LocalName("session")), sessioncap.WithConfig(cfg.Session)),
+		}
+	},
+})
+```
+
 Provider 依赖 capability 时使用显式名称：
 
 ```go
