@@ -68,7 +68,7 @@ go test ./...
 - `core/queue`：队列任务、producer、runtime、middleware、失败处理
 - `core/crontab`：定时任务注册、执行、日志和调度抽象
 - `core/auth`：鉴权、JWT、Session Guard、Gin 适配器
-- `core/session`：会话抽象和 cookie/session store
+- `core/session`：基于 gin-contrib/sessions 的 Gin session 薄封装
 - `core/ratelimit`：限流策略、store、Gin middleware
 - `core/realtime`：实时通信抽象、网关、presence、publisher
 - `core/security`：验证码、密码、签名、风控、黑名单、安全中间件

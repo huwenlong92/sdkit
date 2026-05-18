@@ -2,99 +2,69 @@
 
 ## 职责
 
-`core/session` 提供 Cookie + Store 的会话 capability：
+`core/session` 只封装 `gin-contrib/sessions`，不再实现自研 session 库，也不再作为 runtime capability 注册。
 
-- 全局默认 store 初始化
-- 服务级独立 store
-- request context 中传递当前 store
-- Gin 登录态中间件
-- Cookie 写入和清理
-- 对 session 数据结构、Store 和存储实现的 capability 封装
+模块负责：
 
-底层存储实现负责：
+- 定义 `session.Config` 和 Redis store 配置
+- 创建 `sessions.Store`
+- 创建 Gin middleware
+- 暴露 `sessions.Session` 类型别名
+- 提供少量请求级 helper
+- 支持调用方传入通用 `Hook`
 
-- `Session` 数据结构
-- `Store` 接口
-- MemoryStore
-- RedisStore
-- Cookie 基础结构
+模块不负责：
 
-`core/session` 不负责加载应用配置，也不解释业务用户模型。
+- 认证流程和权限判断
+- 业务用户模型
+- 全局 runtime 生命周期
+- 非 HTTP 场景的 session 注入
+- 单点登录、辅助 cookie、审计日志等业务动作
 
-业务侧统一通过 `core/session` 使用会话能力，不直接依赖底层存储实现包。
+## 设计边界
 
-## 配置
+Session 是 HTTP transport 层能力。普通 HTTP 请求、WebSocket 握手和 SSE 建连都可以通过 Gin middleware 读取 cookie session；连接建立后的长期状态应转交给对应业务模块维护。
+
+`core/auth` 不再提供 `SessionGuard`。需要 session 登录态时，由 HTTP 服务自己的 middleware 从 `session.Default(c)` 读取业务定义的 key，并写入服务需要的身份上下文。
+
+## 核心类型
+
+```go
+type Store = sessions.Store
+type Session = sessions.Session
+type Options = sessions.Options
+type Hook func(c *gin.Context, s Session) error
+```
 
 ```go
 type Config struct {
-    Prefix string `mapstructure:"prefix" yaml:"prefix"`
+    Type     string
+    Key      string
+    Secret   string
+    Path     string
+    Domain   string
+    MaxAge   int
+    Secure   bool
+    HTTPOnly bool
+    SameSite http.SameSite
+    Redis    RedisConfig
 }
 ```
 
-初始化入口：
+`Type` 支持：
 
-```go
-session.Init(redis.RDB, &cfg.Session)
-```
+- `cookie`
+- `memory`，兼容旧配置，实际使用 cookie store
+- `redis`
 
-`cfg.Session` 由应用或服务配置组合 `session.Config` 得到。
+空值按 `cookie` 处理。
 
-## Runtime Capability
+## Hook 约束
 
-`core/session` 是会话实现包，Runtime Capability 接入层统一放在 `core/session/facade`：
-
-```text
-core/session/
-  cookie.go
-  middleware.go
-  session.go
-  facade/
-    config.go
-    client.go
-    use.go
-    default.go
-```
-
-启动时由主 Runtime 注册：
-
-```go
-import sessioncap "github.com/huwenlong92/sdkit/core/session/facade"
-
-runtimeApp.RegisterCapabilities(
-    sessioncap.Use(sessioncap.WithConfig(cfg.Session)),
-)
-```
-
-bootstrap 使用 `sessioncap.WithConfigLoader(...)`，确保配置能力先初始化，再由 `sessioncap.Use` 读取最终配置。Redis 已初始化时使用 RedisStore，否则降级为 MemoryStore。
-
-同一个 facade 可以按注册位置决定作用域：
-
-- bootstrap 注册 `sessioncap.Use(...)`：能力名 `session`，`ScopeGlobal`，初始化并绑定全局默认 store。
-- 服务 `RuntimeCapabilities` 注册 `sessioncap.Use(sessioncap.WithName(ctx.LocalName(sessioncap.Name)))`：能力名如 `api.session`、`admin.session`，`ScopeServiceLocal`，只创建并绑定服务独立 store，不写入全局默认 store。
-
-服务 router 应通过 `sessioncap.MiddlewareFromServiceContext(ctx)` 注入当前服务的 store；handler 使用 `session.FromContext(c.Request.Context())` 或 `session.StoreFromContext(...)` 获取。runtime-managed 服务应保证 session capability 已注册；直接构造 router 的测试场景未注册 session 时，该 middleware 退化为 no-op。
-
-## Session 结构
-
-```go
-type Session struct {
-    ID          string
-    SubjectID   int64
-    SubjectType string
-    Username    string
-    RoleID      int64
-    Permissions []string
-    ExpiresAt   time.Time
-    Extra       map[string]any
-}
-```
-
-`SubjectID` / `SubjectType` 由上游认证模块解释。Session 本身只保存和透传。
+Hook 在 session `Save()` 成功后执行。Hook 可以做业务侧附加动作，但不要反向修改 session 核心配置。Hook 返回错误时，调用方应自行决定是否把这次业务操作视为失败。
 
 ## 更新记录
 
-- 2026-05-16：Session facade 支持 `WithName` 服务级能力，并提供 `FromServiceContext` / `MiddlewareFromServiceContext` 统一读取服务本地能力；`core/session` 新增 `ContextWithStore`、`FromContext`、`StoreFromContext` 和 `WithStore`，支持 API/Admin 使用不同 session store。
-- 2026-05-16：新增 `core/session/facade` Runtime Capability 接入层，按 `config.go/client.go/use.go/default.go` 组织，根包保留 Session 实现和业务 API。
-- 2026-05-11：`session.Config` 归属回 `core/session`，`Init` 不再依赖 `core/config.SessionConfig`。
+- 2026-05-19：Session 收敛为 `gin-contrib/sessions` 薄封装，移除 runtime facade、自研 store、`SessionGuard` 依赖；新增 `Hook` 支持业务侧额外操作。
+- 2026-05-16：Session facade 支持 `WithName` 服务级能力，并提供 `FromServiceContext` / `MiddlewareFromServiceContext` 统一读取服务本地能力。
 - 2026-05-13：Session 字段从用户语义迁移为主体语义；middleware 不再写入 `session_user_id`。
-- 2026-05-13：会话对外类型和 Store 入口统一收敛到 `core/session`。

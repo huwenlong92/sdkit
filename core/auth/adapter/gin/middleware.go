@@ -1,22 +1,14 @@
 package gin
 
 import (
-	"context"
 	"net/http"
 	"strings"
-	"time"
 
 	coreauth "github.com/huwenlong92/sdkit/core/auth"
 	"github.com/huwenlong92/sdkit/core/response"
-	"github.com/huwenlong92/sdkit/core/session"
 
 	"github.com/gin-gonic/gin"
 )
-
-type sessionRefresher interface {
-	Refresh(ctx context.Context, sessionID string) bool
-	TTL() time.Duration
-}
 
 func AuthMiddleware(manager *coreauth.Auth) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -35,7 +27,6 @@ func AuthMiddleware(manager *coreauth.Auth) gin.HandlerFunc {
 			return
 		}
 		SetIdentity(c, identity)
-		refreshSessionCookie(c, manager, credential)
 		c.Next()
 	}
 }
@@ -50,7 +41,6 @@ func OptionalAuthMiddleware(manager *coreauth.Auth) gin.HandlerFunc {
 		if err == nil {
 			if identity, authErr := manager.Authenticate(c.Request.Context(), credential); authErr == nil {
 				SetIdentity(c, identity)
-				refreshSessionCookie(c, manager, credential)
 			}
 		}
 		c.Next()
@@ -65,9 +55,6 @@ func LoginByCredentials(c *gin.Context, manager *coreauth.Auth, credentials core
 	if err != nil {
 		return nil, err
 	}
-	if result.Mode == coreauth.ModeSession && result.SessionID != "" {
-		session.SetCookie(c, result.SessionID, sessionTTL(manager))
-	}
 	return result, nil
 }
 
@@ -78,9 +65,6 @@ func Logout(c *gin.Context, manager *coreauth.Auth) error {
 	credential, _ := credentialFromRequest(c, manager.Mode())
 	if err := manager.Logout(c.Request.Context(), credential); err != nil {
 		return err
-	}
-	if manager.Mode() == coreauth.ModeSession {
-		session.ClearCookie(c)
 	}
 	return nil
 }
@@ -93,12 +77,6 @@ func credentialFromRequest(c *gin.Context, mode coreauth.Mode) (string, error) {
 			return "", coreauth.ErrUnauthorized
 		}
 		return token, nil
-	case coreauth.ModeSession:
-		sid, err := c.Cookie(session.CookieName)
-		if err != nil || sid == "" {
-			return "", coreauth.ErrUnauthorized
-		}
-		return sid, nil
 	default:
 		return "", coreauth.ErrUnauthorized
 	}
@@ -110,29 +88,4 @@ func bearerToken(header string) string {
 		return ""
 	}
 	return parts[1]
-}
-
-func refreshSessionCookie(c *gin.Context, manager *coreauth.Auth, credential string) {
-	refresher, ok := guard(manager).(sessionRefresher)
-	if !ok || manager.Mode() != coreauth.ModeSession {
-		return
-	}
-	if refresher.Refresh(c.Request.Context(), credential) {
-		session.SetCookie(c, credential, refresher.TTL())
-	}
-}
-
-func sessionTTL(manager *coreauth.Auth) time.Duration {
-	refresher, ok := guard(manager).(sessionRefresher)
-	if !ok {
-		return session.SessionTTL
-	}
-	return refresher.TTL()
-}
-
-func guard(manager *coreauth.Auth) coreauth.Guard {
-	if manager == nil {
-		return nil
-	}
-	return manager.Guard()
 }

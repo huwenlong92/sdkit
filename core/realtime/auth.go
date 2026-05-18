@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/huwenlong92/sdkit/core/auth"
-	"github.com/huwenlong92/sdkit/core/session"
 
 	jwt "github.com/golang-jwt/jwt/v5"
 )
@@ -70,21 +69,7 @@ func (a JWTAuthenticator) Authenticate(_ context.Context, r *http.Request) (*Aut
 }
 
 func (a JWTAuthenticator) authenticateSession(r *http.Request) (result *AuthResult, ok bool) {
-	cookie, err := r.Cookie(session.CookieName)
-	if err != nil || cookie.Value == "" {
-		return nil, false
-	}
-	defer func() {
-		if recover() != nil {
-			result = nil
-			ok = false
-		}
-	}()
-	sess, exists := session.GetStore().Get(r.Context(), cookie.Value)
-	if !exists || sess == nil || sess.SubjectID == 0 {
-		return nil, false
-	}
-	return &AuthResult{UserID: strconv.FormatInt(sess.SubjectID, 10)}, true
+	return nil, false
 }
 
 type AllowAnonymousAuthenticator struct{}

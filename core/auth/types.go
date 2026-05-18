@@ -8,8 +8,7 @@ const (
 type Mode string
 
 const (
-	ModeJWT     Mode = "jwt"
-	ModeSession Mode = "session"
+	ModeJWT Mode = "jwt"
 )
 
 type Credentials struct {
@@ -27,8 +26,7 @@ type Identity struct {
 }
 
 type LoginResult struct {
-	Mode      Mode
-	Token     string
-	SessionID string
-	Identity  *Identity
+	Mode     Mode
+	Token    string
+	Identity *Identity
 }

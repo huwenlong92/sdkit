@@ -63,7 +63,7 @@ func Init(cacheCfg *Config) error {
 // Close 关闭全局缓存
 func Close() {
 	if defaultCache != nil {
-		defaultCache.Close()
+		_ = defaultCache.Close()
 		defaultCache = nil
 	}
 }

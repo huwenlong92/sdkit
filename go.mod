@@ -1,6 +1,6 @@
 module github.com/huwenlong92/sdkit
 
-go 1.25.0
+go 1.25.10
 
 require (
 	github.com/aliyun/aliyun-oss-go-sdk v2.2.10+incompatible
@@ -8,6 +8,7 @@ require (
 	github.com/bytedance/sonic v1.15.1
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/exaring/otelpgx v0.10.0
+	github.com/gin-contrib/sessions v1.1.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-playground/locales v0.14.1
 	github.com/go-playground/universal-translator v0.18.1
@@ -37,6 +38,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.9.1 // indirect
+	github.com/boj/redistore v1.4.1 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
 	github.com/bytedance/sonic/loader v0.5.1 // indirect
 	github.com/casbin/govaluate v1.10.0 // indirect
@@ -53,7 +55,11 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
+	github.com/gomodule/redigo v1.9.2 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/gorilla/context v1.1.2 // indirect
+	github.com/gorilla/securecookie v1.1.2 // indirect
+	github.com/gorilla/sessions v1.4.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect

@@ -5,7 +5,6 @@
 `core/auth` 负责认证流程编排和 Guard 抽象：
 
 - JWT Guard
-- Session Guard
 - 主体语义的 `Identity`
 - 服务侧 Hooks 接口
 - 基础权限判断
@@ -16,7 +15,7 @@
 
 JWT 的通用签发和解析在 `pkg/jwtx`。
 
-Session 结构、Store 和存储构造函数统一通过 `core/session` 使用。
+Session 登录态由 HTTP 层通过 `core/session` / `gin-contrib/sessions` 处理，不再作为 `core/auth` Guard。
 
 ## Identity 约束
 

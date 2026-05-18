@@ -1,91 +1,234 @@
-// Package session 提供用户会话管理（Cookie + Store 模式）
+// Package session provides thin helpers around gin-contrib/sessions.
 package session
 
 import (
-	"context"
-	"sync"
-	"time"
+	"encoding/gob"
+	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
 
-	"github.com/huwenlong92/sdkit/pkg/sessionx"
-
-	"github.com/redis/go-redis/v9"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
+	sessionredis "github.com/gin-contrib/sessions/redis"
+	"github.com/gin-gonic/gin"
 )
+
+const (
+	TypeCookie = "cookie"
+	TypeMemory = "memory"
+	TypeRedis  = "redis"
+
+	DefaultKey    = "sid"
+	DefaultPath   = "/"
+	DefaultMaxAge = 30 * 60
+)
+
+var ErrSecretRequired = errors.New("session: secret is required")
+
+type Store = sessions.Store
+type Session = sessions.Session
+type Options = sessions.Options
+type Hook func(c *gin.Context, s Session) error
 
 type Config struct {
-	Prefix string `mapstructure:"prefix" yaml:"prefix"`
+	Type     string        `mapstructure:"type" yaml:"type"`
+	Key      string        `mapstructure:"key" yaml:"key"`
+	Secret   string        `mapstructure:"secret" yaml:"secret"`
+	Path     string        `mapstructure:"path" yaml:"path"`
+	Domain   string        `mapstructure:"domain" yaml:"domain"`
+	MaxAge   int           `mapstructure:"max_age" yaml:"max_age"`
+	Secure   bool          `mapstructure:"secure" yaml:"secure"`
+	HTTPOnly bool          `mapstructure:"http_only" yaml:"http_only"`
+	SameSite http.SameSite `mapstructure:"same_site" yaml:"same_site"`
+	Redis    RedisConfig   `mapstructure:"redis" yaml:"redis"`
 }
 
-// Session 是 core/session 对外会话主体。
-type Session = sessionx.Session
-
-// Store 是 core/session 对外会话存储接口。
-type Store = sessionx.Store
-
-type storeContextKey struct{}
-
-// 存储构造函数。
-var (
-	NewMemoryStore           = sessionx.NewMemoryStore
-	NewMemoryStoreWithPrefix = sessionx.NewMemoryStoreWithPrefix
-	NewRedisStore            = sessionx.NewRedisStore
-	NewRedisStoreWithPrefix  = sessionx.NewRedisStoreWithPrefix
-)
-
-// SessionTTL 会话默认有效期
-const SessionTTL = 30 * time.Minute
-
-var (
-	globalStore Store
-	once        sync.Once
-)
-
-// Init 初始化全局会话存储（须在 bootstrap 中调用）
-func Init(rdb *redis.Client, cfg *Config) {
-	once.Do(func() {
-		globalStore = NewStore(rdb, cfg)
-	})
+type RedisConfig struct {
+	Network   string `mapstructure:"network" yaml:"network"`
+	Address   string `mapstructure:"address" yaml:"address"`
+	Host      string `mapstructure:"host" yaml:"host"`
+	Port      int    `mapstructure:"port" yaml:"port"`
+	Username  string `mapstructure:"username" yaml:"username"`
+	Password  string `mapstructure:"password" yaml:"password"`
+	DB        int    `mapstructure:"db" yaml:"db"`
+	PoolSize  int    `mapstructure:"pool_size" yaml:"pool_size"`
+	KeyPrefix string `mapstructure:"key_prefix" yaml:"key_prefix"`
 }
 
-func NewStore(rdb *redis.Client, cfg *Config) Store {
-	prefix := "session:"
-	if cfg != nil && cfg.Prefix != "" {
-		prefix = cfg.Prefix
+func Register(value any) {
+	if value != nil {
+		gob.Register(value)
 	}
-	if rdb != nil {
-		return sessionx.NewRedisStoreWithPrefix(rdb, prefix)
-	}
-	return sessionx.NewMemoryStoreWithPrefix(prefix)
 }
 
-// GetStore 返回全局会话存储
-func GetStore() Store {
-	if globalStore == nil {
-		panic("session store not initialized")
+func NewStore(cfg Config) (Store, error) {
+	if strings.TrimSpace(cfg.Secret) == "" {
+		return nil, ErrSecretRequired
 	}
-	return globalStore
+	switch strings.ToLower(strings.TrimSpace(cfg.Type)) {
+	case "", TypeCookie, TypeMemory:
+		store := cookie.NewStore([]byte(cfg.Secret))
+		store.Options(cfg.Options())
+		return store, nil
+	case TypeRedis:
+		store, err := newRedisStore(cfg.Redis, cfg.Secret)
+		if err != nil {
+			return nil, err
+		}
+		store.Options(cfg.Options())
+		if cfg.Redis.KeyPrefix != "" {
+			if err := sessionredis.SetKeyPrefix(store, cfg.Redis.KeyPrefix); err != nil {
+				return nil, err
+			}
+		}
+		return store, nil
+	default:
+		return nil, fmt.Errorf("session: unsupported store type %q", cfg.Type)
+	}
 }
 
-func ContextWithStore(ctx context.Context, store Store) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
+func Middleware(cfg Config) (gin.HandlerFunc, error) {
+	store, err := NewStore(cfg)
+	if err != nil {
+		return nil, err
 	}
-	if store == nil {
-		return ctx
-	}
-	return context.WithValue(ctx, storeContextKey{}, store)
+	return sessions.Sessions(cfg.CookieKey(), store), nil
 }
 
-func StoreFromContext(ctx context.Context) (Store, bool) {
-	if ctx == nil {
+func Default(c *gin.Context) Session {
+	return sessions.Default(c)
+}
+
+func Current(c *gin.Context) (Session, bool) {
+	if c == nil {
 		return nil, false
 	}
-	store, ok := ctx.Value(storeContextKey{}).(Store)
-	if !ok || store == nil {
+	value, ok := c.Get(sessions.DefaultKey)
+	if !ok {
 		return nil, false
 	}
-	return store, true
+	current, ok := value.(Session)
+	if !ok || current == nil {
+		return nil, false
+	}
+	return current, true
 }
 
-func FromContext(ctx context.Context) (Store, bool) {
-	return StoreFromContext(ctx)
+func Set(c *gin.Context, key string, value any, opts Options, hooks ...Hook) error {
+	s := sessions.Default(c)
+	s.Options(mergeOptions(opts))
+	s.Set(key, value)
+	if err := s.Save(); err != nil {
+		return err
+	}
+	return runHooks(c, s, hooks...)
+}
+
+func Get(c *gin.Context, key string) any {
+	return sessions.Default(c).Get(key)
+}
+
+func Delete(c *gin.Context, key string, opts Options, hooks ...Hook) error {
+	s := sessions.Default(c)
+	s.Options(mergeOptions(opts))
+	s.Delete(key)
+	if err := s.Save(); err != nil {
+		return err
+	}
+	return runHooks(c, s, hooks...)
+}
+
+func Clear(c *gin.Context, opts Options, hooks ...Hook) error {
+	s := sessions.Default(c)
+	s.Options(mergeOptions(opts))
+	s.Clear()
+	if err := s.Save(); err != nil {
+		return err
+	}
+	return runHooks(c, s, hooks...)
+}
+
+func (cfg Config) CookieKey() string {
+	if strings.TrimSpace(cfg.Key) != "" {
+		return strings.TrimSpace(cfg.Key)
+	}
+	return DefaultKey
+}
+
+func (cfg Config) Options() Options {
+	opts := Options{
+		Path:     DefaultPath,
+		MaxAge:   DefaultMaxAge,
+		HttpOnly: true,
+	}
+	if cfg.Path != "" {
+		opts.Path = cfg.Path
+	}
+	if cfg.Domain != "" {
+		opts.Domain = cfg.Domain
+	}
+	if cfg.MaxAge != 0 {
+		opts.MaxAge = cfg.MaxAge
+	}
+	if cfg.Secure {
+		opts.Secure = true
+	}
+	if cfg.HTTPOnly {
+		opts.HttpOnly = true
+	}
+	if cfg.SameSite != 0 {
+		opts.SameSite = cfg.SameSite
+	}
+	return opts
+}
+
+func newRedisStore(cfg RedisConfig, secret string) (sessionredis.Store, error) {
+	poolSize := cfg.PoolSize
+	if poolSize <= 0 {
+		poolSize = 10
+	}
+	network := cfg.Network
+	if network == "" {
+		network = "tcp"
+	}
+	address := cfg.Address
+	if address == "" {
+		host := cfg.Host
+		if host == "" {
+			host = "127.0.0.1"
+		}
+		port := cfg.Port
+		if port <= 0 {
+			port = 6379
+		}
+		address = fmt.Sprintf("%s:%d", host, port)
+	}
+	return sessionredis.NewStoreWithDB(poolSize, network, address, cfg.Username, cfg.Password, strconv.Itoa(cfg.DB), []byte(secret))
+}
+
+func mergeOptions(opts Options) Options {
+	if opts.Path == "" {
+		opts.Path = DefaultPath
+	}
+	if opts.MaxAge == 0 {
+		opts.MaxAge = DefaultMaxAge
+	}
+	if !opts.HttpOnly {
+		opts.HttpOnly = true
+	}
+	return opts
+}
+
+func runHooks(c *gin.Context, s Session, hooks ...Hook) error {
+	for _, hook := range hooks {
+		if hook == nil {
+			continue
+		}
+		if err := hook(c, s); err != nil {
+			return err
+		}
+	}
+	return nil
 }

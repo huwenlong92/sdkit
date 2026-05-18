@@ -2,156 +2,136 @@
 
 ## 概述
 
-Cookie + Store 模式：登录时服务端创建 session 存入 Redis/内存，`sid` cookie 写入浏览器，后续请求自动携带。
+`core/session` 是 `gin-contrib/sessions` 的薄封装，只处理 HTTP 请求里的 session：
 
-`core/session` 统一提供 Session、Store、内存/Redis 存储构造函数和 Cookie 基础能力。
+- 初始化 cookie / redis store
+- 注册 Gin session middleware
+- 从 `*gin.Context` 读取当前 session
+- 提供 `Set` / `Get` / `Delete` / `Clear` 快捷函数
+- 在写入、删除、清空后执行调用方传入的 `Hook`
 
-Session 只保存认证主体，不表达业务用户模型。
-
-业务侧统一通过 `core/session` 使用会话能力，不直接依赖底层存储实现包。
+Session 不再是 runtime capability，也不再维护自研 store。WebSocket / SSE 可以在 HTTP 握手阶段读取同一套 Gin session；握手结束后的业务状态应由 realtime 自己维护。
 
 ## 配置
 
 ```yaml
 session:
-  prefix: "myapp:"   # key 前缀，默认 "session:"
+  type: redis      # cookie / memory / redis，空值默认 cookie；memory 兼容为 cookie store
+  key: sid         # 浏览器 cookie 名
+  secret: change-me
+  path: /
+  max_age: 1800
+  secure: false
+  http_only: true
+  redis:
+    network: tcp
+    address: 127.0.0.1:6379
+    password: ""
+    db: 0
+    pool_size: 10
+    key_prefix: "session:"
 ```
 
-bootstrap 自动初始化：Redis 可用时使用 RedisStore，否则使用 MemoryStore。
+`secret` 必填。cookie / memory 模式使用 `gin-contrib/sessions/cookie`；redis 模式使用 `gin-contrib/sessions/redis`。
 
-## Runtime Capability 引入
-
-`core/session` 保留会话实现和业务 API；Runtime 接入门面放在 `core/session/facade`：
+如果 session 里保存 struct，需要注册 gob 类型：
 
 ```go
-import sessioncap "github.com/huwenlong92/sdkit/core/session/facade"
-
-app := runtime.New()
-app.RegisterCapabilities(
-    sessioncap.Use(sessioncap.WithConfig(appCfg.Session)),
-)
+session.Register(User{})
 ```
 
-bootstrap 会在主 Runtime 中先加载配置，再通过 `core/session/facade` 的 `sessioncap.Use(sessioncap.WithConfigLoader(...))` 注册公共 session 能力。业务代码仍然直接使用根包 `github.com/huwenlong92/sdkit/core/session`。
-
-## 服务级 Session
-
-如果多个服务需要不同 session 配置，在服务 `Provider.RuntimeCapabilities` 中注册服务本地能力：
+## 注册中间件
 
 ```go
-sessioncap.Use(
-    sessioncap.WithName(ctx.LocalName(sessioncap.Name)), // api.session / admin.session
-    sessioncap.WithConfigLoader(func(*runtime.App) (sessioncap.Config, error) {
-        cfg, err := apiconfig.Load(ctx.ConfigFile, ctx.Name, ctx.BaseConfig(), ctx.ConfigKey)
-        if err != nil {
-            return sessioncap.Config{}, err
+middleware, err := session.Middleware(cfg.Session)
+if err != nil {
+    return err
+}
+
+r := gin.New()
+r.Use(middleware)
+```
+
+也可以只创建 store，自己接 `gin-contrib/sessions`：
+
+```go
+store, err := session.NewStore(cfg.Session)
+if err != nil {
+    return err
+}
+r.Use(sessions.Sessions(cfg.Session.CookieKey(), store))
+```
+
+## 写入和读取
+
+`LoginIdentityCode` 这类 key 只是 session 内部字段名，不是 cookie 里的 sid。它用于标识“这个 session 里哪一项是登录用户”。
+
+```go
+const LoginIdentityCode = "session_user"
+
+type User struct {
+    ID      string
+    IsLogin string
+}
+
+err := session.Set(c, LoginIdentityCode, user, session.Options{
+    Path:     "/",
+    MaxAge:   30 * 60,
+    HttpOnly: true,
+})
+```
+
+读取：
+
+```go
+value := session.Get(c, LoginIdentityCode)
+user, ok := value.(User)
+```
+
+直接使用原生能力：
+
+```go
+s := session.Default(c)
+s.Set(LoginIdentityCode, user)
+err := s.Save()
+```
+
+## Hook
+
+`Hook` 用于把登录、登出或其它 session 操作后的额外动作留给业务层，例如写单点登录缓存、写辅助 cookie、打审计日志。
+
+```go
+err := session.Set(c, LoginIdentityCode, user, opts,
+    func(c *gin.Context, s session.Session) error {
+        key := fmt.Sprintf("%s_single", user.ID)
+        if err := redis.Client.Set(c.Request.Context(), key, user.IsLogin, ttl).Err(); err != nil {
+            return err
         }
-        return cfg.Session, nil
-    }),
+        c.SetCookie("isLogin", user.IsLogin, opts.MaxAge, opts.Path, opts.Domain, opts.Secure, false)
+        return nil
+    },
 )
 ```
 
-Router 构建时使用 session facade 读取当前服务的 store，并注入请求 context：
+Hook 不属于 session 核心逻辑；核心只保证按顺序调用并返回第一个错误。
+
+## 删除和清空
 
 ```go
-r.Use(sessioncap.MiddlewareFromServiceContext(ctx))
+_ = session.Delete(c, LoginIdentityCode, session.Options{Path: "/", MaxAge: -1})
+_ = session.Clear(c, session.Options{Path: "/", MaxAge: -1})
 ```
 
-runtime-managed 服务中该能力应由 provider 注册完成；直接构造 router 且未注册 session capability 时，middleware 会退化为 no-op。
+## 对外 API
 
-handler 中通过标准 context 获取：
-
-```go
-store, ok := session.FromContext(c.Request.Context())
-if !ok {
-    // 当前请求没有注入 session store
-}
-```
-
-`session.StoreFromContext` 与 `session.FromContext` 等价，返回 `(session.Store, bool)`。
-
-## 登录创建会话
-
-```go
-sess := &session.Session{
-    ID:          token,
-    SubjectID:   identity.SubjectID,
-    SubjectType: identity.SubjectType,
-    Username:    identity.Username,
-    RoleID:      identity.RoleID,
-    Permissions: identity.Permissions,
-    Extra:       identity.Extra,
-}
-
-store, _ := session.FromContext(c.Request.Context())
-store.Set(c.Request.Context(), sess, session.SessionTTL)
-session.SetCookie(c, sess.ID, session.SessionTTL)
-```
-
-如果使用 bootstrap 全局 session，可以继续使用 `session.GetStore()`。如果使用服务级 session，优先从 request context 获取 store。
-
-## 保护路由
-
-```go
-r.Use(session.Require(store))    // 未登录返回 401
-r.Use(session.Optional(store))   // 检测但不强制
-```
-
-handler 中获取 session：
-
-```go
-sess := session.GetSession(c)
-if sess != nil {
-    subjectID := sess.SubjectID
-    subjectType := sess.SubjectType
-}
-```
-
-`core/session` 只写入：
-
-| key | 说明 |
-|------|------|
-| `session.current` | `*session.Session` |
-
-## 登出
-
-```go
-func Logout(c *gin.Context) {
-    sid, _ := c.Cookie(session.CookieName)
-    session.GetStore().Delete(c.Request.Context(), sid)
-    session.ClearCookie(c)
-}
-```
-
-## 自定义存储
-
-```go
-store := session.NewRedisStore(redis.RDB)
-r.Use(session.Require(store))
-
-store := session.NewRedisStoreWithPrefix(redis.RDB, "mysvc:session:")
-```
-
-需要独立 Redis 客户端时见 [redis.md](redis.md)。
-
-## Extra 存取
-
-```go
-sess.Extra["dept_id"] = int64(1)
-deptID, _ := sess.GetExtraInt64("dept_id")
-
-name := sess.GetExtraString("custom")
-v, ok := sess.GetExtra("key")
-```
-
-`Extra` 是 `map[string]any`。如果存 struct，Redis JSON 序列化后会丢失 Go 类型，建议先序列化成 JSON 字符串再存。
-
-## 常量
-
-| 常量 | 值 | 说明 |
-|------|-----|------|
-| `CookieName` | `sid` | cookie 名 |
-| `SessionTTL` | 30min | 会话有效期 |
-| `RenewThreshold` | 5min | 距过期此时间内自动续期 |
-| `HeaderExpireKey` | `X-Session-Expires-At` | 响应头 |
-| `ContextSessionKey` | `session.current` | context key |
+| API | 说明 |
+| --- | --- |
+| `Register(value any)` | 注册 gob 类型 |
+| `NewStore(cfg Config)` | 创建 cookie / redis store |
+| `Middleware(cfg Config)` | 创建 Gin middleware |
+| `Default(c)` | 返回 `gin-contrib/sessions.Default(c)` |
+| `Current(c)` | 返回当前 Gin session 和是否存在 |
+| `Set(c, key, value, opts, hooks...)` | 写入并保存 |
+| `Get(c, key)` | 读取字段 |
+| `Delete(c, key, opts, hooks...)` | 删除字段并保存 |
+| `Clear(c, opts, hooks...)` | 清空并保存 |

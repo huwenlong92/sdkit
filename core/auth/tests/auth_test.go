@@ -3,15 +3,12 @@ package tests
 import (
 	"context"
 	"errors"
-	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/huwenlong92/sdkit/core/auth"
 	authgin "github.com/huwenlong92/sdkit/core/auth/adapter/gin"
-	"github.com/huwenlong92/sdkit/core/session"
 
 	"github.com/gin-gonic/gin"
 )
@@ -113,34 +110,6 @@ func TestJWTGuardLoginAndMiddleware(t *testing.T) {
 	}
 }
 
-func TestSessionGuardLoginAndMiddleware(t *testing.T) {
-	store := session.NewMemoryStore()
-	a := auth.NewWithGuard(auth.NewSessionGuard(store, session.SessionTTL), testHooks())
-	r := setup(a)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/login?username=admin&password=secret", nil)
-	r.ServeHTTP(w, req)
-
-	var sid string
-	for _, ck := range w.Result().Cookies() {
-		if ck.Name == session.CookieName {
-			sid = ck.Value
-		}
-	}
-	if sid == "" {
-		t.Fatal("登录后应有 sid cookie")
-	}
-
-	w = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/me", nil)
-	req.AddCookie(&http.Cookie{Name: session.CookieName, Value: sid})
-	r.ServeHTTP(w, req)
-	if w.Code != 200 {
-		t.Fatalf("Session: want 200, got %d", w.Code)
-	}
-}
-
 func TestLoginFailedHook(t *testing.T) {
 	called := false
 	hooks := testHooks().(auth.HookFuncs)
@@ -164,57 +133,6 @@ func TestLoginFailedHook(t *testing.T) {
 	}
 	if !called {
 		t.Fatal("AfterLoginFailed should be called")
-	}
-}
-
-func TestLogout(t *testing.T) {
-	store := session.NewMemoryStore()
-	a := auth.NewWithGuard(auth.NewSessionGuard(store, session.SessionTTL), testHooks())
-	r := setup(a)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/login?username=admin&password=secret", nil)
-	r.ServeHTTP(w, req)
-	cookies := w.Result().Cookies()
-
-	w = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/logout", nil)
-	for _, ck := range cookies {
-		req.AddCookie(ck)
-	}
-	r.ServeHTTP(w, req)
-
-	w = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/me", nil)
-	for _, ck := range cookies {
-		req.AddCookie(ck)
-	}
-	r.ServeHTTP(w, req)
-	if w.Code != 401 {
-		t.Fatalf("登出后: want 401, got %d", w.Code)
-	}
-}
-
-func TestSessionRenew(t *testing.T) {
-	store := session.NewMemoryStore()
-	a := auth.NewWithGuard(auth.NewSessionGuard(store, session.SessionTTL), testHooks())
-
-	sess := &session.Session{ID: "renew-test", SubjectID: 1, SubjectType: "admin", Username: "test"}
-	store.Set(nil, sess, 2*time.Second)
-
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	r.Use(authgin.AuthMiddleware(a))
-	r.GET("/me", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
-
-	time.Sleep(100 * time.Millisecond)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/me", nil)
-	req.AddCookie(&http.Cookie{Name: session.CookieName, Value: "renew-test"})
-	r.ServeHTTP(w, req)
-	if w.Code != 200 {
-		t.Fatalf("续期后: want 200, got %d", w.Code)
 	}
 }
 
