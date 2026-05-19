@@ -123,6 +123,26 @@ func (m *Store) TTL(_ context.Context, key string) (time.Duration, error) {
 	return d, nil
 }
 
+func (m *Store) Expire(_ context.Context, key string, ttl time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	item, ok := m.items[key]
+	if !ok {
+		return nil
+	}
+	if !item.expire.IsZero() && time.Now().After(item.expire) {
+		delete(m.items, key)
+		return nil
+	}
+	if ttl > 0 {
+		item.expire = time.Now().Add(ttl)
+	} else {
+		item.expire = time.Time{}
+	}
+	return nil
+}
+
 func (m *Store) Gets(_ context.Context, keys []string) (map[string]string, []string) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

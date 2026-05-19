@@ -33,8 +33,8 @@ func TestUseRegistersCacheCapability(t *testing.T) {
 	if err := app.Run(context.Background()); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
-	if got := From(app); got != c {
-		t.Fatalf("From(app) = %v, want injected cache", got)
+	if got := corecache.From(app); got != c {
+		t.Fatalf("corecache.From(app) = %v, want injected cache", got)
 	}
 }
 

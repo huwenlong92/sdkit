@@ -19,13 +19,13 @@ func From(app *runtime.App) Cache {
 
 func Bind(app *runtime.App, c Cache) error {
 	if c == nil {
-		defaultCache = nil
+		replaceDefault(nil)
 		if app == nil {
 			return nil
 		}
 		return runtime.ErrContainerValueNil
 	}
-	defaultCache = c
+	replaceDefault(c)
 	if app == nil {
 		return nil
 	}

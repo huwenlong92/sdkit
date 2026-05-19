@@ -9,6 +9,5 @@ const KeyCache = corecache.KeyCache
 
 type Config = corecache.Config
 type Cache = corecache.Cache
-type Option = corecache.Option
 
 type ConfigLoader func(app *runtime.App) (Config, error)

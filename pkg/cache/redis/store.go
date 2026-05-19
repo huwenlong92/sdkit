@@ -112,6 +112,13 @@ func (r *Store) TTL(ctx context.Context, key string) (time.Duration, error) {
 	return r.Client.TTL(ctx, r.key(key)).Result()
 }
 
+func (r *Store) Expire(ctx context.Context, key string, ttl time.Duration) error {
+	if ttl <= 0 {
+		return r.Client.Persist(ctx, r.key(key)).Err()
+	}
+	return r.Client.Expire(ctx, r.key(key), ttl).Err()
+}
+
 func (r *Store) Close() error {
 	return nil
 }

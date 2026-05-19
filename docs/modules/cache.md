@@ -13,7 +13,6 @@
 - cache miss 使用统一错误 `ErrNotFound`
 - 支持泛型 `Remember` 模式
 - 使用 `singleflight` 降低同一 key 并发回源
-- 统一 key 生成 helper
 
 ## 模块边界
 
@@ -23,8 +22,7 @@
 - 暴露 `core/cache.Cache` 字符串缓存接口
 - 提供对象缓存 JSON helper
 - 提供 `Remember` 回源写回能力
-- 提供常用 key 拼接和约定 key helper
-- 按 Redis 是否已初始化选择 Redis 或内存 backend
+- 按配置和 Redis client 选择 Redis 或内存 backend
 
 `core/cache` 不负责：
 
@@ -45,11 +43,9 @@ core/cache/
   errors.go
   facade/
     config.go
-    client.go
     use.go
-    default.go
   json.go
-  key.go
+  operations.go
   remember.go
 
 pkg/cache/
@@ -73,7 +69,7 @@ runtimeApp.RegisterCapabilities(
 ```
 
 bootstrap 使用 `cachecap.WithConfigLoader(...)`，确保配置能力先初始化，再由 `cachecap.Use` 读取最终配置。cache capability 依赖 Redis 时只声明可选依赖，Redis 不启用时自动使用内存缓存。
-根包不实现 runtime `Use`；根包只保留缓存实现、默认缓存入口和 `Bind(app, cache)` 容器绑定能力，避免与 facade 重复实现 capability 注册。根包的 `KeyCache`、`From(app)`、`Bind(app, cache)` 统一放在 `binding.go`；`Use(...)`、`WithConfig(...)`、生命周期关闭只允许放在 `facade/use.go`。
+根包不实现 runtime `Use`；根包只保留缓存实现、默认缓存入口和 `Bind(app, cache)` 容器绑定能力，避免与 facade 重复实现 capability 注册。根包的 `KeyCache`、`From(app)`、`Bind(app, cache)` 统一放在 `binding.go`；`Use(...)`、`WithConfig(...)`、生命周期关闭只允许放在 `facade/use.go`。缓存实例创建统一走 `core/cache.NewFromConfig`，facade 不再维护 Redis/memory 分支。
 
 ## 核心接口
 
@@ -87,6 +83,7 @@ type Cache interface {
     Exists(ctx context.Context, keys ...string) (int64, error)
     Incr(ctx context.Context, key string) (int64, error)
     TTL(ctx context.Context, key string) (time.Duration, error)
+    Expire(ctx context.Context, key string, ttl time.Duration) error
     Gets(ctx context.Context, keys []string) (map[string]string, []string)
     Sets(ctx context.Context, values map[string]string, ttl time.Duration) error
     Delete(ctx context.Context, keys []string) error
@@ -96,15 +93,47 @@ type Cache interface {
 
 业务侧统一使用 `core/cache.Cache`，不要直接依赖 `pkg/cache` 或具体 backend 包。
 
-对象缓存使用 `core/cache` 包提供的类型化 helper：
+常用字符串缓存可以直接使用包级默认入口：
 
 ```go
-func Set(ctx context.Context, c Cache, key string, value any, ttl time.Duration) error
-func Get(ctx context.Context, c Cache, key string, dst any) error
-func Delete(ctx context.Context, c Cache, key string) error
-func SetJSON(ctx context.Context, c Cache, key string, value any, ttl time.Duration) error
-func GetJSON(ctx context.Context, c Cache, key string, dst any) (bool, error)
-func Remember[T any](ctx context.Context, c Cache, key string, ttl time.Duration, fn func() (T, error)) (T, error)
+func Get(ctx context.Context, key string) (string, error)
+func Set(ctx context.Context, key, value string, ttl time.Duration) error
+func Del(ctx context.Context, keys ...string) error
+func Exists(ctx context.Context, keys ...string) (int64, error)
+func Incr(ctx context.Context, key string) (int64, error)
+func TTL(ctx context.Context, key string) (time.Duration, error)
+func Expire(ctx context.Context, key string, ttl time.Duration) error
+func Gets(ctx context.Context, keys []string) (map[string]string, []string)
+func Sets(ctx context.Context, values map[string]string, ttl time.Duration) error
+func Delete(ctx context.Context, keys []string) error
+```
+
+需要指定 cache 实例时使用对应 `With` 方法：
+
+```go
+func GetWith(ctx context.Context, c Cache, key string) (string, error)
+func SetWith(ctx context.Context, c Cache, key, value string, ttl time.Duration) error
+func DelWith(ctx context.Context, c Cache, keys ...string) error
+func ExistsWith(ctx context.Context, c Cache, keys ...string) (int64, error)
+func IncrWith(ctx context.Context, c Cache, key string) (int64, error)
+func TTLWith(ctx context.Context, c Cache, key string) (time.Duration, error)
+func ExpireWith(ctx context.Context, c Cache, key string, ttl time.Duration) error
+func GetsWith(ctx context.Context, c Cache, keys []string) (map[string]string, []string)
+func SetsWith(ctx context.Context, c Cache, values map[string]string, ttl time.Duration) error
+func DeleteWith(ctx context.Context, c Cache, keys []string) error
+```
+
+对象缓存使用 `core/cache` 包提供的 JSON helper：
+
+```go
+func SetJSON(ctx context.Context, key string, value any, ttl time.Duration) error
+func SetJSONWith(ctx context.Context, c Cache, key string, value any, ttl time.Duration) error
+func GetJSON(ctx context.Context, key string, dst any) (bool, error)
+func GetJSONWith(ctx context.Context, c Cache, key string, dst any) (bool, error)
+func DeleteJSON(ctx context.Context, key string) error
+func DeleteJSONWith(ctx context.Context, c Cache, key string) error
+func Remember[T any](ctx context.Context, key string, ttl time.Duration, fn func() (T, error)) (T, error)
+func RememberWith[T any](ctx context.Context, c Cache, key string, ttl time.Duration, fn func() (T, error)) (T, error)
 ```
 
 ## 初始化方案
@@ -124,6 +153,14 @@ cache.Init(&cache.Config{
 3. Redis 不可用时使用 `pkg/cache/memory`
 4. 默认 key 前缀为 `cache:`
 
+`cache.Init` 和 `core/cache/facade.Use` 都复用同一个工厂：
+
+```go
+func NewFromConfig(cacheCfg *Config, client *redis.Client) Cache
+```
+
+`core/cache` 负责根据配置和 Redis client 创建实例；`facade.Use` 只负责从 runtime container 取 Redis、绑定 cache 到 container，以及处理 capability 生命周期。
+
 全局默认实例通过 `cache.Default()` 获取。关闭入口为 `cache.Close()`。
 
 ## Redis 后端
@@ -134,6 +171,7 @@ Redis 后端只封装缓存语义：
 - `redis.Nil` 在底层 `Get` 中转换为空字符串和 nil error
 - `MGet` 用于批量读取
 - `Pipeline` 用于批量写入
+- `Expire` 用于修改已有 key 过期时间，`ttl <= 0` 时通过 `Persist` 清掉过期时间
 - `Close` 不关闭外部传入的 Redis client，Redis 生命周期由 `core/redis` 管理
 
 业务代码需要 Redis 基础能力时优先走 `core/redis`，不要在业务侧创建 `redis.NewClient(...)`。
@@ -144,6 +182,7 @@ Redis 后端只封装缓存语义：
 
 - 使用 `sync.RWMutex` 保护 map
 - 支持 TTL
+- 支持 `Expire` 修改已有 key 过期时间，`ttl <= 0` 清掉过期时间
 - 后台 cleanup goroutine 每分钟清理过期 key
 - `Close` 会通知 cleanup goroutine 退出
 
@@ -159,7 +198,7 @@ core/cache
   -> sonic
 ```
 
-业务代码不要为了缓存对象直接调用 `jsonx.Marshal`、`sonic.Marshal` 或 `redis.Set`。对象写入使用 `cache.Set` / `cache.SetJSON`，对象读取使用 `cache.Get` / `cache.GetJSON`。
+业务代码不要为了缓存对象直接调用 `jsonx.Marshal`、`sonic.Marshal` 或 `redis.Set`。字符串缓存使用 `cache.Set` / `cache.Get`；对象写入使用 `cache.SetJSON`，对象读取使用 `cache.GetJSON`。
 
 ## Cache Miss
 
@@ -202,26 +241,32 @@ cache.IsNotFound(err)
 
 ## Key 方案
 
-通用 key 拼接：
+`core/cache` 不提供业务 key helper，也不定义 user、session、tenant 等命名规则。
+
+原因：
+
+- key 命名属于业务边界，core 不应该知道业务实体。
+- 不同应用、租户、模块的 key 前缀策略可能不同。
+- core 只负责缓存读写、TTL、过期和对象序列化。
+
+业务侧需要 key helper 时，在应用或业务模块里定义：
 
 ```go
-cache.Key("tenant", tenantID, "user", uid)
+func userCacheKey(uid int64) string {
+    return fmt.Sprintf("user:%d", uid)
+}
 ```
 
-约定 helper：
-
-```go
-cache.UserKey(uid)
-cache.SessionKey(sid)
-```
-
-业务模块可以在自己的包内继续封装更具体的 key helper，但不要在调用点到处手写 `"user:1"` 这类字符串。
+简单场景可以直接使用明确的 key 字符串。需要统一规范时，应在应用层建立 `cachekey` 包或在对应业务包内封装。
 
 ## 使用约束
 
 - context 必须从调用链透传。
 - error 必须返回给上层处理。
-- 对象缓存优先使用 `cache.Set` / `cache.Get` / `cache.Remember`。
+- cache key 由业务侧定义，core 不提供 `UserKey`、`SessionKey` 这类 helper。
+- 字符串缓存优先使用 `cache.Set` / `cache.Get` / `cache.Del` 等包级方法。
+- 修改已有 key 过期时间使用 `cache.Expire`；删除 key 使用 `cache.Del` 或 `cache.Delete`。
+- 对象缓存优先使用 `cache.SetJSON` / `cache.GetJSON` / `cache.Remember`。
 - 业务代码不要直接处理 `redis.Nil`。
 - 业务代码不要直接使用 `sonic` 做缓存 JSON 编解码。
 - `Remember` 的回源函数必须可重入，不能依赖“必定只执行一次”的副作用。
@@ -237,6 +282,10 @@ cache.SessionKey(sid)
 
 ## 更新记录
 
+- 2026-05-19：删除 `core/cache/key.go`，cache core 不再提供 `Key/UserKey/SessionKey`，业务 key helper 由应用层自行定义。
+- 2026-05-19：补齐 `core/cache` 包级字符串缓存方法 `Get/Set/Del/Exists/Incr/TTL/Expire/Gets/Sets/Delete` 及对应 `With` 方法；对象缓存 helper 改为 `SetJSON/GetJSON/DeleteJSON/Remember`。
+- 2026-05-19：新增 `core/cache.NewFromConfig`，`cache.Init` 和 `core/cache/facade.Use` 统一复用根包工厂，移除 facade 内部重复的 Redis/memory 创建分支。
+- 2026-05-19：删除 `core/cache/facade` 中重复转发的 `Default/From/Init/Close/New/WithRedis/WithPrefix`，facade 只保留 runtime capability 接入和必要类型别名。
 - 2026-05-16：`core/cache/facade` 作为唯一 Runtime Capability 接入层；根包移除重复的 `Use/UseOption`，保留 `Bind/From/Default/New` 等缓存本体 API；根包运行时绑定原语统一放在 `binding.go`。
 - 2026-05-13：缓存接口和 backend driver 拆到 `pkg/cache`，`core/cache` 不再初始化 Redis 基础设施。
 - 2026-05-10：补齐 `core/cache` 模块方案，明确底层字符串接口、类型化 JSON helper、Remember、key 管理和 Redis/内存后端边界。

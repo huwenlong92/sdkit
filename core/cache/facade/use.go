@@ -7,6 +7,8 @@ import (
 	coreconfig "github.com/huwenlong92/sdkit/core/config"
 	redisfacade "github.com/huwenlong92/sdkit/core/redis/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type UseOption func(*useOptions)
@@ -90,15 +92,11 @@ func Use(opts ...UseOption) runtime.Capability {
 					return err
 				}
 			}
-			prefix := "cache:"
-			if config.Prefix != "" {
-				prefix = config.Prefix
+			var rdb *redis.Client
+			if client := redisfacade.From(app); client != nil {
+				rdb = client.Rdb
 			}
-			if client := redisfacade.From(app); client != nil && client.Rdb != nil {
-				cache = corecache.New(corecache.WithRedis(client.Rdb), corecache.WithPrefix(prefix))
-			} else {
-				cache = corecache.New()
-			}
+			cache = corecache.NewFromConfig(&config, rdb)
 		}
 		return corecache.Bind(app, cache)
 	}, func(context.Context) error {

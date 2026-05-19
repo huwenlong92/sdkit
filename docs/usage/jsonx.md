@@ -53,16 +53,10 @@ response.AbortJSON(c, 401, gin.H{"err_code": 4001, "msg": "用户未登录"})
 缓存对象值使用 `core/cache` 的 JSON helper，内部统一走 `core/jsonx`：
 
 ```go
-_ = cache.Set(ctx, cache.Default(), "profile:1", profile, time.Minute)
+_ = cache.SetJSON(ctx, "profile:1", profile, time.Minute)
 
 var profile Profile
-err := cache.Get(ctx, cache.Default(), "profile:1", &profile)
-```
-
-需要区分缓存是否命中时使用：
-
-```go
-ok, err := cache.GetJSON(ctx, cache.Default(), "profile:1", &profile)
+ok, err := cache.GetJSON(ctx, "profile:1", &profile)
 ```
 
 ## Queue

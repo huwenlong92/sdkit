@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -76,11 +77,38 @@ func testCache(t *testing.T, c cache.Cache) {
 		t.Fatalf("TTL no_key: want -2, got %v", ttl)
 	}
 
-	// Del
-	if err := c.Del(ctx, "foo", "counter"); err != nil {
+	// Expire
+	if err := c.Expire(ctx, "foo", 10*time.Millisecond); err != nil {
 		t.Fatal(err)
 	}
-	v, _ = c.Get(ctx, "foo")
+	time.Sleep(20 * time.Millisecond)
+	v, err = c.Get(ctx, "foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != "" {
+		t.Fatal("Expire: key should be expired")
+	}
+	if err := c.Set(ctx, "persist", "x", 10*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Expire(ctx, "persist", 0); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(20 * time.Millisecond)
+	v, err = c.Get(ctx, "persist")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != "x" {
+		t.Fatal("Expire ttl<=0 should clear expiration")
+	}
+
+	// Del
+	if err := c.Del(ctx, "persist", "counter"); err != nil {
+		t.Fatal(err)
+	}
+	v, _ = c.Get(ctx, "persist")
 	if v != "" {
 		t.Fatal("Del: key should be deleted")
 	}
@@ -147,6 +175,153 @@ func TestMemoryCache(t *testing.T) {
 	testCache(t, c)
 }
 
+func TestDefaultOperations(t *testing.T) {
+	c := cache.New()
+	t.Cleanup(cache.Close)
+	if err := cache.Bind(nil, c); err != nil {
+		t.Fatal(err)
+	}
+	testDefaultOperations(t)
+}
+
+func TestWithOperations(t *testing.T) {
+	c := cache.New()
+	defer c.Close()
+	testWithOperations(t, c)
+}
+
+func testDefaultOperations(t *testing.T) {
+	ctx := context.Background()
+
+	if err := cache.Set(ctx, "pkg:foo", "bar", time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	got, err := cache.Get(ctx, "pkg:foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "bar" {
+		t.Fatalf("Get: want bar, got %q", got)
+	}
+
+	n, err := cache.Exists(ctx, "pkg:foo", "pkg:missing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("Exists: want 1, got %d", n)
+	}
+
+	n, err = cache.Incr(ctx, "pkg:counter")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("Incr: want 1, got %d", n)
+	}
+
+	ttl, err := cache.TTL(ctx, "pkg:foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ttl <= 0 {
+		t.Fatalf("TTL: want > 0, got %v", ttl)
+	}
+
+	if err := cache.Expire(ctx, "pkg:foo", 10*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(20 * time.Millisecond)
+	got, err = cache.Get(ctx, "pkg:foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "" {
+		t.Fatal("Expire: key should be expired")
+	}
+
+	if err := cache.Sets(ctx, map[string]string{"pkg:a": "1", "pkg:b": "2"}, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	values, missing := cache.Gets(ctx, []string{"pkg:a", "pkg:b", "pkg:c"})
+	if values["pkg:a"] != "1" || values["pkg:b"] != "2" || len(missing) != 1 {
+		t.Fatalf("Gets: values=%v missing=%v", values, missing)
+	}
+
+	if err := cache.Del(ctx, "pkg:counter"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cache.Delete(ctx, []string{"pkg:a", "pkg:b"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func testWithOperations(t *testing.T, c cache.Cache) {
+	ctx := context.Background()
+
+	if err := cache.SetWith(ctx, c, "with:foo", "bar", time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	got, err := cache.GetWith(ctx, c, "with:foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "bar" {
+		t.Fatalf("GetWith: want bar, got %q", got)
+	}
+
+	n, err := cache.ExistsWith(ctx, c, "with:foo", "with:missing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("ExistsWith: want 1, got %d", n)
+	}
+
+	n, err = cache.IncrWith(ctx, c, "with:counter")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("IncrWith: want 1, got %d", n)
+	}
+
+	ttl, err := cache.TTLWith(ctx, c, "with:foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ttl <= 0 {
+		t.Fatalf("TTLWith: want > 0, got %v", ttl)
+	}
+
+	if err := cache.ExpireWith(ctx, c, "with:foo", 10*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(20 * time.Millisecond)
+	got, err = cache.GetWith(ctx, c, "with:foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "" {
+		t.Fatal("ExpireWith: key should be expired")
+	}
+
+	if err := cache.SetsWith(ctx, c, map[string]string{"with:a": "1", "with:b": "2"}, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	values, missing := cache.GetsWith(ctx, c, []string{"with:a", "with:b", "with:c"})
+	if values["with:a"] != "1" || values["with:b"] != "2" || len(missing) != 1 {
+		t.Fatalf("GetsWith: values=%v missing=%v", values, missing)
+	}
+
+	if err := cache.DelWith(ctx, c, "with:counter"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cache.DeleteWith(ctx, c, []string{"with:a", "with:b"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestJSONHelpers(t *testing.T) {
 	c := cache.New()
 	defer c.Close()
@@ -158,33 +333,30 @@ func TestJSONHelpers(t *testing.T) {
 	}
 
 	want := profile{ID: 1, Name: "admin"}
-	if err := cache.Set(ctx, c, cache.UserKey(want.ID), want, time.Minute); err != nil {
+	key := fmt.Sprintf("user:%d", want.ID)
+	if err := cache.SetJSONWith(ctx, c, key, want, time.Minute); err != nil {
 		t.Fatal(err)
 	}
 
 	var got profile
-	if err := cache.Get(ctx, c, cache.UserKey(want.ID), &got); err != nil {
+	ok, err := cache.GetJSONWith(ctx, c, key, &got)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("GetJSONWith: want ok=true")
 	}
 	if got != want {
 		t.Fatalf("Get JSON: want %+v, got %+v", want, got)
 	}
 
 	var missing profile
-	if err := cache.Get(ctx, c, cache.UserKey(2), &missing); !errors.Is(err, cache.ErrNotFound) {
-		t.Fatalf("Get missing: want ErrNotFound, got %v", err)
-	}
-
-	ok, err := cache.GetJSON(ctx, c, cache.UserKey(2), &missing)
+	ok, err = cache.GetJSONWith(ctx, c, "user:2", &missing)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if ok {
 		t.Fatal("GetJSON missing: want ok=false")
-	}
-
-	if key := cache.Key("user", 1, ":profile:"); key != "user:1:profile" {
-		t.Fatalf("Key: got %q", key)
 	}
 }
 
@@ -198,7 +370,8 @@ func TestRemember(t *testing.T) {
 	}
 
 	var calls int64
-	loaded, err := cache.Remember(ctx, c, cache.UserKey(1), time.Minute, func() (profile, error) {
+	key := "user:1"
+	loaded, err := cache.RememberWith(ctx, c, key, time.Minute, func() (profile, error) {
 		atomic.AddInt64(&calls, 1)
 		return profile{ID: 1}, nil
 	})
@@ -209,7 +382,7 @@ func TestRemember(t *testing.T) {
 		t.Fatalf("Remember first: got %+v", loaded)
 	}
 
-	loaded, err = cache.Remember(ctx, c, cache.UserKey(1), time.Minute, func() (profile, error) {
+	loaded, err = cache.RememberWith(ctx, c, key, time.Minute, func() (profile, error) {
 		atomic.AddInt64(&calls, 1)
 		return profile{ID: 2}, nil
 	})
@@ -228,7 +401,7 @@ func TestRememberSingleflight(t *testing.T) {
 	c := cache.New()
 	defer c.Close()
 	ctx := context.Background()
-	key := cache.Key("singleflight", time.Now().UnixNano())
+	key := fmt.Sprintf("singleflight:%d", time.Now().UnixNano())
 
 	var calls int64
 	var wg sync.WaitGroup
@@ -240,7 +413,7 @@ func TestRememberSingleflight(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			v, err := cache.Remember(ctx, c, key, time.Minute, func() (int, error) {
+			v, err := cache.RememberWith(ctx, c, key, time.Minute, func() (int, error) {
 				atomic.AddInt64(&calls, 1)
 				time.Sleep(10 * time.Millisecond)
 				return 7, nil

@@ -10,6 +10,8 @@
 package cache
 
 import (
+	"sync"
+
 	"github.com/huwenlong92/sdkit/core/logger"
 	coreredis "github.com/huwenlong92/sdkit/core/redis"
 	pkgcache "github.com/huwenlong92/sdkit/pkg/cache"
@@ -23,7 +25,10 @@ import (
 // Cache 是 core/cache 对外缓存接口，底层由 pkg/cache 后端实现。
 type Cache = pkgcache.Cache
 
-var defaultCache Cache
+var (
+	defaultCache Cache
+	defaultMu    sync.RWMutex
+)
 
 type Config struct {
 	Prefix string `mapstructure:"prefix" yaml:"prefix"`
@@ -31,10 +36,20 @@ type Config struct {
 
 // Default 返回全局默认缓存（Init 之后为 Redis，否则内存）
 func Default() Cache {
+	defaultMu.RLock()
 	if defaultCache != nil {
-		return defaultCache
+		c := defaultCache
+		defaultMu.RUnlock()
+		return c
 	}
-	return New()
+	defaultMu.RUnlock()
+
+	defaultMu.Lock()
+	defer defaultMu.Unlock()
+	if defaultCache == nil {
+		defaultCache = New()
+	}
+	return defaultCache
 }
 
 // ======================== Init（bootstrap 统一入口） ========================
@@ -46,25 +61,31 @@ func Init(cacheCfg *Config) error {
 		log = zap.NewNop()
 	}
 
-	prefix := "cache:"
-	if cacheCfg != nil && cacheCfg.Prefix != "" {
-		prefix = cacheCfg.Prefix
-	}
-
-	if coreredis.RDB != nil {
-		defaultCache = rediscache.New(coreredis.RDB, prefix)
-	} else {
+	if coreredis.RDB == nil {
 		log.Debug("Redis未初始化，使用内存缓存")
-		defaultCache = memory.New()
 	}
+	replaceDefault(NewFromConfig(cacheCfg, coreredis.RDB))
 	return nil
 }
 
 // Close 关闭全局缓存
 func Close() {
-	if defaultCache != nil {
-		_ = defaultCache.Close()
-		defaultCache = nil
+	defaultMu.Lock()
+	c := defaultCache
+	defaultCache = nil
+	defaultMu.Unlock()
+	if c != nil {
+		_ = c.Close()
+	}
+}
+
+func replaceDefault(c Cache) {
+	defaultMu.Lock()
+	old := defaultCache
+	defaultCache = c
+	defaultMu.Unlock()
+	if old != nil && old != c {
+		_ = old.Close()
 	}
 }
 
@@ -86,6 +107,18 @@ func WithRedis(client *redis.Client) Option {
 // WithPrefix 设置 key 前缀
 func WithPrefix(prefix string) Option {
 	return func(o *options) { o.prefix = prefix }
+}
+
+// NewFromConfig 按缓存配置和可选 Redis client 创建缓存实例。
+func NewFromConfig(cacheCfg *Config, client *redis.Client) Cache {
+	prefix := "cache:"
+	if cacheCfg != nil && cacheCfg.Prefix != "" {
+		prefix = cacheCfg.Prefix
+	}
+	if client != nil {
+		return New(WithRedis(client), WithPrefix(prefix))
+	}
+	return New(WithPrefix(prefix))
 }
 
 // New 创建缓存实例（服务自定义配置）

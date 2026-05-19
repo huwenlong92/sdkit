@@ -86,10 +86,11 @@ if err := jsonx.Unmarshal(b, &dst); err != nil {
 缓存对象使用 `core/cache` helper，不在业务侧手写 JSON：
 
 ```go
-_ = cache.Set(ctx, cache.Default(), cache.UserKey(uid), profile, ttl)
+key := fmt.Sprintf("user:%d", uid)
+_ = cache.SetJSON(ctx, key, profile, ttl)
 
 var cached Profile
-ok, err := cache.GetJSON(ctx, cache.Default(), cache.UserKey(uid), &cached)
+ok, err := cache.GetJSON(ctx, key, &cached)
 ```
 
 响应使用应用层 response：
