@@ -44,7 +44,7 @@ func Valid(data []byte) bool
 
 | 模块 | 场景 |
 |------|------|
-| `core/response` | HTTP JSON 响应 |
+| 应用层 response | HTTP JSON 响应 |
 | `core/cache` | 对象缓存 helper |
 | `core/queue` | 任务 payload 编解码 |
 | `core/session` | Redis session extra 字段 |
@@ -52,13 +52,13 @@ func Valid(data []byte) bool
 | `crontab` | 任务 payload 解析 |
 | `worker` | 失败任务 payload 处理 |
 
-`core/validator` 中的 `encoding/json.UnmarshalTypeError` 只用于识别 Gin bind 返回的类型错误，不承担业务 JSON 编解码职责。
+应用层 validator 中识别 `encoding/json.UnmarshalTypeError` 是为了把 Gin bind 的类型错误转换成统一响应，不承担业务 JSON 编解码职责。
 
 ## 中间件
 
 无。
 
-HTTP 响应由 `core/response` 统一封装，业务 handler 不直接调用 `c.JSON(...)`。
+HTTP 响应由应用层 response 模块统一封装，业务 handler 不直接调用 `c.JSON(...)`。
 
 ## Hook
 
@@ -92,7 +92,7 @@ var cached Profile
 ok, err := cache.GetJSON(ctx, cache.Default(), cache.UserKey(uid), &cached)
 ```
 
-响应使用 `core/response`：
+响应使用应用层 response：
 
 ```go
 response.Success(c, data)

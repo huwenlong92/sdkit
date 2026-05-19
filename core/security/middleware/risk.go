@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"net/http"
+
 	apperrors "github.com/huwenlong92/sdkit/core/errors"
-	"github.com/huwenlong92/sdkit/core/response"
+	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/core/security"
 	"github.com/huwenlong92/sdkit/core/security/fingerprint"
 	"github.com/huwenlong92/sdkit/core/security/risk"
@@ -12,11 +14,12 @@ import (
 
 type RiskContextFunc func(c *gin.Context, rc *risk.Context)
 
-func Risk(scene string, manager *risk.Manager) gin.HandlerFunc {
-	return RiskWithContext(scene, manager, nil)
+func Risk(scene string, manager *risk.Manager, opts ...MiddlewareOption) gin.HandlerFunc {
+	return RiskWithContext(scene, manager, nil, opts...)
 }
 
-func RiskWithContext(scene string, manager *risk.Manager, fill RiskContextFunc) gin.HandlerFunc {
+func RiskWithContext(scene string, manager *risk.Manager, fill RiskContextFunc, opts ...MiddlewareOption) gin.HandlerFunc {
+	cfg := newMiddlewareConfig(opts...)
 	return func(c *gin.Context) {
 		if manager == nil {
 			c.Next()
@@ -38,23 +41,19 @@ func RiskWithContext(scene string, manager *risk.Manager, fill RiskContextFunc) 
 		}
 		result, err := manager.Check(c.Request.Context(), rc)
 		if err != nil {
-			response.Error(c, apperrors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
-			c.Abort()
+			ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, apperrors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
 			return
 		}
 		if result.Blocked {
-			response.Error(c, apperrors.NewCodeWithData(security.ErrCodeRiskBlocked, security.MsgRiskBlocked, result))
-			c.Abort()
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeRiskBlocked, security.MsgRiskBlocked, result))
 			return
 		}
 		if result.NeedCaptcha {
-			response.Error(c, apperrors.NewCodeWithData(security.ErrCodeCaptchaRequired, security.MsgCaptchaRequired, result))
-			c.Abort()
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeCaptchaRequired, security.MsgCaptchaRequired, result))
 			return
 		}
 		if result.NeedVerify {
-			response.Error(c, apperrors.NewCodeWithData(security.ErrCodeVerifyRequired, security.MsgVerifyRequired, result))
-			c.Abort()
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeVerifyRequired, security.MsgVerifyRequired, result))
 			return
 		}
 		c.Next()

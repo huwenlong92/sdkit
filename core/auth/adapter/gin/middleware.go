@@ -5,25 +5,39 @@ import (
 	"strings"
 
 	coreauth "github.com/huwenlong92/sdkit/core/auth"
-	"github.com/huwenlong92/sdkit/core/response"
+	apperrors "github.com/huwenlong92/sdkit/core/errors"
+	"github.com/huwenlong92/sdkit/core/ginresponder"
 
 	"github.com/gin-gonic/gin"
 )
 
-func AuthMiddleware(manager *coreauth.Auth) gin.HandlerFunc {
+type MiddlewareConfig struct {
+	Responder ginresponder.ErrorResponder
+}
+
+type MiddlewareOption func(*MiddlewareConfig)
+
+func WithResponder(responder ginresponder.ErrorResponder) MiddlewareOption {
+	return func(cfg *MiddlewareConfig) {
+		cfg.Responder = responder
+	}
+}
+
+func AuthMiddleware(manager *coreauth.Auth, opts ...MiddlewareOption) gin.HandlerFunc {
+	cfg := newMiddlewareConfig(opts...)
 	return func(c *gin.Context) {
 		if manager == nil {
-			response.AbortJSON(c, http.StatusUnauthorized, gin.H{"err_code": 4001, "msg": "用户未登录"})
+			respondUnauthorized(cfg, c, "用户未登录")
 			return
 		}
 		credential, err := credentialFromRequest(c, manager.Mode())
 		if err != nil {
-			response.AbortJSON(c, http.StatusUnauthorized, gin.H{"err_code": 4001, "msg": "用户未登录"})
+			respondUnauthorized(cfg, c, "用户未登录")
 			return
 		}
 		identity, err := manager.Authenticate(c.Request.Context(), credential)
 		if err != nil {
-			response.AbortJSON(c, http.StatusUnauthorized, gin.H{"err_code": 4001, "msg": "令牌无效或已过期"})
+			respondUnauthorized(cfg, c, "令牌无效或已过期")
 			return
 		}
 		SetIdentity(c, identity)
@@ -67,6 +81,20 @@ func Logout(c *gin.Context, manager *coreauth.Auth) error {
 		return err
 	}
 	return nil
+}
+
+func newMiddlewareConfig(opts ...MiddlewareOption) *MiddlewareConfig {
+	cfg := &MiddlewareConfig{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(cfg)
+		}
+	}
+	return cfg
+}
+
+func respondUnauthorized(cfg *MiddlewareConfig, c *gin.Context, message string) {
+	ginresponder.RespondError(cfg.Responder, c, http.StatusUnauthorized, apperrors.NewCodeWithData(apperrors.CodeAuthRequired, message, nil))
 }
 
 func credentialFromRequest(c *gin.Context, mode coreauth.Mode) (string, error) {

@@ -74,8 +74,7 @@ go test ./...
 - `core/security`：验证码、密码、签名、风控、黑名单、安全中间件
 - `core/tracing`：OpenTelemetry 初始化、传播、span 工具
 - `core/tracking`：业务追踪 ID 生成与透传
-- `core/response`：统一响应结构
-- `core/validator`：参数校验与自定义校验器
+- `core/ginresponder`：Gin middleware 响应注入点
 - `pkg/filesystem`：本地、OSS、COS、S3 文件存储实现
 - `pkg/queue/asynq`：Asynq 队列驱动
 - `pkg/eventbus/*`：memory、Redis、Redis Stream 事件总线实现

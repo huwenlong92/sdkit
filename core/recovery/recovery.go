@@ -7,14 +7,27 @@ import (
 	"runtime/debug"
 
 	apperrors "github.com/huwenlong92/sdkit/core/errors"
+	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/core/logger"
-	"github.com/huwenlong92/sdkit/core/response"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
-func Middleware() gin.HandlerFunc {
+type MiddlewareConfig struct {
+	Responder ginresponder.ErrorResponder
+}
+
+type MiddlewareOption func(*MiddlewareConfig)
+
+func WithResponder(responder ginresponder.ErrorResponder) MiddlewareOption {
+	return func(cfg *MiddlewareConfig) {
+		cfg.Responder = responder
+	}
+}
+
+func Middleware(opts ...MiddlewareOption) gin.HandlerFunc {
+	cfg := newMiddlewareConfig(opts...)
 	return func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -39,10 +52,19 @@ func Middleware() gin.HandlerFunc {
 					zap.String("stack", string(debug.Stack())),
 				)
 
-				response.Error(c, apperrors.NewCodeWithData(http.StatusInternalServerError, "服务器内部错误", nil))
-				c.Abort()
+				ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, apperrors.NewCodeWithData(apperrors.CodeInternal, "服务器内部错误", nil))
 			}
 		}()
 		c.Next()
 	}
+}
+
+func newMiddlewareConfig(opts ...MiddlewareOption) *MiddlewareConfig {
+	cfg := &MiddlewareConfig{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(cfg)
+		}
+	}
+	return cfg
 }

@@ -2,7 +2,7 @@
 
 ## 作用
 
-`core/errors` 是项目业务错误模型和错误码的集中入口。handler、middleware 和 core 模块需要向 HTTP response 映射错误时，优先返回或包装 `*errors.AppError`，再交给 `core/response` 输出统一响应结构。
+`core/errors` 是项目业务错误模型和错误码的集中入口。handler、middleware 和 core 模块需要向 HTTP response 映射错误时，优先返回或包装 `*errors.AppError`，再在应用 HTTP 边界输出统一响应结构。
 
 模块目标：
 
@@ -91,8 +91,8 @@ func SubCodeForCode(code int) string
 
 | 模块 | 集成方式 |
 |------|----------|
-| `core/response` | 通过 `response.Error(c, err)` 将 `AppError` 映射为统一响应 |
-| `core/validator` | 将 Gin bind 和 validator 错误转换为 `CodeBadRequest` 的 `AppError` |
+| `core/ginresponder` | 为 Gin middleware 提供 responder 注入点，应用层决定响应结构 |
+| 应用层 validator | 将 Gin bind 和 validator 错误转换为 `CodeBadRequest` 的 `AppError` |
 | `app/admin/handler/system/auth.go` | 示例迁移：登录、用户信息错误通过 `AppError` 返回 |
 | `app/api/handler/security_demo.go` | 示例迁移：安全 demo 错误通过 `AppError` 返回 |
 

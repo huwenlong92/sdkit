@@ -38,7 +38,7 @@ if err := jsonx.Unmarshal(b, &profile); err != nil {
 
 ## Response
 
-HTTP 响应统一使用 `core/response`：
+HTTP 响应统一使用应用层 response：
 
 ```go
 response.Success(c, data)
@@ -106,14 +106,14 @@ Gin request bind 暂时保留，不由 `core/jsonx` 接管：
 - GET 使用 `ShouldBindQuery`。
 - POST JSON 使用 `ShouldBindBodyWith(&req, binding.JSON)`。
 
-`core/validator` 中识别 `json.UnmarshalTypeError` 是为了把 Gin bind 的类型错误转换成统一响应，不代表业务代码可以直接使用 `encoding/json`。
+应用层 validator 中识别 `json.UnmarshalTypeError` 是为了把 Gin bind 的类型错误转换成统一响应，不代表业务代码可以直接使用 `encoding/json`。
 
 ## 迁移检查
 
 新增或修改 JSON 相关代码时检查：
 
 - 业务 JSON 编解码是否只 import `github.com/huwenlong92/sdkit/core/jsonx`。
-- HTTP 响应是否使用 `core/response`。
+- HTTP 响应是否使用应用层 response。
 - 对象缓存是否使用 `cache.Set` / `cache.Get` / `cache.GetJSON`。
 - 队列 payload 是否通过 `queue.NewTask` 和 `queue.Enqueue`。
 - 是否避免把密码、token、cookie 等敏感字段写入日志。

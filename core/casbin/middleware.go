@@ -3,7 +3,8 @@ package casbin
 import (
 	"net/http"
 
-	"github.com/huwenlong92/sdkit/core/response"
+	apperrors "github.com/huwenlong92/sdkit/core/errors"
+	"github.com/huwenlong92/sdkit/core/ginresponder"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,6 +16,7 @@ type MiddlewareConfig struct {
 	Manager        *Manager
 	RoleResolver   RoleResolver
 	ObjectResolver ObjectResolver
+	Responder      ginresponder.ErrorResponder
 }
 
 type MiddlewareOption func(*MiddlewareConfig)
@@ -34,6 +36,12 @@ func WithRoleResolver(resolver RoleResolver) MiddlewareOption {
 func WithObjectResolver(resolver ObjectResolver) MiddlewareOption {
 	return func(cfg *MiddlewareConfig) {
 		cfg.ObjectResolver = resolver
+	}
+}
+
+func WithResponder(responder ginresponder.ErrorResponder) MiddlewareOption {
+	return func(cfg *MiddlewareConfig) {
+		cfg.Responder = responder
 	}
 }
 
@@ -64,7 +72,7 @@ func Middleware(opts ...MiddlewareOption) gin.HandlerFunc {
 		act := c.Request.Method
 		allowed, err := cfg.Manager.Enforce(role, obj, act)
 		if err != nil || !allowed {
-			response.AbortJSON(c, http.StatusForbidden, gin.H{"err_code": http.StatusForbidden, "msg": "无权访问该接口"})
+			ginresponder.RespondError(cfg.Responder, c, http.StatusForbidden, apperrors.NewCodeWithData(apperrors.CodeForbidden, "无权访问该接口", nil))
 			return
 		}
 		c.Next()

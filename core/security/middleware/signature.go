@@ -6,7 +6,7 @@ import (
 	"time"
 
 	apperrors "github.com/huwenlong92/sdkit/core/errors"
-	"github.com/huwenlong92/sdkit/core/response"
+	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/core/security"
 	"github.com/huwenlong92/sdkit/core/security/fingerprint"
 	"github.com/huwenlong92/sdkit/core/security/risk"
@@ -16,15 +16,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Signature(store state.Store, secret []byte) gin.HandlerFunc {
+func Signature(store state.Store, secret []byte, opts ...MiddlewareOption) gin.HandlerFunc {
+	cfg := newMiddlewareConfig(opts...)
 	checker := checkers.NewSignatureChecker(store, secret)
 	checker.CheckNonce = false
 	manager := risk.NewManager(nil, checker)
 	return func(c *gin.Context) {
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			response.Error(c, apperrors.NewCodeWithData(http.StatusBadRequest, "read body failed", nil))
-			c.Abort()
+			ginresponder.RespondError(cfg.Responder, c, http.StatusBadRequest, apperrors.NewCodeWithData(http.StatusBadRequest, "read body failed", nil))
 			return
 		}
 		c.Request.Body = io.NopCloser(bytesReader(body))
@@ -40,36 +40,32 @@ func Signature(store state.Store, secret []byte) gin.HandlerFunc {
 			Headers:  requestHeaders(c),
 		})
 		if err != nil {
-			response.Error(c, apperrors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
-			c.Abort()
+			ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, apperrors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
 			return
 		}
 		if !result.Passed {
-			response.Error(c, apperrors.NewCodeWithData(security.ErrCodeInvalidSign, security.MsgInvalidSign, result))
-			c.Abort()
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeInvalidSign, security.MsgInvalidSign, result))
 			return
 		}
 		c.Next()
 	}
 }
 
-func Replay(store state.Store) gin.HandlerFunc {
+func Replay(store state.Store, opts ...MiddlewareOption) gin.HandlerFunc {
+	cfg := newMiddlewareConfig(opts...)
 	return func(c *gin.Context) {
 		nonce := c.GetHeader("U-Nonce")
 		if nonce == "" {
-			response.Error(c, apperrors.NewCodeWithData(security.ErrCodeNonceRequired, security.MsgNonceRequired, nil))
-			c.Abort()
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeNonceRequired, security.MsgNonceRequired, nil))
 			return
 		}
 		ok, err := store.SetNX(c.Request.Context(), "security:nonce:"+nonce, "1", 5*time.Minute)
 		if err != nil {
-			response.Error(c, apperrors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
-			c.Abort()
+			ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, apperrors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
 			return
 		}
 		if !ok {
-			response.Error(c, apperrors.NewCodeWithData(security.ErrCodeNonceReplay, security.MsgNonceReplay, nil))
-			c.Abort()
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeNonceReplay, security.MsgNonceReplay, nil))
 			return
 		}
 		c.Next()

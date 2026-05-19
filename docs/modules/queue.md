@@ -1075,7 +1075,7 @@ go run ./cmd/sdkitgo queue stats
 - 业务注册放在 `worker`，`core/queue` 不注册具体业务
 - 任务 payload 使用结构体并带 JSON tag
 - JSON 编解码使用 `core/jsonx`
-- HTTP 响应走 `core/response`
+- HTTP 响应走应用层 response，core queue 不直接依赖响应协议
 - 日志走 `core/logger`
 - scheduler/cron 只负责触发，不属于 `core/queue`
 - 不要直接在业务中创建 Asynq client/server/mux

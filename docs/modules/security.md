@@ -72,7 +72,7 @@ type Checker interface {
 - `core/auth` 保持独立，security 只产出风险结果，不签发登录态或 JWT。
 - `core/ratelimit` 保持独立，security 通过 `RateLimitChecker` 适配已有 `ratelimit.Limiter`，不重复替换限流模块。
 - `core/accesslog` 继续记录普通访问日志；security 只写安全事件。
-- `core/response` 被 security middleware 用于统一响应结构。
+- security Gin middleware 通过 `core/ginresponder` 支持应用层注入统一响应结构；未注入时使用 core 默认 JSON fallback。
 
 ## 更新记录
 

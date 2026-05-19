@@ -1,43 +1,20 @@
-# Validator 模块说明
+# Validator 模块迁移说明
 
-## 职责
+`core/validator` 已从 sdkit core 中移除。Gin 参数绑定、中文翻译和业务自定义校验规则属于应用 HTTP 边界，不再由 core 维护。
 
-`core/validator` 负责 Gin 参数绑定错误和 go-playground/validator 错误的统一转换。
+## 当前边界
 
-它负责：
+- `core/errors` 继续提供 `AppError` 和错误码。
+- 应用层负责 Gin binding validator 初始化、字段名翻译、自定义 tag 注册和 bind helper。
+- sdkitgo 当前实现位置：`app/http/validator`。
+- sdkitgo runtime capability 位置：`app/infra/capabilities/validator`。
 
-- 初始化中文翻译。
-- 注册项目自定义校验规则。
-- 将绑定和校验错误转换为 `core/errors.AppError`。
-- 提供 API DX helper：`BindJSON`、`BindQuery`、`BindForm`。
-- 通过 `core/validator/facade.Use()` 接入 runtime capability，由 HTTP runtime host 显式依赖。
+## 迁移原因
 
-`Init()` 是进程级幂等初始化。它使用 `sync.Once` 注册 Gin binding validator 的 tag name、默认中文翻译和自定义规则，重复调用直接返回第一次初始化结果。
-
-runtime capability 信息：
-
-```go
-Name:  "validator"
-Scope: runtime.ScopeGlobal
-Group: runtime.GroupSystem
-```
-
-该 capability 不拥有外部资源，`Shutdown` 为 no-op。
-
-## Handler 约束
-
-API handler 中优先使用：
-
-```go
-if err := validator.BindJSON(c, &req); err != nil {
-    response.Fail(c, err)
-    return
-}
-```
-
-不要在新 handler 中继续手写 `ShouldBind...` + `HandlerValidatorError`。旧接口迁移时保持同样规则。
+业务自定义规则如 `tenant_code`、`order_no`、`slug`、`scene` 等不应通过修改 sdkit core 增加。迁出后，业务仓库可以直接在应用层新增规则文件，并通过应用自己的 runtime capability 初始化。
 
 ## 更新记录
 
-- 2026-05-17：新增 `core/validator/facade.Use()` runtime capability，`Init()` 改为幂等并返回初始化错误。
-- 2026-05-15：新增 `BindJSON`、`BindQuery`、`BindForm`，handler 可直接返回统一错误给 `response.Fail`。
+- 2026-05-19：移除 `core/validator` 和 `core/validator/facade`，迁移到 sdkitgo 应用层。
+- 2026-05-17：历史版本新增 `core/validator/facade.Use()` runtime capability。
+- 2026-05-15：历史版本新增 `BindJSON`、`BindQuery`、`BindForm`。
