@@ -74,10 +74,12 @@ type User struct {
     IsLogin string
 }
 
-err := session.Set(c, LoginIdentityCode, user, session.Options{
-    Path:     "/",
-    MaxAge:   30 * 60,
-    HttpOnly: true,
+err := session.Set(c, LoginIdentityCode, user)
+
+// 需要单次覆盖 cookie options 时使用 SetWith。
+err = session.SetWith(c, LoginIdentityCode, user, session.Options{
+    Path:   "/",
+    MaxAge: 30 * 60,
 })
 ```
 
@@ -88,21 +90,13 @@ value := session.Get(c, LoginIdentityCode)
 user, ok := value.(User)
 ```
 
-直接使用原生能力：
-
-```go
-s := session.Default(c)
-s.Set(LoginIdentityCode, user)
-err := s.Save()
-```
-
 ## Hook
 
 `Hook` 用于把登录、登出或其它 session 操作后的额外动作留给业务层，例如写单点登录缓存、写辅助 cookie、打审计日志。
 
 ```go
-err := session.Set(c, LoginIdentityCode, user, opts,
-    func(c *gin.Context, s session.Session) error {
+err := session.Set(c, LoginIdentityCode, user,
+    func(c *gin.Context, s session.Session, opts session.Options) error {
         key := fmt.Sprintf("%s_single", user.ID)
         if err := redis.Client.Set(c.Request.Context(), key, user.IsLogin, ttl).Err(); err != nil {
             return err
@@ -113,13 +107,22 @@ err := session.Set(c, LoginIdentityCode, user, opts,
 )
 ```
 
-Hook 不属于 session 核心逻辑；核心只保证按顺序调用并返回第一个错误。
+Hook 不属于 session 核心逻辑；核心只保证按顺序调用并返回第一个错误。Hook 第三个参数是当前操作实际使用的 cookie options：普通 `Set` / `Delete` / `Clear` 取 middleware 注册时的 options，`SetWith` / `DeleteWith` / `ClearWith` 会把传入 options 合并进去。
 
 ## 删除和清空
 
 ```go
-_ = session.Delete(c, LoginIdentityCode, session.Options{Path: "/", MaxAge: -1})
-_ = session.Clear(c, session.Options{Path: "/", MaxAge: -1})
+_ = session.Delete(c, LoginIdentityCode)
+_ = session.Clear(c)
+
+// 需要单次覆盖 cookie options 时使用 DeleteWith / ClearWith。
+_ = session.DeleteWith(c, LoginIdentityCode, session.Options{MaxAge: -1},
+    func(c *gin.Context, s session.Session, opts session.Options) error {
+        c.SetCookie("isLogin", "", opts.MaxAge, opts.Path, opts.Domain, opts.Secure, false)
+        return nil
+    },
+)
+_ = session.ClearWith(c, session.Options{Path: "/", MaxAge: -1})
 ```
 
 ## 对外 API
@@ -129,9 +132,10 @@ _ = session.Clear(c, session.Options{Path: "/", MaxAge: -1})
 | `Register(value any)` | 注册 gob 类型 |
 | `NewStore(cfg Config)` | 创建 cookie / redis store |
 | `Middleware(cfg Config)` | 创建 Gin middleware |
-| `Default(c)` | 返回 `gin-contrib/sessions.Default(c)` |
-| `Current(c)` | 返回当前 Gin session 和是否存在 |
-| `Set(c, key, value, opts, hooks...)` | 写入并保存 |
+| `Set(c, key, value, hooks...)` | 写入并保存 |
+| `SetWith(c, key, value, opts, hooks...)` | 使用指定 options 写入并保存 |
 | `Get(c, key)` | 读取字段 |
-| `Delete(c, key, opts, hooks...)` | 删除字段并保存 |
-| `Clear(c, opts, hooks...)` | 清空并保存 |
+| `Delete(c, key, hooks...)` | 删除字段并保存 |
+| `DeleteWith(c, key, opts, hooks...)` | 使用指定 options 删除字段并保存 |
+| `Clear(c, hooks...)` | 清空并保存 |
+| `ClearWith(c, opts, hooks...)` | 使用指定 options 清空并保存 |

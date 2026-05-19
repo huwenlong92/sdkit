@@ -27,10 +27,12 @@ const (
 
 var ErrSecretRequired = errors.New("session: secret is required")
 
+const optionsContextKey = "__sdkit_session_options"
+
 type Store = sessions.Store
 type Session = sessions.Session
 type Options = sessions.Options
-type Hook func(c *gin.Context, s Session) error
+type Hook func(c *gin.Context, s Session, opts Options) error
 
 type Config struct {
 	Type     string        `mapstructure:"type" yaml:"type"`
@@ -94,60 +96,61 @@ func Middleware(cfg Config) (gin.HandlerFunc, error) {
 	if err != nil {
 		return nil, err
 	}
-	return sessions.Sessions(cfg.CookieKey(), store), nil
+	opts := cfg.Options()
+	middleware := sessions.Sessions(cfg.CookieKey(), store)
+	return func(c *gin.Context) {
+		c.Set(optionsContextKey, opts)
+		middleware(c)
+	}, nil
 }
 
-func Default(c *gin.Context) Session {
-	return sessions.Default(c)
+func Set(c *gin.Context, key string, value any, hooks ...Hook) error {
+	return SetWith(c, key, value, Options{}, hooks...)
 }
 
-func Current(c *gin.Context) (Session, bool) {
-	if c == nil {
-		return nil, false
-	}
-	value, ok := c.Get(sessions.DefaultKey)
-	if !ok {
-		return nil, false
-	}
-	current, ok := value.(Session)
-	if !ok || current == nil {
-		return nil, false
-	}
-	return current, true
-}
-
-func Set(c *gin.Context, key string, value any, opts Options, hooks ...Hook) error {
+func SetWith(c *gin.Context, key string, value any, opts Options, hooks ...Hook) error {
 	s := sessions.Default(c)
-	s.Options(mergeOptions(opts))
+	finalOpts := optionsWith(c, opts)
+	applyOptions(s, opts, finalOpts)
 	s.Set(key, value)
 	if err := s.Save(); err != nil {
 		return err
 	}
-	return runHooks(c, s, hooks...)
+	return runHooks(c, s, finalOpts, hooks...)
 }
 
 func Get(c *gin.Context, key string) any {
 	return sessions.Default(c).Get(key)
 }
 
-func Delete(c *gin.Context, key string, opts Options, hooks ...Hook) error {
+func Delete(c *gin.Context, key string, hooks ...Hook) error {
+	return DeleteWith(c, key, Options{}, hooks...)
+}
+
+func DeleteWith(c *gin.Context, key string, opts Options, hooks ...Hook) error {
 	s := sessions.Default(c)
-	s.Options(mergeOptions(opts))
+	finalOpts := optionsWith(c, opts)
+	applyOptions(s, opts, finalOpts)
 	s.Delete(key)
 	if err := s.Save(); err != nil {
 		return err
 	}
-	return runHooks(c, s, hooks...)
+	return runHooks(c, s, finalOpts, hooks...)
 }
 
-func Clear(c *gin.Context, opts Options, hooks ...Hook) error {
+func Clear(c *gin.Context, hooks ...Hook) error {
+	return ClearWith(c, Options{}, hooks...)
+}
+
+func ClearWith(c *gin.Context, opts Options, hooks ...Hook) error {
 	s := sessions.Default(c)
-	s.Options(mergeOptions(opts))
+	finalOpts := optionsWith(c, opts)
+	applyOptions(s, opts, finalOpts)
 	s.Clear()
 	if err := s.Save(); err != nil {
 		return err
 	}
-	return runHooks(c, s, hooks...)
+	return runHooks(c, s, finalOpts, hooks...)
 }
 
 func (cfg Config) CookieKey() string {
@@ -208,6 +211,33 @@ func newRedisStore(cfg RedisConfig, secret string) (sessionredis.Store, error) {
 	return sessionredis.NewStoreWithDB(poolSize, network, address, cfg.Username, cfg.Password, strconv.Itoa(cfg.DB), []byte(secret))
 }
 
+func requestOptions(c *gin.Context) Options {
+	if c == nil {
+		return defaultOptions()
+	}
+	value, ok := c.Get(optionsContextKey)
+	if !ok {
+		return defaultOptions()
+	}
+	opts, ok := value.(Options)
+	if !ok {
+		return defaultOptions()
+	}
+	return mergeOptions(opts)
+}
+
+func optionsWith(c *gin.Context, opts Options) Options {
+	return mergeOptionsWith(requestOptions(c), opts)
+}
+
+func defaultOptions() Options {
+	return Options{
+		Path:     DefaultPath,
+		MaxAge:   DefaultMaxAge,
+		HttpOnly: true,
+	}
+}
+
 func mergeOptions(opts Options) Options {
 	if opts.Path == "" {
 		opts.Path = DefaultPath
@@ -221,12 +251,51 @@ func mergeOptions(opts Options) Options {
 	return opts
 }
 
-func runHooks(c *gin.Context, s Session, hooks ...Hook) error {
+func mergeOptionsWith(base Options, override Options) Options {
+	base = mergeOptions(base)
+	if override.Path != "" {
+		base.Path = override.Path
+	}
+	if override.Domain != "" {
+		base.Domain = override.Domain
+	}
+	if override.MaxAge != 0 {
+		base.MaxAge = override.MaxAge
+	}
+	if override.Secure {
+		base.Secure = true
+	}
+	if override.HttpOnly {
+		base.HttpOnly = true
+	}
+	if override.SameSite != 0 {
+		base.SameSite = override.SameSite
+	}
+	return base
+}
+
+func applyOptions(s Session, opts Options, finalOpts Options) {
+	if s == nil || isZeroOptions(opts) {
+		return
+	}
+	s.Options(finalOpts)
+}
+
+func isZeroOptions(opts Options) bool {
+	return opts.Path == "" &&
+		opts.Domain == "" &&
+		opts.MaxAge == 0 &&
+		!opts.Secure &&
+		!opts.HttpOnly &&
+		opts.SameSite == 0
+}
+
+func runHooks(c *gin.Context, s Session, opts Options, hooks ...Hook) error {
 	for _, hook := range hooks {
 		if hook == nil {
 			continue
 		}
-		if err := hook(c, s); err != nil {
+		if err := hook(c, s, opts); err != nil {
 			return err
 		}
 	}
