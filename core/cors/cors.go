@@ -12,11 +12,12 @@ import (
 type Option func(*Config)
 
 type Config struct {
-	Origins       []string
-	Methods       []string
-	Headers       []string
-	ExposeHeaders []string
-	MaxAge        string
+	Origins          []string
+	Methods          []string
+	Headers          []string
+	ExposeHeaders    []string
+	MaxAge           string
+	AllowCredentials bool
 }
 
 func WithOrigins(origins ...string) Option {
@@ -39,6 +40,10 @@ func WithMaxAge(seconds string) Option {
 	return func(c *Config) { c.MaxAge = seconds }
 }
 
+func WithCredentials(allow bool) Option {
+	return func(c *Config) { c.AllowCredentials = allow }
+}
+
 func Middleware(opts ...Option) gin.HandlerFunc {
 	cfg := Config{
 		Origins:       []string{"*"},
@@ -54,11 +59,15 @@ func Middleware(opts ...Option) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", strings.Join(cfg.Origins, ", "))
+		c.Header("Access-Control-Allow-Origin", allowOrigin(c.GetHeader("Origin"), cfg))
 		c.Header("Access-Control-Allow-Methods", strings.Join(cfg.Methods, ", "))
 		c.Header("Access-Control-Allow-Headers", strings.Join(cfg.Headers, ", "))
 		c.Header("Access-Control-Expose-Headers", strings.Join(cfg.ExposeHeaders, ", "))
 		c.Header("Access-Control-Max-Age", cfg.MaxAge)
+		if cfg.AllowCredentials {
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Vary", "Origin")
+		}
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
@@ -66,4 +75,20 @@ func Middleware(opts ...Option) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func allowOrigin(origin string, cfg Config) string {
+	if cfg.AllowCredentials && origin != "" && allowsAnyOrigin(cfg.Origins) {
+		return origin
+	}
+	return strings.Join(cfg.Origins, ", ")
+}
+
+func allowsAnyOrigin(origins []string) bool {
+	for _, origin := range origins {
+		if origin == "*" {
+			return true
+		}
+	}
+	return false
 }

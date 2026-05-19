@@ -24,8 +24,19 @@ r.Use(cors.Middleware(
 ))
 ```
 
+需要跨域携带 cookie 时开启 credentials：
+
+```go
+r.Use(cors.Middleware(
+    cors.WithCredentials(true),
+))
+```
+
+当 `Origins` 为默认 `*` 且开启 credentials 时，中间件会回显当前请求的 `Origin`，避免浏览器拒绝 `Access-Control-Allow-Origin: *` 携带凭据的响应。
+
 ## 注意事项
 
 - 如果前端需要读取 response header，必须通过 `WithExposeHeaders` 暴露。
 - `WithHeaders` 会替换默认 allow headers；自定义时不要漏掉业务需要透传的 request header。
+- 携带 cookie 的跨域请求必须开启 `WithCredentials(true)`，前端也要设置 `withCredentials`。
 - OPTIONS 预检请求会直接返回 `204`。
