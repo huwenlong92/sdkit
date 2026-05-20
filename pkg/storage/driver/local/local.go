@@ -16,9 +16,11 @@ type Driver struct {
 }
 
 type Config struct {
-	Dir       string
-	PublicURL string
-	CDNURL    string
+	Dir          string
+	PublicURL    string
+	CDNURL       string
+	SourceURL    string
+	SourceSecret string
 }
 
 func New(dir string) *Driver {
@@ -34,9 +36,11 @@ func NewWithConfig(cfg Config) *Driver {
 func NewFromConfig(cfg core.Config) *Driver {
 	policy := cfg.Policy
 	return NewWithConfig(Config{
-		Dir:       firstNonEmpty(policy.LocalDir, cfg.DriverString("local", "dir")),
-		PublicURL: firstNonEmpty(policy.PublicURL, cfg.DriverString("local", "public_url")),
-		CDNURL:    firstNonEmpty(policy.CDNURL, cfg.DriverString("local", "cdn_url")),
+		Dir:          firstNonEmpty(policy.LocalDir, cfg.DriverString("local", "dir")),
+		PublicURL:    firstNonEmpty(policy.PublicURL, cfg.DriverString("local", "public_url")),
+		CDNURL:       firstNonEmpty(policy.CDNURL, cfg.DriverString("local", "cdn_url")),
+		SourceURL:    firstNonEmpty(policy.SourceURL, cfg.DriverString("local", "source_url")),
+		SourceSecret: firstNonEmpty(policy.SourceSecret, policy.SecretKey, cfg.DriverString("local", "source_secret"), cfg.DriverString("local", "secret_key")),
 	})
 }
 
@@ -112,6 +116,9 @@ func (d *Driver) List(path string) ([]core.Object, error) {
 }
 
 func (d *Driver) Source(path string, ttl time.Duration) (string, error) {
+	if ttl > 0 {
+		return core.SignSourceURL(d.cfg.SourceURL, path, d.cfg.SourceSecret, ttl, time.Now())
+	}
 	if publicURL := core.JoinPublicURL(publicBaseURL(d.cfg.PublicURL, d.cfg.CDNURL), path); publicURL != "" {
 		return publicURL, nil
 	}

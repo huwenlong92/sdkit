@@ -28,6 +28,8 @@ type StoragePolicy struct {
 	EndpointInner string `mapstructure:"endpoint_inner" json:"endpoint_inner"`
 	PublicURL     string `mapstructure:"public_url" json:"public_url"`
 	CDNURL        string `mapstructure:"cdn_url" json:"cdn_url"`
+	SourceURL     string `mapstructure:"source_url" json:"source_url"`
+	SourceSecret  string `mapstructure:"source_secret" json:"source_secret"`
 	Region        string `mapstructure:"region" json:"region"`
 	AccessKey     string `mapstructure:"access_key" json:"access_key"`
 	SecretKey     string `mapstructure:"secret_key" json:"secret_key"`

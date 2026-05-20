@@ -34,6 +34,8 @@ type StoreConfig struct {
 	EndpointInner string `mapstructure:"endpoint_inner" yaml:"endpoint_inner"`
 	PublicURL     string `mapstructure:"public_url" yaml:"public_url"`
 	CDNURL        string `mapstructure:"cdn_url" yaml:"cdn_url"`
+	SourceURL     string `mapstructure:"source_url" yaml:"source_url"`
+	SourceSecret  string `mapstructure:"source_secret" yaml:"source_secret"`
 	Region        string `mapstructure:"region" yaml:"region"`
 	AccessKey     string `mapstructure:"access_key" yaml:"access_key"`
 	SecretKey     string `mapstructure:"secret_key" yaml:"secret_key"`
@@ -79,6 +81,8 @@ func (c StoreConfig) storageConfig() fscore.Config {
 	policy.EndpointInner = firstNonEmpty(policy.EndpointInner, c.EndpointInner)
 	policy.PublicURL = firstNonEmpty(policy.PublicURL, c.PublicURL)
 	policy.CDNURL = firstNonEmpty(policy.CDNURL, c.CDNURL)
+	policy.SourceURL = firstNonEmpty(policy.SourceURL, c.SourceURL)
+	policy.SourceSecret = firstNonEmpty(policy.SourceSecret, c.SourceSecret)
 	policy.Region = firstNonEmpty(policy.Region, c.Region)
 	policy.AccessKey = firstNonEmpty(policy.AccessKey, c.AccessKey, c.SecretID, c.AccessKeyID)
 	policy.SecretKey = firstNonEmpty(policy.SecretKey, c.SecretKey, c.AccessSecret)

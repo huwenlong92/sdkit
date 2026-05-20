@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/huwenlong92/sdkit/pkg/storage/core"
@@ -69,6 +70,27 @@ func NewFromConfig(cfg core.Config, minio bool) (*Driver, error) {
 		SecretKey:     firstNonEmpty(policy.SecretKey, cfg.DriverString("s3", "secret_key")),
 		UseSSL:        policy.UseSSL || cfg.DriverBool("s3", "use_ssl"),
 	}, minio)
+}
+
+func NewR2FromConfig(cfg core.Config) (*Driver, error) {
+	policy := cfg.Policy
+	endpoint := firstNonEmpty(policy.Endpoint, cfg.DriverString("r2", "endpoint"))
+	if endpoint == "" {
+		if accountID := cfg.DriverString("r2", "account_id"); accountID != "" {
+			endpoint = "https://" + accountID + ".r2.cloudflarestorage.com"
+		}
+	}
+	return New(Config{
+		Bucket:        firstNonEmpty(policy.Bucket, cfg.DriverString("r2", "bucket")),
+		Endpoint:      endpoint,
+		EndpointInner: firstNonEmpty(policy.EndpointInner, cfg.DriverString("r2", "endpoint_inner")),
+		PublicURL:     firstNonEmpty(policy.PublicURL, cfg.DriverString("r2", "public_url")),
+		CDNURL:        firstNonEmpty(policy.CDNURL, cfg.DriverString("r2", "cdn_url")),
+		Region:        firstNonEmpty(policy.Region, cfg.DriverString("r2", "region"), "auto"),
+		AccessKey:     firstNonEmpty(policy.AccessKey, cfg.DriverString("r2", "access_key"), cfg.DriverString("r2", "access_key_id")),
+		SecretKey:     firstNonEmpty(policy.SecretKey, cfg.DriverString("r2", "secret_key"), cfg.DriverString("r2", "access_secret")),
+		UseSSL:        policy.UseSSL || cfg.DriverBool("r2", "use_ssl") || !strings.HasPrefix(endpoint, "http://"),
+	}, true)
 }
 
 func firstNonEmpty(values ...string) string {
@@ -217,17 +239,17 @@ func (d *Driver) Token(info core.FileInfo, ttl time.Duration) (*core.UploadCrede
 }
 
 func (d *Driver) Source(path string, ttl time.Duration) (string, error) {
-	if publicURL := core.JoinPublicURL(publicBaseURL(d.cfg.PublicURL, d.cfg.CDNURL), path); publicURL != "" {
-		return publicURL, nil
+	if ttl <= 0 {
+		if publicURL := core.JoinPublicURL(publicBaseURL(d.cfg.PublicURL, d.cfg.CDNURL), path); publicURL != "" {
+			return publicURL, nil
+		}
 	}
+	ttl = core.NormalizeSourceTTL(ttl)
 	req, _ := d.svc.GetObjectRequest(&awss3.GetObjectInput{
 		Bucket: d.bucket(),
 		Key:    aws.String(path),
 	})
-	if ttl > 0 {
-		return req.Presign(ttl)
-	}
-	return req.Presign(7 * 24 * time.Hour)
+	return req.Presign(ttl)
 }
 
 func publicBaseURL(publicURL, cdnURL string) string {

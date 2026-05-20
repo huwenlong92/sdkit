@@ -116,9 +116,12 @@ func (d *Driver) List(dir string) ([]core.Object, error) {
 }
 
 func (d *Driver) Source(path string, ttl time.Duration) (string, error) {
-	if publicURL := core.JoinPublicURL(publicBaseURL(d.cfg.PublicURL, d.cfg.CDNURL), path); publicURL != "" {
-		return publicURL, nil
+	if ttl <= 0 {
+		if publicURL := core.JoinPublicURL(publicBaseURL(d.cfg.PublicURL, d.cfg.CDNURL), path); publicURL != "" {
+			return publicURL, nil
+		}
 	}
+	ttl = core.NormalizeSourceTTL(ttl)
 	urlStr, err := d.bucket.SignURL(path, alioss.HTTPGet, int64(ttl.Seconds()))
 	if err != nil {
 		return "", err

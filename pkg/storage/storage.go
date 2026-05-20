@@ -147,6 +147,10 @@ func (fs *FileSystem) DispatchHandler() error {
 		handler, err := s3.NewFromConfig(fs.cfg, true)
 		fs.handler = handler
 		return err
+	case "r2":
+		handler, err := s3.NewR2FromConfig(fs.cfg)
+		fs.handler = handler
+		return err
 	case "cos":
 		handler, err := cos.NewFromConfig(fs.cfg)
 		fs.handler = handler

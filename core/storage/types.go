@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"io"
+	"net/http"
 
 	pkgfs "github.com/huwenlong92/sdkit/pkg/storage"
 	fscore "github.com/huwenlong92/sdkit/pkg/storage/core"
@@ -45,11 +46,14 @@ const (
 )
 
 var (
-	ErrFileTooBig    = fscore.ErrFileTooBig
-	ErrFileExists    = fscore.ErrFileExists
-	ErrFileNotFound  = fscore.ErrFileNotFound
-	ErrNameInvalid   = fscore.ErrNameInvalid
-	ErrUnknownDriver = fscore.ErrUnknownDriver
+	ErrFileTooBig             = fscore.ErrFileTooBig
+	ErrFileExists             = fscore.ErrFileExists
+	ErrFileNotFound           = fscore.ErrFileNotFound
+	ErrNameInvalid            = fscore.ErrNameInvalid
+	ErrUnknownDriver          = fscore.ErrUnknownDriver
+	ErrSourceExpired          = fscore.ErrSourceExpired
+	ErrSourceSignatureInvalid = fscore.ErrSourceSignatureInvalid
+	ErrSourceSecretRequired   = fscore.ErrSourceSecretRequired
 )
 
 type (
@@ -81,6 +85,10 @@ type (
 
 func NewFileStream(reader io.Reader, info FileInfo) *FileStream {
 	return fscore.NewFileStream(reader, info)
+}
+
+func SourceHandler(fs *FileSystem, secret string) http.Handler {
+	return pkgfs.SourceHandler(fs, secret)
 }
 
 func BeforeUpload(hook Hook) HookOption {

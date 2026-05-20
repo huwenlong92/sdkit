@@ -18,6 +18,11 @@ storage:
       endpoint: https://example.cos.ap-shanghai.myqcloud.com
       secret_id: ${COS_SECRET_ID}
       secret_key: ${COS_SECRET_KEY}
+    local:
+      driver: local
+      local_dir: storage
+      source_url: https://admin.example.com/storage/source
+      source_secret: ${STORAGE_SOURCE_SECRET}
     minio:
       driver: minio
       bucket: private-assets
@@ -25,6 +30,12 @@ storage:
       access_key: minio
       secret_key: minio-secret
       use_ssl: false
+    r2:
+      driver: r2
+      bucket: app-assets
+      endpoint: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+      access_key: ${R2_ACCESS_KEY_ID}
+      secret_key: ${R2_SECRET_ACCESS_KEY}
 ```
 
 没有配置 `storage` 节点时，`facade.Use()` 会使用本地默认配置：`default` store，driver 为 `local`，目录为 `storage`。只要配置了 `storage` 节点，`default` 就必须显式配置，并且必须指向 `stores` 中存在的名称。业务需要把一部分资源放到其他存储时，通过 store 名称显式选择。
@@ -74,6 +85,49 @@ if result.Error != nil {
 
 info := result.File
 ```
+
+## 临时私有访问链接
+
+需要把私有文件临时发给别人时，使用 `Source(path, ttl)`。`ttl > 0` 表示生成带有效期的私有访问链接：
+
+```go
+url, err := fs.Source("private/report.pdf", 30*time.Minute)
+if err != nil {
+    return err
+}
+```
+
+对象存储 driver 会使用原生签名 URL：
+
+- `s3` / `minio`：生成 presigned GET URL
+- `r2`：生成 Cloudflare R2 S3 兼容 presigned GET URL
+- `oss`：生成 GET 签名 URL
+- `cos`：生成 GET 签名 URL
+
+`local` driver 没有对象存储签名能力，会生成带 `path`、`expires`、`signature` 的应用访问链接。需要配置签名密钥，并在应用路由中挂载校验 handler：
+
+```yaml
+storage:
+  default: local
+  stores:
+    local:
+      driver: local
+      local_dir: storage
+      source_url: https://admin.example.com/storage/source
+      source_secret: ${STORAGE_SOURCE_SECRET}
+```
+
+```go
+fs, err := storage.Default()
+if err != nil {
+    return err
+}
+router.GET("/storage/source", gin.WrapH(storage.SourceHandler(fs, sourceSecret)))
+```
+
+`source_url` 是对外访问入口地址；为空时会生成相对路径 `/storage/source`。`source_secret` 必须和 handler 使用的密钥一致。未配置 `source_secret` 时，local 会兼容使用 `secret_key`。local 访问链接默认使用 `inline`，浏览器支持的图片、PDF 等文件会在线预览；需要强制下载时追加 `download=1`。
+
+`ttl <= 0` 保持公开访问语义：如果配置了 `cdn_url` 或 `public_url`，优先返回静态公开 URL；没有公开 URL 时，对象存储会使用默认 7 天有效期的签名 URL，local 返回本地文件路径。
 
 ## 指定存储
 
@@ -174,4 +228,5 @@ case storage.UploadModeMultipartPut:
 - 额外存储放在 `storage.stores.<name>`
 - 业务代码需要跨 driver 时通过 `storage.Use(name)` 显式选择
 - 配置入口只使用 `storage`，不要再新增 `filesystem` 配置
+- Cloudflare R2 使用 `driver: r2`，`endpoint` 为 `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`，region 默认按 R2 要求使用 `auto`
 - 新增 driver 时必须在上传凭证中补齐 `mode`

@@ -184,6 +184,29 @@ func TestUnifiedPolicyConfigMapsToDriverConfig(t *testing.T) {
 	}
 }
 
+func TestR2SourceUsesS3CompatiblePresignedURL(t *testing.T) {
+	fs, err := storage.NewFromPolicy(core.StoragePolicy{
+		Driver:    "r2",
+		Bucket:    "assets",
+		Endpoint:  "https://account-id.r2.cloudflarestorage.com",
+		AccessKey: "r2-access-key",
+		SecretKey: "r2-secret-key",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := fs.Source("avatars/a.png", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(source, "account-id.r2.cloudflarestorage.com/assets/avatars/a.png") {
+		t.Fatalf("source should use R2 path-style endpoint: %s", source)
+	}
+	if !strings.Contains(source, "X-Amz-Signature=") || !strings.Contains(source, "auto") {
+		t.Fatalf("source should be a region auto presigned URL: %s", source)
+	}
+}
+
 func TestNewFromPolicyUsesPolicyOnly(t *testing.T) {
 	dir := t.TempDir()
 	fs, err := storage.NewFromPolicy(

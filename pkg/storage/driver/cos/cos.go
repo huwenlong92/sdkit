@@ -168,12 +168,17 @@ func (d *Driver) List(dir string) ([]core.Object, error) {
 }
 
 func (d *Driver) Source(path string, ttl time.Duration) (string, error) {
-	if publicURL := core.JoinPublicURL(publicBaseURL(d.cfg.PublicURL, d.cfg.CDNURL), path); publicURL != "" {
-		return publicURL, nil
+	if ttl <= 0 {
+		if publicURL := core.JoinPublicURL(publicBaseURL(d.cfg.PublicURL, d.cfg.CDNURL), path); publicURL != "" {
+			return publicURL, nil
+		}
 	}
-	base, _ := url.Parse(d.cfg.Endpoint)
-	base.Path = path
-	return base.String(), nil
+	rawURL, err := d.client.Object.GetPresignedURL(context.Background(), http.MethodGet, path,
+		d.cfg.SecretID, d.cfg.SecretKey, core.NormalizeSourceTTL(ttl), nil)
+	if err != nil {
+		return "", err
+	}
+	return rawURL.String(), nil
 }
 
 func (d *Driver) Token(info core.FileInfo, ttl time.Duration) (*core.UploadCredential, error) {
