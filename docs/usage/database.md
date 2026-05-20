@@ -235,7 +235,17 @@ database.DB.Model(&models.SystemUser{}).Where("id = ?", id).Update("status", 1)
 
 ## 分页
 
-`database.Page` 可用于 pgx 原生 SQL 分页：
+GORM 列表查询使用 `database.Paginate` Scope：
+
+```go
+err := database.DB.WithContext(ctx).
+    Model(&models.SystemUser{}).
+    Scopes(database.Paginate(request.Page, request.PageSize)).
+    Order("id DESC").
+    Find(&users).Error
+```
+
+pgx 原生 SQL 使用 `database.Page`：
 
 ```go
 p := database.Page{Page: request.Page, PageSize: request.PageSize}
@@ -253,7 +263,7 @@ rows, err := database.PGX(ctx).Query(ctx,
 - `page_size <= 0` 默认 20
 - `page_size` 最大 100
 
-GORM 后台列表可以继续使用现有分页逻辑，不需要为了分页改成 pgx。
+GORM 和 pgx 都复用同一套 `database.Page` 规则；`Paginate` 只是 GORM Scope 适配层。
 
 ## 事务 Helper
 

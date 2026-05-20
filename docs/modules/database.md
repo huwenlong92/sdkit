@@ -278,12 +278,21 @@ database.TableOf[*models.SystemUser](db)
 
 ## 分页方案
 
-`Page` 只负责提供原生 SQL 常用的 `LIMIT` 和 `OFFSET`：
+`Page` 负责提供统一分页规则，pgx 原生 SQL 可以直接使用 `LIMIT` 和 `OFFSET`：
 
 ```go
 p := database.Page{Page: page, PageSize: pageSize}
 limit := p.Limit()
 offset := p.Offset()
+```
+
+GORM 查询使用 `Paginate` Scope：
+
+```go
+err := database.DB.WithContext(ctx).
+    Model(&models.SystemUser{}).
+    Scopes(database.Paginate(page, pageSize)).
+    Find(&users).Error
 ```
 
 规则：
