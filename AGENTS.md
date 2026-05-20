@@ -51,7 +51,6 @@
 
 - 测试用例统一放在仓库根目录 tests/ 目录
 - tests/ 下按模块分目录，例如 tests/core、tests/pkg、tests/bootstrap
-- 模块内测试文件按被测文件或能力命名
 
 ---
 
