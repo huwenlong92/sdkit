@@ -10,4 +10,5 @@ var (
 	ErrEntryNotFound       = errors.New("crontab entry not found")
 	ErrLocalHandlerMissing = errors.New("crontab local handler missing")
 	ErrJobRunning          = errors.New("crontab job is already running")
+	ErrRunLimitReached     = errors.New("crontab run limit reached")
 )

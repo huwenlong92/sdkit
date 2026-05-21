@@ -166,7 +166,10 @@ func (r *Registry) Dispatch(ctx context.Context, entry *Entry) error {
 	defer unlock()
 
 	logRuntimeStart(ctx, runCtx, entryValue, tpl)
-	writeRuntimeRunning(runCtx, ctx)
+	if err := writeRuntimeRunning(runCtx, ctx); err != nil {
+		result = runResultFromMarkRunningError(err)
+		return runtimeResultError(result)
+	}
 	runningWritten = true
 
 	ctx = injectRuntimeJobLogger(ctx, runCtx, entryValue, job)
@@ -283,6 +286,9 @@ func acquireRuntimeLock(ctx context.Context, runCtx *RunContext, entry Entry, tp
 	if runCtx == nil || runCtx.runner == nil {
 		return func() {}, nil
 	}
+	if !runCtx.runner.cfg.Lock.Enabled {
+		return func() {}, nil
+	}
 
 	key := runtimeLockKey(entry)
 	ttl := job.LockTTL
@@ -324,16 +330,26 @@ func runtimeLockKey(entry Entry) string {
 	return "crontab:entry:" + id
 }
 
-func writeRuntimeRunning(runCtx *RunContext, ctx context.Context) {
+func writeRuntimeRunning(runCtx *RunContext, ctx context.Context) error {
 	if runCtx == nil || runCtx.runner == nil {
-		return
+		return nil
 	}
 	runLog := runCtx.runningLog()
-	_ = runCtx.runner.store.MarkRunning(ctx, runLog)
+	if err := runCtx.runner.store.MarkRunning(ctx, runLog); err != nil {
+		return err
+	}
 	_ = runCtx.runner.logger.Write(ctx, runLog)
 	if runCtx.runner.runtime != nil {
 		runCtx.runner.runtime.MarkRunning(runCtx.Entry, runCtx.StartedAt)
 	}
+	return nil
+}
+
+func runResultFromMarkRunningError(err error) RunResult {
+	if errors.Is(err, ErrRunLimitReached) {
+		return RunResult{Status: StatusDisabled, Err: err}
+	}
+	return RunResult{Status: StatusFailed, Err: err}
 }
 
 func injectRuntimeJobLogger(ctx context.Context, runCtx *RunContext, entry Entry, job Job) context.Context {
@@ -418,6 +434,9 @@ func executeTemplateHandler(ctx context.Context, runCtx *RunContext, tpl Templat
 
 func finishRuntime(runCtx *RunContext, ctx context.Context, entry Entry, result RunResult, startedAt time.Time, finishedAt time.Time, runningWritten bool) {
 	if runCtx == nil || runCtx.runner == nil {
+		return
+	}
+	if !runningWritten && errors.Is(result.Err, ErrRunLimitReached) {
 		return
 	}
 	if !runningWritten {
@@ -571,6 +590,7 @@ func (s *RuntimeState) SetSchedule(entries []Entry) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	next := make(map[string]RuntimeInfo, len(entries))
 	for _, entry := range entries {
 		info := s.items[entry.ID]
 		info.EntryID = entry.ID
@@ -580,8 +600,9 @@ func (s *RuntimeState) SetSchedule(entries []Entry) {
 		} else if info.Status == "" {
 			info.Status = RuntimeWaiting
 		}
-		s.items[entry.ID] = info
+		next[entry.ID] = info
 	}
+	s.items = next
 }
 
 func (s *RuntimeState) MarkRunning(entry Entry, started time.Time) {

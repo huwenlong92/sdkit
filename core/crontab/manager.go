@@ -181,6 +181,7 @@ func (m *Manager) ListEntries(ctx context.Context) ([]EntryInfo, error) {
 			Spec:        status.Spec,
 			Source:      status.Source,
 			Enabled:     status.Enabled,
+			MaxRunCount: status.MaxRunCount,
 		})
 	}
 	return out, nil
@@ -221,6 +222,7 @@ func (m *Manager) CreateEntry(ctx context.Context, req CreateEntryRequest) (Entr
 		Payload:     req.Payload,
 		Source:      SourceDB,
 		Enabled:     req.Enabled,
+		MaxRunCount: req.MaxRunCount,
 	})
 }
 
@@ -244,6 +246,7 @@ func (m *Manager) UpdateEntry(ctx context.Context, id string, req UpdateEntryReq
 		Payload:     req.Payload,
 		Source:      SourceDB,
 		Enabled:     req.Enabled,
+		MaxRunCount: req.MaxRunCount,
 	})
 }
 
@@ -286,11 +289,11 @@ func (m *Manager) RunOnce(ctx context.Context, req RunOnceRequest) error {
 		Distributed: true,
 		LockKey:     req.LockKey,
 	}
-	m.runner.Run(ctx, EntryToJob(entry))
-	if m.runner.LastRunStatus(entry.ID) == StatusLocked {
+	result := m.runner.RunResult(ctx, EntryToJob(entry)).normalize()
+	if result.Status == StatusLocked {
 		return ErrJobRunning
 	}
-	return nil
+	return runtimeResultError(result)
 }
 
 func (m *Manager) runEntryOnce(ctx context.Context, req RunOnceRequest) error {
@@ -322,11 +325,11 @@ func (m *Manager) runEntryOnce(ctx context.Context, req RunOnceRequest) error {
 	if req.LockKey != "" {
 		entry.LockKey = req.LockKey
 	}
-	m.runner.Run(ctx, EntryToJob(entry))
-	if m.runner.LastRunStatus(entry.ID) == StatusLocked {
+	result := m.runner.RunResult(ctx, EntryToJob(entry)).normalize()
+	if result.Status == StatusLocked {
 		return ErrJobRunning
 	}
-	return nil
+	return runtimeResultError(result)
 }
 
 func (m *Manager) ListRuntime(ctx context.Context) ([]RuntimeInfo, error) {
@@ -519,6 +522,7 @@ func entryFromInfo(info EntryInfo) Entry {
 		Distributed: info.Distributed,
 		LockTTL:     info.LockTTL,
 		LockKey:     info.LockKey,
+		MaxRunCount: info.MaxRunCount,
 	}
 }
 

@@ -63,7 +63,14 @@ func (r *Runner) Run(ctx context.Context, job Job) {
 	if r == nil {
 		return
 	}
-	_ = r.execute(newRunContext(ctx, r, job))
+	_ = r.RunResult(ctx, job)
+}
+
+func (r *Runner) RunResult(ctx context.Context, job Job) RunResult {
+	if r == nil {
+		return RunResult{Status: StatusFailed}
+	}
+	return r.execute(newRunContext(ctx, r, job))
 }
 
 func (r *Runner) execute(c *RunContext) RunResult {

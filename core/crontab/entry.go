@@ -18,6 +18,8 @@ type Entry struct {
 	Distributed bool
 	LockTTL     time.Duration
 	LockKey     string
+
+	MaxRunCount int64
 }
 
 type EntryInfo struct {
@@ -38,6 +40,7 @@ type EntryInfo struct {
 	NextRunAt    int64         `json:"next_run_at"`
 	LastError    string        `json:"last_error"`
 	RunCount     int64         `json:"run_count"`
+	MaxRunCount  int64         `json:"max_run_count"`
 	SuccessCount int64         `json:"success_count"`
 	FailCount    int64         `json:"fail_count"`
 	SkipCount    int64         `json:"skip_count"`
@@ -53,6 +56,7 @@ type CreateEntryRequest struct {
 	Distributed bool
 	LockTTL     time.Duration
 	LockKey     string
+	MaxRunCount int64
 }
 
 type UpdateEntryRequest struct {
@@ -65,6 +69,7 @@ type UpdateEntryRequest struct {
 	Distributed bool
 	LockTTL     time.Duration
 	LockKey     string
+	MaxRunCount int64
 }
 
 type RunOnceRequest struct {
@@ -93,6 +98,7 @@ func EntryToJob(e Entry) Job {
 		Distributed: e.Distributed,
 		LockTTL:     e.LockTTL,
 		LockKey:     e.LockKey,
+		MaxRunCount: e.MaxRunCount,
 	}
 }
 
@@ -113,6 +119,7 @@ func JobToEntry(j Job) Entry {
 		Distributed: j.Distributed,
 		LockTTL:     j.LockTTL,
 		LockKey:     j.LockKey,
+		MaxRunCount: j.MaxRunCount,
 	}
 }
 
@@ -129,5 +136,6 @@ func entryInfo(e Entry) EntryInfo {
 		Distributed: e.Distributed,
 		LockTTL:     e.LockTTL,
 		LockKey:     e.LockKey,
+		MaxRunCount: e.MaxRunCount,
 	}
 }

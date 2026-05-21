@@ -20,23 +20,26 @@ type Job struct {
 	Distributed bool
 	LockTTL     time.Duration
 	LockKey     string
+
+	MaxRunCount int64
 }
 
 type JobStatus struct {
-	ID         string
-	Name       string
-	Label      string
-	Source     Source
-	Mode       Mode
-	Spec       string
-	Enabled    bool
-	Running    bool
-	LastStatus Status
-	LastRunAt  int64
-	NextRunAt  int64
-	RunCount   int64
-	FailCount  int64
-	LastError  string
+	ID          string
+	Name        string
+	Label       string
+	Source      Source
+	Mode        Mode
+	Spec        string
+	Enabled     bool
+	Running     bool
+	LastStatus  Status
+	LastRunAt   int64
+	NextRunAt   int64
+	RunCount    int64
+	MaxRunCount int64
+	FailCount   int64
+	LastError   string
 }
 
 type RunLog struct {

@@ -84,7 +84,7 @@ func NewRegistry() (*corecron.Registry, error) {
 }
 ```
 
-`AllowDB=true` 时才允许后台或 DB 动态任务引用该模板。DB 动态任务只提供 Entry 层字段：模板 key、展示名、cron 表达式、payload、启用状态。
+`AllowDB=true` 时才允许后台或 DB 动态任务引用该模板。DB 动态任务只提供 Entry 层字段：模板 key、展示名、cron 表达式、payload、启用状态、执行次数上限。
 
 ## 执行函数
 
@@ -205,9 +205,11 @@ crontab_overlap_skipped_total
 后台动态任务只配置 Entry 层字段：
 
 ```text
-可配置：template_key/name、label、spec、payload、enabled
+可配置：template_key/name、label、spec、payload、enabled、max_run_count
 不可配置：handler、mode、timeout、allow_overlap、distributed、lock_ttl、queue、task_type
 ```
+
+`max_run_count=0` 表示不限次数；大于 0 时，项目侧 Store 应在达到上限后停用 DB Entry，避免后续调度继续执行。
 
 执行策略来自 Template：
 
@@ -215,6 +217,7 @@ crontab_overlap_skipped_total
 - `AllowOverlap` 控制任务级互斥
 - `AllowDB` 控制是否允许 DB 引用
 - `Enabled` 是代码级总开关
+- `crontab.lock.enabled=false` 时跳过 runtime 分布式锁；开启时才按 Entry 粒度加锁
 
 同一个模板可以被多条 DB 任务引用。默认锁粒度是 Entry，不是 Template，所以不同 Entry 互不阻塞。
 
@@ -236,6 +239,8 @@ type Service interface {
     RunOnce(ctx context.Context, req RunOnceRequest) error
 }
 ```
+
+`RunOnce` 是同步执行入口：handler 返回错误、timeout、panic 或锁冲突都会以 error 返回给调用方，同时仍写入运行日志和 runtime state。调用方可以用 `errors.Is(err, corecron.ErrJobRunning)` 单独处理任务正在执行的冲突。
 
 项目侧通过 capability 注入给需要管理 crontab 的服务：
 

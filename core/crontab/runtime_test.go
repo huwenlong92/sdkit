@@ -74,6 +74,24 @@ func TestRuntimeDispatchUsesRegistryTemplate(t *testing.T) {
 	}
 }
 
+func TestRuntimeStateSetSchedulePrunesRemovedEntries(t *testing.T) {
+	state := NewRuntimeState()
+	state.SetSchedule([]Entry{
+		{ID: "db.1", TemplateKey: "first", Enabled: true},
+		{ID: "db.2", TemplateKey: "second", Enabled: true},
+	})
+	state.SetSchedule([]Entry{
+		{ID: "db.2", TemplateKey: "second", Enabled: true},
+	})
+
+	if _, ok := state.Get("db.1"); ok {
+		t.Fatal("removed entry still exists in runtime state")
+	}
+	if info, ok := state.Get("db.2"); !ok || info.TemplateKey != "second" {
+		t.Fatalf("remaining entry mismatch: %#v ok=%v", info, ok)
+	}
+}
+
 func TestRegistryDispatchesRunHandler(t *testing.T) {
 	registry := NewRegistry()
 	gotPayload := ""

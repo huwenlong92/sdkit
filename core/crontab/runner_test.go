@@ -354,6 +354,33 @@ func TestRunnerLocked(t *testing.T) {
 	}
 }
 
+func TestRunnerLockDisabledSkipsLocker(t *testing.T) {
+	registry := NewRegistry()
+	if err := registry.Register(Template{
+		Name:    "lock_disabled",
+		Handler: RunHandlerFromFunc(func(context.Context, Job) error { return nil }),
+		Enabled: true,
+		AllowDB: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := DefaultConfig()
+	cfg.Lock.Enabled = false
+	writer := &memoryLogWriter{}
+	runner := NewRunner(RunnerOptions{
+		Config:   cfg,
+		Registry: registry,
+		Locker:   lockedLocker{},
+		Logger:   writer,
+	})
+	runner.Run(context.Background(), Job{Name: "lock_disabled", Source: SourceDynamic, Mode: ModeLocal, Enabled: true})
+
+	if got := writer.lastStatus(); got != StatusSuccess {
+		t.Fatalf("status mismatch: got %s", got)
+	}
+}
+
 func TestRunnerFailureWritesFinalLog(t *testing.T) {
 	registry := NewRegistry()
 	if err := registry.Register(Template{

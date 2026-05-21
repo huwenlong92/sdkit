@@ -171,6 +171,7 @@ type Entry struct {
     Distributed bool
     LockTTL     time.Duration
     LockKey     string
+    MaxRunCount int64
 }
 ```
 
@@ -182,7 +183,10 @@ label
 spec
 payload
 enabled
+max_run_count
 ```
+
+`MaxRunCount` / `max_run_count` 为 0 表示不限次数；大于 0 时，项目侧 Store 应在达到上限后停用 DB Entry，避免后续调度继续执行。
 
 执行策略不从 DB 覆盖，统一来自 Template 和 Dispatch。
 
@@ -216,7 +220,11 @@ Dispatch 顺序：
 crontab:entry:<entry_id>
 ```
 
-`AllowOverlap=true` 时不加锁。
+`AllowOverlap=true` 或 `crontab.lock.enabled=false` 时不加锁。开启锁时，锁 TTL 优先使用任务 LockTTL，其次使用全局 `crontab.lock.ttl`，最后按 timeout 派生兜底值。
+
+`RunOnce` 通过 Runner 同步返回本次执行结果。handler 失败、timeout、panic 会返回对应 error；锁冲突返回 `ErrJobRunning`。无论调用方是否处理 error，runtime 仍会写 running/final log、runtime state、metrics 和 failure callback。
+
+`RuntimeState.SetSchedule` 以本次 reload 后的有效调度为准，已经从 DB 删除或不再调度的 Entry 会从内存状态中移除，避免后台运行态展示旧任务。
 
 ## Failure Callback
 
@@ -351,5 +359,6 @@ crontab/
 
 ## Update Record
 
+- 2026-05-21：`crontab.lock.enabled` 开始控制 runtime 加锁；`RunOnce` 同步返回 handler 失败、timeout、panic 和 `ErrJobRunning`；runtime schedule reload 会清理已移除 Entry 的内存状态。
 - 2026-05-17：新增 crontab operations facade，Admin 改为通过 `core/crontab.Service` 查询模板和管理 DB Entry；模板仍由项目 `crontab` 包硬编码注册，Admin 不维护 catalog。
 - 2026-05-17：Template-Driven Runtime freeze。删除 crontab middleware runtime、Router DSL、BuiltinJob registry 和 Template events；Dispatch 接管 tracing、logger、metrics、timeout、overlap lock、run log、panic recover 和 failure callback。

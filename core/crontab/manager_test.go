@@ -215,6 +215,37 @@ func TestManagerRunOnceReturnsJobRunningWhenTaskLockHeld(t *testing.T) {
 	}
 }
 
+func TestManagerRunOnceReturnsHandlerError(t *testing.T) {
+	wantErr := errors.New("manual failed")
+	registry := NewRegistry()
+	if err := registry.Register(Template{
+		Name: "manual_failure",
+		Handler: RunHandlerFromFunc(func(context.Context, Job) error {
+			return wantErr
+		}),
+		Enabled: true,
+		AllowDB: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	manager, err := NewManager(ManagerOptions{
+		Config:     DefaultConfig(),
+		Registry:   registry,
+		Store:      &fakeStore{},
+		Repository: &fakeEntryRepository{entry: EntryInfo{ID: "db.2", Name: "Manual failure", TemplateKey: "manual_failure", Spec: "@every 1m", Source: SourceDB, Enabled: true}},
+		Scheduler:  &fakeScheduler{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = manager.RunOnce(context.Background(), RunOnceRequest{EntryID: "2"})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("expected handler error, got %v", err)
+	}
+}
+
 type fakeEntryRepository struct {
 	entry EntryInfo
 }
