@@ -653,6 +653,63 @@ func TestMiddlewareBinaryResponseOmitted(t *testing.T) {
 	}
 }
 
+func TestMiddlewareExtractsResponseMeta(t *testing.T) {
+	writer, accessLogger, stop := newCaptureLogger(t)
+	defer stop()
+
+	r := gin.New()
+	r.Use(accesslog.Middleware("test", accesslog.WithLogger(accessLogger)))
+	r.GET("/ok", func(c *gin.Context) {
+		c.JSON(http.StatusOK, struct {
+			ErrCode int    `json:"err_code"`
+			Msg     string `json:"msg"`
+			Data    string `json:"data"`
+		}{
+			ErrCode: 200,
+			Msg:     "ok",
+			Data:    "hello",
+		})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ok", nil)
+	r.ServeHTTP(w, req)
+
+	entry := waitEntry(t, writer.ch)
+	if entry.ErrCode != 200 {
+		t.Fatalf("err_code = %d, want 200", entry.ErrCode)
+	}
+	if entry.ErrMsg != "ok" {
+		t.Fatalf("err_msg = %q, want ok", entry.ErrMsg)
+	}
+}
+
+func TestMiddlewareExtractsResponseMetaFromTruncatedBody(t *testing.T) {
+	writer, accessLogger, stop := newCaptureLogger(t)
+	defer stop()
+
+	r := gin.New()
+	r.Use(accesslog.Middleware("test", accesslog.WithLogger(accessLogger)))
+	r.GET("/large", func(c *gin.Context) {
+		c.Data(http.StatusOK, "application/json", []byte(`{"err_code":200,"msg":"ok","data":"`+strings.Repeat("a", 64*1024)+`"}`))
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/large", nil)
+	r.ServeHTTP(w, req)
+
+	entry := waitEntry(t, writer.ch)
+	if !strings.HasSuffix(string(entry.RespBody), "...(truncated)") {
+		t.Fatalf("response body should be truncated")
+	}
+	if entry.ErrCode != 200 {
+		t.Fatalf("err_code = %d, want 200", entry.ErrCode)
+	}
+	if entry.ErrMsg != "ok" {
+		t.Fatalf("err_msg = %q, want ok", entry.ErrMsg)
+	}
+}
+
 func TestMiddlewareSeparatesTrackIDAndTraceID(t *testing.T) {
 	recorder := tracetest.NewSpanRecorder()
 	provider := sdktrace.NewTracerProvider(

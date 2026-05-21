@@ -43,6 +43,9 @@ type Entry struct {
     UserAgent string
     Headers   []byte
     ReqBody   []byte
+    StatusCode int
+    ErrCode   int
+    ErrMsg    string
     RespBody  []byte
 }
 ```
@@ -128,6 +131,7 @@ r.Use(accesslog.Middleware("admin", accesslog.WithLogger(accessLogger)))
 - `Entry.TraceID`：OpenTelemetry trace ID，来自当前 request context 的 span；未注册 tracing middleware 时为空。
 - `Entry.RequestID`：一次 HTTP 请求 ID，来自 `core/requestid` / `X-Request-ID`。
 - `Entry.UID`：由 `ActorResolver` 注入；未注入时为空。
+- `Entry.ErrCode` / `Entry.ErrMsg`：从 JSON 响应体顶层 `err_code`/`code` 和 `msg`/`message` 提取；没有对应字段时保持零值。
 
 ## 注意事项
 
@@ -140,6 +144,7 @@ r.Use(accesslog.Middleware("admin", accesslog.WithLogger(accessLogger)))
 - 可通过 `WithSensitiveFields` / `WithSensitiveHeaders` 覆盖脱敏规则，传空表示关闭；通过 `WithAdditionalSensitiveFields` / `WithAdditionalSensitiveHeaders` 在默认规则上追加。
 - 可通过 `WithSkipper`、`WithSkipMethods`、`WithSkipIPs` 或 `Skip(c)` 跳过当前请求访问日志。
 - 请求体采集只保存有限摘要，不会截断后续 handler 可读取的原始 body。
+- 响应体采集只保存有限摘要；业务码和业务消息由 core 从响应 JSON 前缀提取，避免 app writer 重复解析响应体。
 
 ## 更新记录
 
@@ -151,3 +156,4 @@ r.Use(accesslog.Middleware("admin", accesslog.WithLogger(accessLogger)))
 - 2026-05-21：`Logger` 为空时中间件直接透传；请求体采样不再截断 handler 输入；补充 form 和 multipart 字段脱敏；新增敏感字段和 header 覆盖/追加配置。
 - 2026-05-21：新增 `WithSkipper` 和 `Skip(c)`，支持按请求跳过访问日志记录。
 - 2026-05-21：新增 `WithSkipMethods` 和 `WithSkipIPs`，支持按 HTTP method、精确 IP 和 CIDR 网段跳过访问日志记录。
+- 2026-05-21：`Entry` 新增 `ErrCode` / `ErrMsg`，由 core 从响应体提取统一业务码和消息。

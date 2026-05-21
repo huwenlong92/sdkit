@@ -207,6 +207,8 @@ func Middleware(source string, opts ...MiddlewareOption) gin.HandlerFunc {
 		if shouldSkip(c, cfg) {
 			return
 		}
+		respBody := respBodyBytes(c, bw)
+		errCode, errMsg := responseMeta(respBody)
 		entry := &Entry{
 			Source:     source,
 			TrackID:    tracking.Get(c),
@@ -221,7 +223,9 @@ func Middleware(source string, opts ...MiddlewareOption) gin.HandlerFunc {
 			Headers:    []byte(filterHeaders(c.Request.Header, cfg.sensitiveHeaders)),
 			ReqBody:    reqBody,
 			StatusCode: c.Writer.Status(),
-			RespBody:   respBodyBytes(c, bw),
+			ErrCode:    errCode,
+			ErrMsg:     errMsg,
+			RespBody:   respBody,
 			Latency:    time.Since(start).Milliseconds(),
 			CreatedAt:  time.Now().UnixMilli(),
 		}

@@ -28,6 +28,8 @@ type Entry struct {
     Headers    []byte
     ReqBody    []byte
     StatusCode int
+    ErrCode    int
+    ErrMsg     string
     RespBody   []byte
     Latency    int64
     CreatedAt  int64
@@ -39,6 +41,8 @@ type Writer interface {
 ```
 
 `core/accesslog` 不允许依赖 admin、GORM model 或具体数据库表。
+
+`ErrCode` / `ErrMsg` 由 core 从 JSON 响应体顶层字段提取，支持 `err_code`/`code` 和 `msg`/`message`。响应体只保存有限摘要，core 会按 JSON 前缀流式读取这些字段；如果响应体不是 JSON 或没有对应字段，则保持零值。
 
 ## 创建 Logger
 

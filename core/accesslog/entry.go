@@ -18,6 +18,8 @@ type Entry struct {
 	Headers    []byte
 	ReqBody    []byte
 	StatusCode int
+	ErrCode    int
+	ErrMsg     string
 	RespBody   []byte
 	Latency    int64
 	CreatedAt  int64
