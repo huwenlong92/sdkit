@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/ratelimit/strategy"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 )
 
 // mockCPU 模拟 CPU 使用率

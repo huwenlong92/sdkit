@@ -211,10 +211,11 @@ services:
 app/middleware/          所有 HTTP 服务共用的 Gin middleware
 app/admin/middleware/    Admin 私有 middleware
 app/api/middleware/      API 私有 middleware
-core/ratelimit/          限流算法和配置类型
+pkg/ratelimit/           限流算法、配置类型和 Store
+core/ratelimit/          限流 Runtime Capability、keyer 和 Gin middleware
 ```
 
-例如 BBR 是进程级 HTTP 过载保护，放在 `app/middleware` 做 Gin 适配，算法仍在 `core/ratelimit`。
+例如 BBR 是进程级 HTTP 过载保护，算法在 `pkg/ratelimit/strategy`，Gin 适配在 `core/ratelimit/middleware`。
 
 ## CLI 命令规则
 

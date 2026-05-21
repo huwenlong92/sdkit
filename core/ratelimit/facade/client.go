@@ -2,7 +2,7 @@ package ratelimit
 
 import (
 	rlMiddleware "github.com/huwenlong92/sdkit/core/ratelimit/middleware"
-	"github.com/huwenlong92/sdkit/core/ratelimit/store"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/store"
 
 	goredis "github.com/redis/go-redis/v9"
 )

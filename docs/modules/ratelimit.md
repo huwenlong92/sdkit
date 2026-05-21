@@ -2,7 +2,7 @@
 
 ## 目标
 
-`core/ratelimit` 提供 HTTP 接口限流能力，统一封装限流策略、限流 key 提取、状态存储和 Gin 中间件适配。
+`pkg/ratelimit` 提供通用限流库，`core/ratelimit` 提供 sdkit HTTP 接口限流能力接入，负责限流 key 提取、Gin 中间件和 Runtime Capability。
 
 目标能力：
 
@@ -15,36 +15,54 @@
 
 ## 模块边界
 
-`core/ratelimit` 负责：
+`pkg/ratelimit` 负责：
 
 - 定义通用 `Limiter` 接口
 - 提供通用限流策略实现
 - 提供限流状态存储接口和内存 / Redis 实现
+
+`core/ratelimit` 负责：
+
 - 提供常用 Gin 中间件预设
 - 提供 IP、用户、用户 + 路由 key 提取函数
+- 提供 Runtime Capability，统一设置共享 Store
 - 在限流拒绝时返回统一 429 JSON
 
 `core/ratelimit` 不负责：
 
 - 初始化全局 Redis 客户端
+- 实现限流算法和存储细节
 - 解析业务鉴权 token
 - 决定具体业务接口的限流阈值
 - 记录限流日志或告警
 - 对非 Gin 框架做适配
 
-用户维度限流依赖上游鉴权中间件写入 `auth.Identity`。`keyer.User` 通过 `authgin.GetIdentity(c)` 读取 `SubjectType` 和 `SubjectID`，生成 `subject:<type>:<id>` 格式的 key。未取到认证主体时，当前用户维度中间件会直接放行。
+用户维度限流依赖上游认证中间件写入 ratelimit subject。认证实现不限于 `core/auth`，只要在进入限流中间件前调用 `keyer.SetSubject(c, subjectType, subjectID)` 或 `keyer.SetSubjectKey(c, key)` 即可。`keyer.User` 生成 `subject:<type>:<id>` 格式的 key；未取到主体时，当前用户维度中间件会直接放行。
 
 ## 当前目录
 
 ```txt
-core/ratelimit/
+pkg/ratelimit/
   config.go
+  limiter.go
+  store/
+    store.go
+    memory.go
+    redis.go
+  strategy/
+    fixed_window.go
+    sliding_window.go
+    token_bucket.go
+    leaky_bucket.go
+    bbr.go
+    bbr_cpu.go
+
+core/ratelimit/
   facade/
     config.go
     client.go
     use.go
     default.go
-  limiter.go
   keyer/
     ip.go
     user.go
@@ -54,23 +72,11 @@ core/ratelimit/
     ip.go
     user.go
     bbr.go
-  store/
-    store.go
-    memory_store.go
-    redis_store.go
-  strategy/
-    fixed_window.go
-    sliding_window.go
-    token_bucket.go
-    leaky_bucket.go
-    bbr.go
-    bbr_cpu.go
-    bbr_middleware.go
 ```
 
 ## Runtime Capability
 
-`core/ratelimit` 是限流实现包，Runtime Capability 接入层统一放在 `core/ratelimit/facade`：
+Runtime Capability 接入层统一放在 `core/ratelimit/facade`：
 
 ```go
 import ratelimitcap "github.com/huwenlong92/sdkit/core/ratelimit/facade"
@@ -80,7 +86,7 @@ runtimeApp.RegisterCapabilities(
 )
 ```
 
-bootstrap 默认注册 `ratelimitcap.Use()`。Redis 已初始化时 facade 会设置共享 RedisStore；Redis 不可用时设置 MemoryStore。业务侧仍通过 `core/ratelimit/middleware` 使用中间件预设。
+bootstrap 默认注册 `ratelimitcap.Use()`。Redis 已初始化时 facade 会设置 `pkg/ratelimit/store.RedisStore`；Redis 不可用时设置 `MemoryStore`。业务侧仍通过 `core/ratelimit/middleware` 使用中间件预设。
 
 ## 核心接口
 
@@ -208,6 +214,7 @@ BBR 依赖 Linux `/proc/stat`。非 Linux 环境无法正确读取 CPU 使用率
 
 ## 更新记录
 
+- 2026-05-21：拆分边界，`Limiter`、策略和 Store 下沉到 `pkg/ratelimit`，`core/ratelimit` 仅保留 Runtime Capability、keyer 和 Gin middleware。
 - 2026-05-16：新增 `core/ratelimit/facade` Runtime Capability 接入层，按 `config.go/client.go/use.go/default.go` 组织，根包保留限流实现和业务 API。
 - 2026-05-12：限流 Store 增加 context-aware 调用路径，Redis 限流命令可串联 OpenTelemetry HTTP trace。
 - 2026-05-10：补充 RateLimit 模块设计、接口、策略、存储和使用约束。

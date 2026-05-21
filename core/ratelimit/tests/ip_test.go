@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/ratelimit/strategy"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 )
 
 // ======================== TokenBucket ========================

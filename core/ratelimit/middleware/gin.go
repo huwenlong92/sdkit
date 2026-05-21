@@ -5,8 +5,8 @@ import (
 
 	apperrors "github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/ginresponder"
-	"github.com/huwenlong92/sdkit/core/ratelimit"
 	"github.com/huwenlong92/sdkit/core/ratelimit/keyer"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit"
 
 	"github.com/gin-gonic/gin"
 )

@@ -3,8 +3,8 @@ package checkers
 import (
 	"context"
 
-	"github.com/huwenlong92/sdkit/core/ratelimit"
 	"github.com/huwenlong92/sdkit/core/security/risk"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit"
 )
 
 type RateLimitChecker struct {

@@ -3,7 +3,7 @@ package middleware
 import (
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/ratelimit/strategy"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 
 	"github.com/gin-gonic/gin"
 )

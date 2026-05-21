@@ -3,7 +3,7 @@ package strategy
 import (
 	"context"
 
-	"github.com/huwenlong92/sdkit/core/ratelimit/store"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/store"
 )
 
 // TokenBucket 令牌桶限流，每 key 独立计数

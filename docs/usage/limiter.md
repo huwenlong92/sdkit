@@ -1,6 +1,6 @@
 # 限流
 
-基于 `core/ratelimit` 的多策略限流库，提供令牌桶、滑动窗口、固定窗口、漏桶、BBR 自适应等限流策略。
+基于 `pkg/ratelimit` 的多策略限流库，提供令牌桶、滑动窗口、固定窗口、漏桶、BBR 自适应等限流策略。
 
 ## 类型与 API
 
@@ -131,12 +131,15 @@ r.Use(rlMiddleware.MiddlewareWithKey(
 
 ### 按用户限流
 
-从认证中间件注入的用户 ID 限流，每个用户独立限流。需在 `auth.Default.Middleware()` 之后注册。
+从认证中间件注入的用户 ID 限流，每个用户独立限流。需在认证中间件调用 `keyer.SetSubject` 或 `keyer.SetSubjectKey` 之后注册。
 
 ```go
 // 路由中注册
 authorized := r.Group("")
-authorized.Use(auth.Default.Middleware())
+authorized.Use(func(c *gin.Context) {
+    keyer.SetSubject(c, "user", userID)
+    c.Next()
+})
 {
     authorized.Use(rlMiddleware.LimiterPerUserNormal()) // 每用户 100/s
     authorized.Use(rlMiddleware.LimiterPerUserStrict()) // 每用户 30/s
@@ -149,10 +152,10 @@ authorized.Use(auth.Default.Middleware())
 
 ### 按用户 + 路由限流
 
-同一用户对不同路由独立计数。需在 `auth.Default.Middleware()` 之后注册。
+同一用户对不同路由独立计数。需在认证中间件写入 ratelimit subject 之后注册。
 
 ```go
-// key 格式：user:1001:POST:/admin/v1/users
+// key 格式：subject:user:1001:POST:/admin/v1/users
 write := authorized.Group("")
 write.Use(rlMiddleware.LimiterPerUserRoute(10, 20)) // 每用户每路由 10/s
 {
@@ -184,12 +187,12 @@ bbr := strategy.NewBBR(
     strategy.WithCPUThreshold(800),
     strategy.WithWindow(time.Second),
 )
-r.Use(strategy.BBRMiddleware(bbr))
+r.Use(rlMiddleware.BBRMiddleware(bbr))
 ```
 
 ### 自定义中间件
 
-`core/ratelimit/middleware.Limiter(r, burst)` 和 `LimiterPerUser(r, burst)` 接受自定义参数：
+`core/ratelimit/middleware.Limiter(r, burst)` 和 `LimiterPerUser(r, burst)` 是 Gin 接入层预设；纯算法和 Store 位于 `pkg/ratelimit`。
 
 ```go
 r.Use(rlMiddleware.Limiter(100, 200))

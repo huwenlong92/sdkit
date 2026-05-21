@@ -2,10 +2,10 @@ package middleware
 
 import (
 	"github.com/huwenlong92/sdkit/core/ginresponder"
-	"github.com/huwenlong92/sdkit/core/ratelimit"
 	"github.com/huwenlong92/sdkit/core/ratelimit/keyer"
-	"github.com/huwenlong92/sdkit/core/ratelimit/store"
-	"github.com/huwenlong92/sdkit/core/ratelimit/strategy"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/store"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 
 	"github.com/gin-gonic/gin"
 )

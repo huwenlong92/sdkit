@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/ratelimit/store"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/store"
 )
 
 // FixedWindow 固定窗口计数器，每 key 独立

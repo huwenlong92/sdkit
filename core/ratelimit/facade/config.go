@@ -1,15 +1,15 @@
 package ratelimit
 
 import (
-	coreratelimit "github.com/huwenlong92/sdkit/core/ratelimit"
-	"github.com/huwenlong92/sdkit/core/ratelimit/store"
 	"github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/store"
 )
 
 const KeyRateLimit runtime.Key = "ratelimit"
 
-type Config = coreratelimit.Config
-type BBRConfig = coreratelimit.BBRConfig
+type Config = ratelimit.Config
+type BBRConfig = ratelimit.BBRConfig
 type Store = store.Store
 
 type ConfigLoader func(app *runtime.App) (Config, error)

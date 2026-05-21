@@ -8,10 +8,10 @@ import (
 	apperrors "github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/core/security"
-	"github.com/huwenlong92/sdkit/core/security/fingerprint"
 	"github.com/huwenlong92/sdkit/core/security/risk"
 	"github.com/huwenlong92/sdkit/core/security/risk/checkers"
 	"github.com/huwenlong92/sdkit/core/security/state"
+	"github.com/huwenlong92/sdkit/pkg/security/fingerprint"
 
 	"github.com/gin-gonic/gin"
 )

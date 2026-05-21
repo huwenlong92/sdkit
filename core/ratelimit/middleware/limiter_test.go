@@ -5,8 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/huwenlong92/sdkit/core/auth"
-	authgin "github.com/huwenlong92/sdkit/core/auth/adapter/gin"
+	"github.com/huwenlong92/sdkit/core/ratelimit/keyer"
 
 	"github.com/gin-gonic/gin"
 )
@@ -68,7 +67,7 @@ func TestLimiterPerUser_Int64UserID(t *testing.T) {
 
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
-		authgin.SetIdentity(c, &auth.Identity{SubjectID: 1001, SubjectType: "user"})
+		keyer.SetSubject(c, "user", int64(1001))
 		c.Next()
 	})
 	r.Use(LimiterPerUser(0.000001, 3))
@@ -101,9 +100,9 @@ func TestLimiterPerUser_DifferentUsers(t *testing.T) {
 	r.Use(func(c *gin.Context) {
 		uid := c.GetHeader("X-User-Id")
 		if uid == "1001" {
-			authgin.SetIdentity(c, &auth.Identity{SubjectID: 1001, SubjectType: "user"})
+			keyer.SetSubject(c, "user", int64(1001))
 		} else if uid == "1002" {
-			authgin.SetIdentity(c, &auth.Identity{SubjectID: 1002, SubjectType: "user"})
+			keyer.SetSubject(c, "user", int64(1002))
 		}
 		c.Next()
 	})
@@ -185,7 +184,7 @@ func TestLimiterPerUserRoute(t *testing.T) {
 
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
-		authgin.SetIdentity(c, &auth.Identity{SubjectID: 1001, SubjectType: "user"})
+		keyer.SetSubject(c, "user", int64(1001))
 		c.Next()
 	})
 	r.Use(LimiterPerUserRoute(0.000001, 2))

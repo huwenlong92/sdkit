@@ -1,4 +1,3 @@
-// Package ratelimit 提供限流器接口和 Gin 中间件适配
 package ratelimit
 
 import (
@@ -7,7 +6,6 @@ import (
 	"time"
 )
 
-// Limiter 限流器接口，所有策略都实现此接口
 type Limiter interface {
 	Allow(key string) bool
 	AllowN(key string, n int) bool
@@ -19,7 +17,6 @@ type ContextLimiter interface {
 	AllowNContext(ctx context.Context, key string, n int) bool
 }
 
-// Option 通用配置
 type Option struct {
 	Rate   float64
 	Burst  int
@@ -27,7 +24,6 @@ type Option struct {
 	Limit  int
 }
 
-// PerKey 封装内部 Limiter，提供基于 key 的限流
 type PerKey struct {
 	inner    func() Limiter
 	mu       sync.RWMutex

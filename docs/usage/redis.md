@@ -6,7 +6,7 @@
 
 - `core/cache`：缓存读写
 - `core/session`：会话存储
-- `core/ratelimit`：限流状态
+- `pkg/ratelimit/store`：限流状态
 - `core/queue`：Asynq 队列
 
 只有确实需要 Redis 基础能力时，才直接使用 `core/redis`。

@@ -6,12 +6,12 @@ import (
 	apperrors "github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/core/ratelimit/keyer"
-	"github.com/huwenlong92/sdkit/core/ratelimit/strategy"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 
 	"github.com/gin-gonic/gin"
 )
 
-// LimiterPerUser 按用户 ID 令牌桶限流（须在 JWTAuth 之后注册）
+// LimiterPerUser 按调用方写入的 subject key 令牌桶限流。
 func LimiterPerUser(r float64, burst int) gin.HandlerFunc {
 	return LimiterPerUserWithOptions(r, burst)
 }
@@ -42,7 +42,7 @@ func LimiterPerUserStrict() gin.HandlerFunc { return LimiterPerUser(30, 60) }
 // LimiterPerUserWrite 写操作：每用户 10/s（防刷数据）
 func LimiterPerUserWrite() gin.HandlerFunc { return LimiterPerUser(10, 20) }
 
-// LimiterPerUserRoute 按「用户 + 路由」限流（须在 JWTAuth 之后注册）
+// LimiterPerUserRoute 按「subject + 路由」限流。
 func LimiterPerUserRoute(r float64, burst int) gin.HandlerFunc {
 	return LimiterPerUserRouteWithOptions(r, burst)
 }

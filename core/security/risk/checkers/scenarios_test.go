@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/security/audit"
-	securitycrypto "github.com/huwenlong92/sdkit/core/security/crypto"
 	"github.com/huwenlong92/sdkit/core/security/risk"
 	"github.com/huwenlong92/sdkit/core/security/state"
+	securitycrypto "github.com/huwenlong92/sdkit/pkg/security/crypto"
 )
 
 func TestLoginFailScenario(t *testing.T) {

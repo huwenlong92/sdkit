@@ -178,19 +178,38 @@ func (MyChecker) Check(ctx context.Context, rc *risk.Context) (*risk.CheckResult
 manager.Register(MyChecker{})
 ```
 
-## 自定义 Captcha Provider
+## Captcha Provider
 
 ```go
 type Provider struct{}
 
 func (Provider) Name() string { return "turnstile" }
-func (Provider) Verify(ctx context.Context, token string, ip string) error {
-    // 调用外部服务校验 token
+func (Provider) Kind() captcha.Kind { return captcha.KindImage }
+func (Provider) Generate(ctx context.Context, opts captcha.GenerateOptions) (*captcha.Challenge, error) {
+    return &captcha.Challenge{ID: "id", Kind: captcha.KindImage}, nil
+}
+func (Provider) Verify(ctx context.Context, id string, answer string) error {
+    // 调用外部服务校验答案
     return nil
 }
 
 captchaManager := captcha.NewManager(Provider{})
 ```
+
+内置 base64 图片验证码 Provider：
+
+```go
+captchaManager := captcha.NewManager(
+    captcha.NewBase64Provider(
+        captcha.WithBase64Store(captcha.NewStateStore(store, 5*time.Minute)),
+    ),
+)
+
+challenge, err := captchaManager.Generate(ctx, captcha.KindImage, captcha.GenerateOptions{})
+err = captchaManager.Verify(ctx, captcha.KindImage, challenge.ID, inputCode)
+```
+
+滑块验证码使用相同接口，后续 Provider 通过 `KindSlider` 返回背景图、滑块图和容错参数等 `Payload`。
 
 ## 安全响应头
 
@@ -203,7 +222,7 @@ r.Use(securitymw.SecureHeaders(securitymw.SecureHeaderOption{
 ## 测试命令
 
 ```bash
-go test ./core/security/...
+go test ./pkg/security/... ./core/security/...
 go test ./...
 ```
 

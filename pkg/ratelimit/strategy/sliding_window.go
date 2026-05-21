@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/ratelimit/store"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/store"
 )
 
 // SlidingWindow 滑动窗口限流，按时间戳精确计数

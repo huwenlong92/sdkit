@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/ratelimit/store"
+	"github.com/huwenlong92/sdkit/pkg/ratelimit/store"
 )
 
 // LeakyBucket 漏桶：请求先入桶，以固定速率漏出。超出容量则拒绝。
