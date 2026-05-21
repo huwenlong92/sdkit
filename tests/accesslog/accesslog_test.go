@@ -266,6 +266,119 @@ func TestMiddlewareWithoutLoggerPassesThrough(t *testing.T) {
 	}
 }
 
+func TestMiddlewareWithSkipperSkipsAccessLog(t *testing.T) {
+	writer, accessLogger, stop := newCaptureLogger(t)
+	defer stop()
+
+	r := gin.New()
+	r.Use(accesslog.Middleware("test", accesslog.WithLogger(accessLogger), accesslog.WithSkipper(func(c *gin.Context) bool {
+		return c.FullPath() == "/skip"
+	})))
+	r.GET("/skip", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/skip", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: want 200, got %d", w.Code)
+	}
+	assertNoEntry(t, writer.ch)
+}
+
+func TestMiddlewareWithSkipMethodsSkipsAccessLog(t *testing.T) {
+	writer, accessLogger, stop := newCaptureLogger(t)
+	defer stop()
+
+	r := gin.New()
+	r.Use(accesslog.Middleware("test", accesslog.WithLogger(accessLogger), accesslog.WithSkipMethods("options", "TRACE")))
+	r.Any("/method", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodOptions, "/method", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: want 200, got %d", w.Code)
+	}
+	assertNoEntry(t, writer.ch)
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/method", nil)
+	r.ServeHTTP(w, req)
+
+	entry := waitEntry(t, writer.ch)
+	if entry.Method != http.MethodGet {
+		t.Fatalf("method = %s, want GET", entry.Method)
+	}
+}
+
+func TestMiddlewareWithSkipIPsSkipsAccessLog(t *testing.T) {
+	writer, accessLogger, stop := newCaptureLogger(t)
+	defer stop()
+
+	r := gin.New()
+	r.Use(accesslog.Middleware("test", accesslog.WithLogger(accessLogger), accesslog.WithSkipIPs("192.168.1.10", "10.0.0.0/8")))
+	r.GET("/ip", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ip", nil)
+	req.RemoteAddr = "192.168.1.10:1234"
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: want 200, got %d", w.Code)
+	}
+	assertNoEntry(t, writer.ch)
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/ip", nil)
+	req.RemoteAddr = "10.2.3.4:1234"
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: want 200, got %d", w.Code)
+	}
+	assertNoEntry(t, writer.ch)
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/ip", nil)
+	req.RemoteAddr = "172.16.0.1:1234"
+	r.ServeHTTP(w, req)
+
+	entry := waitEntry(t, writer.ch)
+	if entry.IP != "172.16.0.1" {
+		t.Fatalf("ip = %s, want 172.16.0.1", entry.IP)
+	}
+}
+
+func TestMiddlewareSkipSkipsAccessLogAfterHandler(t *testing.T) {
+	writer, accessLogger, stop := newCaptureLogger(t)
+	defer stop()
+
+	r := gin.New()
+	r.Use(accesslog.Middleware("test", accesslog.WithLogger(accessLogger)))
+	r.GET("/skip", func(c *gin.Context) {
+		accesslog.Skip(c)
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/skip", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: want 200, got %d", w.Code)
+	}
+	assertNoEntry(t, writer.ch)
+}
+
 func TestMiddlewareRedactsJSONSensitiveFields(t *testing.T) {
 	writer, accessLogger, stop := newCaptureLogger(t)
 	defer stop()
@@ -616,5 +729,14 @@ func waitEntry(t *testing.T, ch <-chan *accesslog.Entry) *accesslog.Entry {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for accesslog entry")
 		return nil
+	}
+}
+
+func assertNoEntry(t *testing.T, ch <-chan *accesslog.Entry) {
+	t.Helper()
+	select {
+	case entry := <-ch:
+		t.Fatalf("unexpected accesslog entry: method=%s path=%s", entry.Method, entry.Path)
+	case <-time.After(100 * time.Millisecond):
 	}
 }

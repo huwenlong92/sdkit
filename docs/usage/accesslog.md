@@ -43,7 +43,7 @@ type Writer interface {
 ## 创建 Logger
 
 ```go
-writer := adminaccesslog.NewWriter(database.DB, 100)
+writer := appaccesslog.NewWriter(database.DB, 100)
 
 logger := accesslog.NewLogger(writer, accesslog.Config{
     QueueSize:     1024,
@@ -99,6 +99,40 @@ r.Use(accesslog.Middleware(
 ))
 ```
 
+可以按请求跳过访问日志。适合健康检查、静态资源、无需审计的内部接口：
+
+```go
+r.Use(accesslog.Middleware(
+    "admin",
+    accesslog.WithLogger(logger),
+    accesslog.WithSkipper(func(c *gin.Context) bool {
+        return c.Request.URL.Path == "/ping"
+    }),
+))
+```
+
+也可以在业务 handler 或后续 middleware 中标记当前请求跳过记录：
+
+```go
+func Health(c *gin.Context) {
+    accesslog.Skip(c)
+    c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+```
+
+固定的 method 或 IP 白名单可以直接用内置选项：
+
+```go
+r.Use(accesslog.Middleware(
+    "admin",
+    accesslog.WithLogger(logger),
+    accesslog.WithSkipMethods("OPTIONS", "HEAD"),
+    accesslog.WithSkipIPs("127.0.0.1", "10.0.0.0/8"),
+))
+```
+
+`WithSkipIPs` 支持精确 IP 和 CIDR 网段。配置值解析失败时会忽略该项；如果配置来自 yaml/env，建议应用层加载时先校验一次。
+
 测试或调试时可以显式传空，关闭字段或 header 脱敏：
 
 ```go
@@ -134,7 +168,7 @@ admin 启动时创建 writer/logger，并传入 router：
 logCtx, cancelLog := context.WithCancel(context.Background())
 
 accessLogger := accesslog.NewLogger(
-    adminaccesslog.NewWriter(database.DB, 100),
+    appaccesslog.NewWriter(database.DB, 100),
     accesslog.Config{
         QueueSize:     1024,
         BatchSize:     100,
@@ -143,7 +177,7 @@ accessLogger := accesslog.NewLogger(
 )
 accessLogger.Start(logCtx)
 
-router := SetupRouter(rateLimitCfg, bbrCfg, accessLogger)
+router := SetupRouterWithContext(ctx, cfg, accessLogger)
 ```
 
 关闭服务时取消 context，触发剩余日志 flush：
@@ -154,9 +188,9 @@ cancelLog()
 return err
 ```
 
-## admin Writer
+## app Writer
 
-admin 的 writer 位于 `app/admin/infra/component/accesslog/writer.go`，使用 GORM `CreateInBatches`：
+app 层共享 writer 位于 `app/infra/component/accesslog/writer.go`，使用 GORM `CreateInBatches`：
 
 ```go
 type Writer struct {
@@ -165,16 +199,16 @@ type Writer struct {
 }
 
 func (w *AccessLogWriter) WriteBatch(ctx context.Context, entries []*accesslog.Entry) error {
-    // Entry -> admin model.SystemAccessLog
+    // Entry -> app/models.SystemAccessLog
     return w.db.WithContext(ctx).CreateInBatches(rows, w.batchSize).Error
 }
 ```
 
 默认 batch size 为 `100`。
 
-## admin 表模型
+## app 表模型
 
-admin 落库模型位于 `app/admin/model/system_access_log.go`：
+app 落库模型位于 `app/models/system_access_log.go`：
 
 | 字段 | 说明 |
 |------|------|
@@ -185,16 +219,19 @@ admin 落库模型位于 `app/admin/model/system_access_log.go`：
 | `uid` | 用户 ID，未登录为空字符串 |
 | `method` | 请求方法 |
 | `path` | 请求路径 |
-| `query` | URL query |
+| `query` | URL query，落库为 jsonb map |
 | `ip` | 客户端 IP |
+| `ip_addr` | 访问 IP 的 inet 值，用于精确 IP 和 CIDR 网段查询 |
 | `user_agent` | User-Agent |
 | `headers` | 请求头 JSON，敏感头已过滤 |
-| `req_body` | 请求体 |
+| `req_body` | 请求体摘要 JSON |
 | `resp_body` | 响应体 |
 | `status_code` | HTTP 状态码 |
+| `err_code` | 业务错误码，来自统一响应 err_code/code |
+| `err_msg` | 业务错误消息，来自统一响应 msg/message |
 | `latency` | 耗时，单位 ms |
-| `created_at` | 创建时间，Unix 毫秒 |
-| `updated_at` | 更新时间，Unix 毫秒 |
+| `created_at` | 创建时间，分区键 |
+| `updated_at` | 更新时间 |
 
 ## 采集内容
 

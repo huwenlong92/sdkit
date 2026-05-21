@@ -57,6 +57,7 @@ type Actor struct {
 }
 
 type ActorResolver func(*gin.Context) Actor
+type Skipper func(*gin.Context) bool
 ```
 
 敏感字段默认覆盖 `authorization/cookie/password/token/secret`，业务可按服务追加字段和 header：
@@ -69,6 +70,35 @@ r.Use(accesslog.Middleware(
     accesslog.WithAdditionalSensitiveHeaders("X-Internal-Secret"),
 ))
 ```
+
+可通过 `WithSkipper` 按请求跳过记录，也可以在请求处理中调用 `Skip(c)` 标记当前请求不写访问日志：
+
+```go
+r.Use(accesslog.Middleware(
+    "admin",
+    accesslog.WithLogger(accessLogger),
+    accesslog.WithSkipper(func(c *gin.Context) bool {
+        return c.Request.URL.Path == "/ping"
+    }),
+))
+
+func Handler(c *gin.Context) {
+    accesslog.Skip(c)
+}
+```
+
+固定的 method 或 IP 白名单可以直接用内置选项，不需要每次手写 `WithSkipper`：
+
+```go
+r.Use(accesslog.Middleware(
+    "admin",
+    accesslog.WithLogger(accessLogger),
+    accesslog.WithSkipMethods("OPTIONS", "HEAD"),
+    accesslog.WithSkipIPs("127.0.0.1", "10.0.0.0/8"),
+))
+```
+
+`WithSkipIPs` 同时支持精确 IP 和 CIDR 网段。配置值解析失败时会忽略该项；如果需要强校验配置，应在应用层加载配置时先校验。
 
 测试或调试场景可显式传空列表，关闭字段或 header 脱敏：
 
@@ -108,6 +138,7 @@ r.Use(accesslog.Middleware("admin", accesslog.WithLogger(accessLogger)))
 - JSON body 的 password/token/secret/cookie/authorization 字段会脱敏。
 - form-urlencoded 和 multipart/form-data 的 password/token/secret/cookie/authorization 字段会脱敏。
 - 可通过 `WithSensitiveFields` / `WithSensitiveHeaders` 覆盖脱敏规则，传空表示关闭；通过 `WithAdditionalSensitiveFields` / `WithAdditionalSensitiveHeaders` 在默认规则上追加。
+- 可通过 `WithSkipper`、`WithSkipMethods`、`WithSkipIPs` 或 `Skip(c)` 跳过当前请求访问日志。
 - 请求体采集只保存有限摘要，不会截断后续 handler 可读取的原始 body。
 
 ## 更新记录
@@ -118,3 +149,5 @@ r.Use(accesslog.Middleware("admin", accesslog.WithLogger(accessLogger)))
 - 2026-05-13：访问日志对外身份注入接口统一为 `ActorResolver`。
 - 2026-05-13：同步 HTTP 推荐 middleware 顺序，明确 AccessLog 位于 Tracking/Tracing/RequestID 之后。
 - 2026-05-21：`Logger` 为空时中间件直接透传；请求体采样不再截断 handler 输入；补充 form 和 multipart 字段脱敏；新增敏感字段和 header 覆盖/追加配置。
+- 2026-05-21：新增 `WithSkipper` 和 `Skip(c)`，支持按请求跳过访问日志记录。
+- 2026-05-21：新增 `WithSkipMethods` 和 `WithSkipIPs`，支持按 HTTP method、精确 IP 和 CIDR 网段跳过访问日志记录。

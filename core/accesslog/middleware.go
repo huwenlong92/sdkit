@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -27,10 +28,15 @@ type Actor struct {
 }
 
 type ActorResolver func(*gin.Context) Actor
+type Skipper func(*gin.Context) bool
 
 type middlewareConfig struct {
 	logger                 *Logger
 	actorResolver          ActorResolver
+	skipper                Skipper
+	skipMethods            map[string]struct{}
+	skipIPAddrs            map[netip.Addr]struct{}
+	skipIPPrefixes         []netip.Prefix
 	sensitiveFieldKeywords []string
 	sensitiveHeaders       []string
 }
@@ -46,6 +52,27 @@ func WithLogger(logger *Logger) MiddlewareOption {
 func WithActorResolver(resolver ActorResolver) MiddlewareOption {
 	return func(cfg *middlewareConfig) {
 		cfg.actorResolver = resolver
+	}
+}
+
+func WithSkipper(skipper Skipper) MiddlewareOption {
+	return func(cfg *middlewareConfig) {
+		cfg.skipper = skipper
+	}
+}
+
+// WithSkipMethods skips access logging for matched HTTP methods.
+func WithSkipMethods(methods ...string) MiddlewareOption {
+	return func(cfg *middlewareConfig) {
+		cfg.skipMethods = normalizeSkipMethods(methods...)
+	}
+}
+
+// WithSkipIPs skips access logging for matched client IPs.
+// Values support exact IPs such as "127.0.0.1" and CIDR ranges such as "10.0.0.0/8".
+func WithSkipIPs(values ...string) MiddlewareOption {
+	return func(cfg *middlewareConfig) {
+		cfg.skipIPAddrs, cfg.skipIPPrefixes = normalizeSkipIPs(values...)
 	}
 }
 
@@ -121,6 +148,29 @@ func (b replayBody) Close() error {
 	return b.closer.Close()
 }
 
+const skipKey = "__sdkit_accesslog_skip__"
+
+// Skip marks current Gin request as skipped by accesslog middleware.
+func Skip(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	c.Set(skipKey, true)
+}
+
+// IsSkipped reports whether current Gin request is marked to skip access logging.
+func IsSkipped(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	value, ok := c.Get(skipKey)
+	if !ok {
+		return false
+	}
+	skipped, ok := value.(bool)
+	return ok && skipped
+}
+
 // Middleware records HTTP request and response metadata.
 // The logger is optional so services can opt in with WithLogger.
 func Middleware(source string, opts ...MiddlewareOption) gin.HandlerFunc {
@@ -137,6 +187,10 @@ func Middleware(source string, opts ...MiddlewareOption) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
+		if shouldSkip(c, cfg) {
+			c.Next()
+			return
+		}
 		start := time.Now()
 
 		reqBody := captureReqBody(c, cfg)
@@ -150,6 +204,9 @@ func Middleware(source string, opts ...MiddlewareOption) gin.HandlerFunc {
 
 		c.Next()
 
+		if shouldSkip(c, cfg) {
+			return
+		}
 		entry := &Entry{
 			Source:     source,
 			TrackID:    tracking.Get(c),
@@ -172,11 +229,90 @@ func Middleware(source string, opts ...MiddlewareOption) gin.HandlerFunc {
 	}
 }
 
+func shouldSkip(c *gin.Context, cfg *middlewareConfig) bool {
+	if IsSkipped(c) {
+		return true
+	}
+	if cfg != nil && cfg.skipper != nil {
+		return cfg.skipper(c)
+	}
+	if shouldSkipMethod(c, cfg) {
+		return true
+	}
+	if shouldSkipIP(c, cfg) {
+		return true
+	}
+	return false
+}
+
 func defaultMiddlewareConfig() *middlewareConfig {
 	return &middlewareConfig{
 		sensitiveFieldKeywords: appendSensitiveValues(nil, defaultSensitiveFieldKeywords...),
 		sensitiveHeaders:       appendSensitiveValues(nil, defaultSensitiveHeaders...),
 	}
+}
+
+func shouldSkipMethod(c *gin.Context, cfg *middlewareConfig) bool {
+	if c == nil || c.Request == nil || cfg == nil || len(cfg.skipMethods) == 0 {
+		return false
+	}
+	method := strings.ToUpper(strings.TrimSpace(c.Request.Method))
+	_, ok := cfg.skipMethods[method]
+	return ok
+}
+
+func shouldSkipIP(c *gin.Context, cfg *middlewareConfig) bool {
+	if c == nil || cfg == nil || (len(cfg.skipIPAddrs) == 0 && len(cfg.skipIPPrefixes) == 0) {
+		return false
+	}
+	addr, err := netip.ParseAddr(c.ClientIP())
+	if err != nil {
+		return false
+	}
+	if _, ok := cfg.skipIPAddrs[addr]; ok {
+		return true
+	}
+	for _, prefix := range cfg.skipIPPrefixes {
+		if prefix.Contains(addr) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeSkipMethods(methods ...string) map[string]struct{} {
+	out := make(map[string]struct{}, len(methods))
+	for _, method := range methods {
+		method = strings.ToUpper(strings.TrimSpace(method))
+		if method == "" {
+			continue
+		}
+		out[method] = struct{}{}
+	}
+	return out
+}
+
+func normalizeSkipIPs(values ...string) (map[netip.Addr]struct{}, []netip.Prefix) {
+	addrs := make(map[netip.Addr]struct{}, len(values))
+	prefixes := make([]netip.Prefix, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if strings.Contains(value, "/") {
+			prefix, err := netip.ParsePrefix(value)
+			if err == nil {
+				prefixes = append(prefixes, prefix)
+			}
+			continue
+		}
+		addr, err := netip.ParseAddr(value)
+		if err == nil {
+			addrs[addr] = struct{}{}
+		}
+	}
+	return addrs, prefixes
 }
 
 // maxReadBody is the upper bound for reading request bodies into memory.
