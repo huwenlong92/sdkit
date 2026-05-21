@@ -59,6 +59,7 @@ defer cancel()
 行为：
 
 - `Push(entry)` 非阻塞
+- 未传入 logger 时，middleware 直接透传请求，不采集请求体或响应体
 - 队列满时丢弃日志，不阻塞接口响应
 - 满 `BatchSize` 刷新
 - 到 `FlushInterval` 刷新
@@ -84,6 +85,28 @@ r.Use(accesslog.Middleware(
             Name: identity.Username,
         }
     }),
+))
+```
+
+可以按服务追加业务敏感字段和请求头：
+
+```go
+r.Use(accesslog.Middleware(
+    "admin",
+    accesslog.WithLogger(logger),
+    accesslog.WithAdditionalSensitiveFields("otp", "pin_code"),
+    accesslog.WithAdditionalSensitiveHeaders("X-Internal-Secret"),
+))
+```
+
+测试或调试时可以显式传空，关闭字段或 header 脱敏：
+
+```go
+r.Use(accesslog.Middleware(
+    "admin",
+    accesslog.WithLogger(logger),
+    accesslog.WithSensitiveFields(),
+    accesslog.WithSensitiveHeaders(),
 ))
 ```
 
@@ -202,10 +225,10 @@ admin 落库模型位于 `app/admin/model/system_access_log.go`：
 | `application/json` | JSON 结构，敏感字段替换为 `(redacted)`，超过 200 字符的字符串值替换为 `(string: N chars)` |
 | `multipart/form-data` | 表单字段名和值，不含文件二进制 |
 | `application/octet-stream`、`image/*`、`video/*`、`audio/*` | `(binary body omitted)` |
-| `application/x-www-form-urlencoded` | 原始 `key=value` |
+| `application/x-www-form-urlencoded` | 表单字段 JSON，敏感字段替换为 `(redacted)` |
 | 空 body | 空 |
 
-请求体读取后会还原给后续 handler，不影响 `ShouldBindJSON`、`PostForm` 等读取。
+请求体读取后会还原给后续 handler，不影响 `ShouldBindJSON`、`PostForm` 等读取。超过采样上限的请求体只记录摘要或省略标记，但 handler 仍能读取完整原始 body。
 
 ## resp_body 捕获策略
 
@@ -224,9 +247,11 @@ admin 落库模型位于 `app/admin/model/system_access_log.go`：
 - `X-Api-Key`
 - `X-Auth-Token`
 
+业务可通过 `WithSensitiveHeaders(...)` 覆盖 header 过滤列表，传空表示不过滤任何 header；通过 `WithAdditionalSensitiveHeaders(...)` 在默认列表上追加。匹配不区分大小写。
+
 ## JSON 敏感字段过滤
 
-JSON 请求体中字段名包含以下关键词时，字段值会替换为 `(redacted)`：
+JSON 请求体中字段名包含以下默认关键词时，字段值会替换为 `(redacted)`：
 
 - `authorization`
 - `cookie`
@@ -235,6 +260,20 @@ JSON 请求体中字段名包含以下关键词时，字段值会替换为 `(red
 - `secret`
 
 匹配不区分大小写，`access_token`、`refreshToken`、`client_secret` 都会脱敏。
+
+业务可通过 `WithSensitiveFields(...)` 覆盖字段关键词，传空表示不做字段脱敏；通过 `WithAdditionalSensitiveFields(...)` 在默认列表上追加。配置只作用于当前 middleware 实例，不修改全局默认配置。
+
+## 表单敏感字段过滤
+
+`application/x-www-form-urlencoded` 和 `multipart/form-data` 中字段名包含默认关键词或配置关键词时，字段值会替换为 `(redacted)`：
+
+- `authorization`
+- `cookie`
+- `password`
+- `token`
+- `secret`
+
+multipart 只记录普通表单字段，不记录文件二进制内容。
 
 ## 工具函数
 
@@ -249,4 +288,6 @@ inputs, err := accesslog.RequestInputs(c)
 // 返回 {"GET": {...}, "POST": {...}}
 
 jsonStr := accesslog.FilterHeaders(r.Header)
+jsonStr = accesslog.FilterHeadersWithSensitiveHeaders(r.Header, "X-Internal-Secret")
+jsonStr = accesslog.FilterHeadersWithAdditionalSensitiveHeaders(r.Header, "X-Internal-Secret")
 ```

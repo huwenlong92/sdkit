@@ -59,6 +59,28 @@ type Actor struct {
 type ActorResolver func(*gin.Context) Actor
 ```
 
+敏感字段默认覆盖 `authorization/cookie/password/token/secret`，业务可按服务追加字段和 header：
+
+```go
+r.Use(accesslog.Middleware(
+    "admin",
+    accesslog.WithLogger(accessLogger),
+    accesslog.WithAdditionalSensitiveFields("otp", "pin_code"),
+    accesslog.WithAdditionalSensitiveHeaders("X-Internal-Secret"),
+))
+```
+
+测试或调试场景可显式传空列表，关闭字段或 header 脱敏：
+
+```go
+r.Use(accesslog.Middleware(
+    "admin",
+    accesslog.WithLogger(accessLogger),
+    accesslog.WithSensitiveFields(),
+    accesslog.WithSensitiveHeaders(),
+))
+```
+
 ## 中间件
 
 ```go
@@ -80,10 +102,13 @@ r.Use(accesslog.Middleware("admin", accesslog.WithLogger(accessLogger)))
 ## 注意事项
 
 - `Push` 非阻塞，队列满时丢弃日志。
+- 未传入 `Logger` 时，`Middleware` 只透传请求，不采集请求体或响应体。
 - `Start(ctx)` 在 context 结束时 flush 剩余日志。
 - 敏感 header 会过滤。
 - JSON body 的 password/token/secret/cookie/authorization 字段会脱敏。
-- form-urlencoded 原始 body 暂未做字段级脱敏。
+- form-urlencoded 和 multipart/form-data 的 password/token/secret/cookie/authorization 字段会脱敏。
+- 可通过 `WithSensitiveFields` / `WithSensitiveHeaders` 覆盖脱敏规则，传空表示关闭；通过 `WithAdditionalSensitiveFields` / `WithAdditionalSensitiveHeaders` 在默认规则上追加。
+- 请求体采集只保存有限摘要，不会截断后续 handler 可读取的原始 body。
 
 ## 更新记录
 
@@ -92,3 +117,4 @@ r.Use(accesslog.Middleware("admin", accesslog.WithLogger(accessLogger)))
 - 2026-05-13：新增 `ActorResolver`，访问日志不再默认读取 `auth_user_id`。
 - 2026-05-13：访问日志对外身份注入接口统一为 `ActorResolver`。
 - 2026-05-13：同步 HTTP 推荐 middleware 顺序，明确 AccessLog 位于 Tracking/Tracing/RequestID 之后。
+- 2026-05-21：`Logger` 为空时中间件直接透传；请求体采样不再截断 handler 输入；补充 form 和 multipart 字段脱敏；新增敏感字段和 header 覆盖/追加配置。

@@ -184,7 +184,7 @@ if err != nil {
 
 - 没有全局 Zap Core 脱敏拦截器，业务侧仍需避免传入敏感字段。
 - GORM 日志复用 writer，但不是 Zap encoder。
-- accesslog form-urlencoded 原始 body 暂未做字段级脱敏。
+- accesslog 会对 JSON、form-urlencoded 和 multipart/form-data 中的敏感字段做脱敏，并支持按 middleware 实例覆盖或追加敏感字段和 header。
 
 ## 更新记录
 
@@ -193,6 +193,7 @@ if err != nil {
 - 2026-05-12：`ContextFields` 支持从 OpenTelemetry span context 自动追加 `trace_id/span_id`。
 - 2026-05-13：`ContextFields` 补充队列任务和 crontab run 字段：`task_id/queue/type/run_id/job_id`。
 - 2026-05-13：新增 typed context key 层，`WithField` / `Field` 只使用 typed key。
+- 2026-05-21：同步 accesslog form-urlencoded、multipart/form-data 字段脱敏和自定义脱敏规则说明，支持覆盖为空用于测试调试。
 - 2026-05-13：补充业务 service logger 使用约定：基础 logger 可复用，带 context 的 logger 只在当前调用链内临时生成。
 - 2026-05-13：新增 direct `context.WithValue` guard 测试，禁止标准链路字段绕过 helper 写入 context。
 - 2026-05-15：Runtime Capability 接入层迁移到 `core/logger/facade`，按 `config.go/client.go/use.go/default.go` 组织，根包保留日志实现和业务 API。
