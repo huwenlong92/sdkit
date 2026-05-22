@@ -91,7 +91,7 @@ register = Provider 注册入口
 
 `infra/` 是接线层，不应该堆业务规则。业务规则应该留在 `handler/`、`internal/`、业务 service，或者更底层的 core/domain 模块里。以认证为例：登录查库、密码校验、构造身份的 hooks 属于 Admin 自己的 auth 组件，放 `app/admin/infra/component/auth`；从 Gin context 取出身份并解释成 AdminID/UserID 的 helper 属于服务内部业务语义，放各自服务的 `internal/auth`。
 
-例如 Admin 投递 Worker 任务时，handler 使用已注入 request context 的 `queue.Enqueue(ctx, task)`，不直接持有底层队列 client。文件上传接口只调用 `app/admin/infra/storage`。`server.go` 负责把 `infra/capabilities/*` 或 core facade 初始化出的 framework runtime 交给服务入口。
+例如 Admin 投递 Worker 任务时，handler 使用已注入 request context 的 `queue.Enqueue(ctx, task)`，不直接持有底层队列 client。文件上传接口只调用 `core/storage`。`server.go` 负责把 `infra/capabilities/*` 或 core facade 初始化出的 framework runtime 交给服务入口。
 
 `infra/` 内部先按类型分组，再按能力或组件分目录：
 
@@ -279,7 +279,7 @@ imports:
   - eventbus.yaml
   - worker.yaml
   - crontab.yaml
-  - filesystem.yaml
+  - storage.yaml
 ```
 
 文件名优先按服务或功能归属命名：
@@ -291,7 +291,7 @@ imports:
 - `eventbus.yaml`：EventBus 通道配置，声明 `eventbus` 或 `realtime` 的服务必须显式配置
 - `worker.yaml`：Worker 服务配置，例如 `worker.queue`
 - `crontab.yaml`：Crontab 服务配置
-- `filesystem.yaml`：文件工具库配置
+- `storage.yaml`：文件工具库配置
 
 ## 更新记录
 

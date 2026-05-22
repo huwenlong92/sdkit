@@ -16,9 +16,9 @@
 - 支持 Redis/Memory 业务锁、幂等、限流接口
 - 支持 DB Outbox，业务事务内先落库，再异步 flush 到队列
 - 支持限流错误的专用重试语义
-- 支持失败回调、失败日志批量写入和后台重投
+- 支持任务执行记录、执行日志和后台重投
 - 统一接入 `core/logger`
-- 失败日志保留 track/request/trace/span 字段，便于从数据库回溯链路
+- 任务记录和执行记录保留 track/request/trace/span 字段，便于从数据库回溯链路
 - 通过 runtime orchestrator 统一 handler execution、task state、runtime event、lifecycle hook 和 observability observer
 
 当前默认 driver 是 Asynq + Redis，同时提供 NATS JetStream driver 用于持久化投递和消费。运行时 driver 位于 `pkg/queue/asynq`、`pkg/queue/nats`，业务代码和 `core/queue` 公共接口禁止暴露具体 driver SDK 类型。
@@ -29,15 +29,13 @@
 
 - 读取队列配置并创建投递端、管理端或完整队列运行实例
 - 提供 `core/queue/facade/producer` 和 `core/queue/facade/operations` 作为 runtime capability 接入点，其中 producer 只表示投递端，operations 表示投递端 + 管理端，不启动 worker
-- 持有 Queue Runtime Kernel 的初始化、失败处理、重试判断、限流状态和 Outbox poller 生命周期
+- 持有 Queue Runtime Kernel 的初始化、重试判断、限流状态和 Outbox poller 生命周期
 - 通过 `Driver` / `RunnerDriver` 注册表按 `Config.Driver` 选择实现
 - 暴露 provider-agnostic 的 `Client`、`Worker`、`Manager` 接口
 - 将 `queue.Task` 编码为 provider 任务
 - 将 provider 的 worker 消息转换为 `queue.Message`
-- 将 provider 的失败事件转换为 `queue.Failure`
 - 通过 `Registry` 和 `Dispatcher` 管理事件注册、handler lookup、payload bind 和 middleware 执行链
-- 提供投递选项、失败回调、重试间隔和失败统计判断
-- 提供 `FailureLogger` 的批量写入机制
+- 提供投递选项、重试间隔和失败统计判断
 - 提供 `DeleteTask` 用于删除队列内已有任务后重投
 - 提供 driver-neutral 的 `TaskStore` / `TaskSubmissionStore` 生命周期，统一记录 `submitting`、`pending/scheduled`、`submit_failed`、执行记录和执行日志
 - 提供 driver-neutral 的 `TaskScheduleStore` 和 schedule poller，使初始延迟任务不依赖具体 driver 的 delay 能力
@@ -48,7 +46,7 @@
 - 注册具体业务 handler
 - 在 producer capability 中启动 worker/consumer
 - 定义业务任务类型和 payload
-- 直接绑定失败日志表结构
+- 直接绑定业务表结构
 - 运行 cron/scheduler
 - 重写 GORM 或业务服务能力
 
@@ -65,8 +63,6 @@ core/queue/
   driver_registry.go
   error.go
   task_store.go
-  failure_handler.go
-  failure_logger.go
   locker.go
   option.go
   operations.go
@@ -93,7 +89,6 @@ core/queue/
     observability/
     orchestrator/
     state/
-  failure/
   retry/
 ```
 
@@ -110,7 +105,6 @@ worker/
   infra/
   bootstrap/
     runtime.go
-    failure_writer.go
     retry.go
 ```
 
@@ -505,13 +499,13 @@ API 和 worker 不应强绑定在同一生命周期里，避免 API 重启导致
 `queue.RuntimeKernel` 是队列运行时内核的宿主对象，负责收敛原本分散在 worker bootstrap 中的 runtime 生命周期：
 
 - `NewRunner`：创建 `Client + Worker + Manager` 完整运行实例，不写入任何包级默认实例。
-- Failure：组合 `FailureHandler` 与 `FailureLogger`，失败日志的异步 goroutine 由 kernel 关闭。
+- IsFailure：保存 provider 失败统计判断，例如限流错误默认不计入失败统计。
 - Retry：由 `RetryStage` 和 `queue.RetryStrategy` 负责 provider-agnostic 重试治理；driver 只读取 `RateLimitError.RetryIn` 或 `RuntimeError.RetryIn` 作为 transport retry delay。
 - RateLimit：保存运行时限流器和规范化后的 `RateLimitConfig`，业务 registry 只读取 `kernel.RateLimiter()`。
 - Outbox：通过 `OutboxFactory` 注入具体实现，由 kernel 启动和停止 `OutboxPoller`。
 - Orchestrator：持有 runtime event publisher 和 observer，worker registry 通过 kernel 注入的 orchestrator 执行 handler lifecycle。
 
-worker 只负责把当前服务依赖注入给 kernel，例如 Redis rate limiter、Gorm outbox 和失败日志 writer；不再自行管理 failure logger goroutine、outbox poller cancel 或 queue runtime option 组合。
+worker 只负责把当前服务依赖注入给 kernel，例如 Redis rate limiter 和 Gorm outbox；不再自行管理 outbox poller cancel 或 queue runtime option 组合。
 
 Runtime Kernel、Admin host、Worker host 和 `worker/command/queue` 不通过默认实例做 runtime discovery；队列实例必须来自显式 runtime、client、manager 或 operations 注入。
 
@@ -614,19 +608,16 @@ Queue Runtime Kernel 不持有 transport ownership：
 Admin 自主注册的队列 API 路径：
 
 ```txt
-GET    /admin/v1/queue/queues
-GET    /admin/v1/queue/queue?queue=default
+GET    /admin/v1/queue/dashboard
 GET    /admin/v1/queue/tasks
-GET    /admin/v1/queue/task?queue=default&id=xxx
-GET    /admin/v1/queue/status
-GET    /admin/v1/queue/metrics
-GET    /admin/v1/queue/worker/status
-POST   /admin/v1/queue/tasks
+GET    /admin/v1/queue/task/runs
+GET    /admin/v1/queue/task/run/logs
 POST   /admin/v1/queue/task/retry
 POST   /admin/v1/queue/task/archive
 POST   /admin/v1/queue/task/cancel
 POST   /admin/v1/queue/task/delete
-POST   /admin/v1/queue/tasks/clean
+GET    /admin/v1/queue/failures
+POST   /admin/v1/queue/failure/requeue
 POST   /admin/v1/queue/queue/pause
 POST   /admin/v1/queue/queue/resume
 POST   /admin/v1/queue/queue/drain
@@ -784,6 +775,7 @@ Middleware 使用边界：
 
 ## 更新记录
 
+- 2026-05-22：移除旧 provider failure callback、`queue.Failure`、`FailureHandler`、`FailureWriter` 和 `FailureLogger`，任务错误统一由 `TaskStoreMiddleware` 写入执行记录。
 - 2026-05-16：runtime kernel freeze：unlock failure 不影响业务成功；runtime state 统一经 `TransitionTaskState` 合法流转；`RuntimeEvent.Type` 类型化为 `RuntimeEventType`；retry authority 收口到 runtime `RetryStage`，driver 只读取 retry hint。
 - 2026-05-16：清理未使用的私有兼容入口，handler chain 和 runtime option 测试统一使用公开 API `BuildHandlerChain`、`ApplyRuntimeOptions`。
 - 2026-05-16：第三阶段 runtime orchestrator：新增 middleware stage system、runtime task state、runtime event、observer、runtime scoped context 和 `runtime/orchestrator|state|event|lifecycle|observability` 目录；`Dispatcher` 通过 orchestrator 执行 handler lifecycle。
@@ -796,11 +788,11 @@ Middleware 使用边界：
 - 2026-05-16：删除 `queue.Default`、`DefaultClient`、`DefaultManager` 以及包级 init/register/manage/close 兼容 API；队列实例必须通过 runtime context、显式 client/manager/operations 或 facade 注入。
 - 2026-05-15：建立 Runtime API Boundary，删除 `pkg/queue/transport/gin` 和 `pkg/queue/transport/cobra`，Admin/Command 分别持有 HTTP/Cobra transport，统一调用 `OperationsRuntime`。
 - 2026-05-15：新增 `core/queue/runtime_metadata.go` 和 `core/queue/runtime_status.go`，Registry metadata 支持 queue/retry/timeout/delay/priority/trace，Operations runtime 支持 runtime status、worker status、metrics、failed task fallback、clean 和 drain。
-- 2026-05-15：新增 `queue.Dispatcher` 和 `queue.RuntimeKernel`，把 registry middleware pipeline、failure logger、retry option、rate limit state 和 outbox poller 生命周期从 worker bootstrap 收敛到 Queue Runtime Kernel。
+- 2026-05-15：新增 `queue.Dispatcher` 和 `queue.RuntimeKernel`，把 registry middleware pipeline、retry option、rate limit state 和 outbox poller 生命周期从 worker bootstrap 收敛到 Queue Runtime Kernel。
 - 2026-05-15：新增 `queue.Registry` 和 typed payload handler 适配，worker 注册入口收敛为 `worker.RegisterEvents`，业务事件目录改为 `worker/event`。
 - 2026-05-15：新增 `queue.Push` 和 `queue.Delay`，作为默认实例迁移期 helper；`queue.Unique(ttl)` 保持为唯一任务投递选项。
 - 2026-05-13：新增 `pkg/queue/outbox/gorm` 作为 DB Outbox Gorm 实现，`core/queue` 仅保留 Outbox 标准接口、`OutboxTask` 和 poller；worker/bootstrap、queue command、models migration 和 worker 集成测试切到新路径。
-- 2026-05-13：修正 `FailureLogger.PushContext` 的异步写入上下文，保留 trace/request/track values 但不继承任务取消信号，真实 worker demo 覆盖 failure log 和 tracing 链路。
+- 2026-05-13：真实 worker demo 覆盖任务错误记录和 tracing 链路。
 - 2026-05-13：队列标准 API 统一收敛到 `core/queue` 根包，具体 driver 位于 `pkg/queue/*`。
 - 2026-05-13：完成标准层收口，`Task`、`Message`、`Client`、`Manager`、`Driver`、`Config`、`Option`、`RuntimeOption`、状态和错误模型改由 `core/queue` 根包直接定义。
 - 2026-05-13：新增 `pkg/queue/control/redis` 和 `pkg/queue/control/memory` 作为队列锁、幂等、限流实现，`core/queue` 仅保留 `Locker`、`Idempotency`、`RateLimiter` 接口和标准错误 helper；worker Redis 限流接线切到新路径。
@@ -810,8 +802,8 @@ Middleware 使用边界：
 - 2026-05-13：公开 driver 合同所需 helper：`ApplyOptions`、`RuntimeOptions`、`ApplyRuntimeOptions`、`DefaultRuntimeOptions`、`CloneCapabilities`，为后续 driver 迁出 `core/queue` 做准备。
 - 2026-05-13：新增 `queue.NewClient` / `queue.NewManager`，`InitClient` 改为初始化投递端，`InitManager` 初始化管理端，投递端不再依赖完整 `QueueRunner`。
 - 2026-05-13：`queue.New` 通过 driver registry 创建 `QueueRunner`，根包不暴露 Asynq 具体类型。
-- 2026-05-13：worker 处理和失败处理 context 补充 `task_id/queue/type`，失败 header 解析统一从 `traceparent` 提取 `trace_id/span_id`。
-- 2026-05-12：worker 失败日志入库补充 `track_id/request_id/trace_id/span_id`，新增真实 demo 覆盖重试、限流、唯一任务和删除后重投。
+- 2026-05-13：worker 处理 context 补充 `task_id/queue/type`，任务 header 解析统一从 `traceparent` 提取 `trace_id/span_id`。
+- 2026-05-12：worker 执行记录补充 `track_id/request_id/trace_id/span_id`，新增真实 demo 覆盖重试、限流、唯一任务和删除后重投。
 - 2026-05-12：Queue tracing operation name 改为 `producer::<task_type>`、`consumer::<task_type>`、`handler::<task_type>`。
 - 2026-05-12：队列 driver 引入统一 Capability/State/Manager/API/Command/Governance 抽象。
 - 2026-05-12：Queue span 去除重复自定义 attributes，任务信息统一使用 `messaging.*` 语义字段。
@@ -952,7 +944,6 @@ return queue.RateLimited(2*time.Minute, errors.New("remote service rate limited"
 
 - 使用 `RetryIn` 作为下次重试延迟
 - 默认不计入失败统计
-- `queue.Failure.RateLimited` 标记为 true
 
 默认失败统计判断：
 
@@ -964,89 +955,17 @@ queue.WithIsFailure(func(err error) bool {
 
 不希望重试的错误不要在业务层直接依赖 Asynq 的 `SkipRetry`。如确实需要，应先在 `core/queue` 增加 provider-agnostic 的错误类型。
 
-## 失败处理方案
+## 失败记录方案
 
-队列任务执行失败时，`core/queue` 将 provider 失败事件转换为：
+队列任务执行失败时，错误记录由 `TaskStoreMiddleware` 写入任务执行表。`core/queue` 只定义任务存储接口、执行 middleware 和任务日志 context，不绑定具体数据库表。
 
-```go
-type Failure struct {
-    TaskID      string
-    Queue       string
-    Type        string
-    Payload     []byte
-    Err         error
-    RetryCount  int
-    MaxRetry    int
-    RateLimited bool
-    Headers     map[string]string
-}
-```
+应用层通常会落三类记录：
 
-worker 侧通过 `RuntimeKernelConfig.FailureHandler` 接收：
+- `system_queue_task`：任务索引、payload、当前状态、最近错误和链路字段。
+- `system_queue_task_run`：每次执行尝试、attempt、耗时、错误和链路字段。
+- `system_queue_task_run_log`：执行过程日志。
 
-```go
-kernel, err := queue.InitRuntimeKernel(ctx, cfg.Queue, queue.RuntimeKernelConfig{
-    FailureHandler: queue.LogFailureHandler("Worker队列任务失败"),
-})
-defer kernel.Close()
-```
-
-日志字段应至少包含：
-
-- `task_id`
-- `queue`
-- `type`
-- `retry_count`
-- `max_retry`
-- `rate_limited`
-- `track_id`
-- `request_id`
-- `trace_id`
-- `span_id`
-- `error`
-
-标准 error 日志不打印 payload，避免把敏感业务数据写入普通日志。失败 payload 如需排查，统一走 `FailureWriter` 落库，具体保留策略由业务表和权限控制决定。
-
-## 失败日志批量入库
-
-`core/queue` 只定义通用写入接口，不绑定具体表：
-
-```go
-type FailureWriter interface {
-    WriteBatch(ctx context.Context, failures []*Failure) error
-}
-```
-
-项目内由 `worker/bootstrap/failure_writer.go` 将失败写入 `models.SystemQueueFailureLog`。worker 写入失败日志时会从 task headers 提取 `X-Track-ID`、`X-Request-ID` 和 W3C `traceparent`，落库到 `track_id/request_id/trace_id/span_id`。这些字段只用于排查和链路反查，不参与任务去重。
-
-Asynq worker 处理上下文会写入 `logger.ContextFields` 可识别的 `task_id/queue/type`；失败处理会先从 task headers 恢复 `track_id/request_id/trace_id/span_id`，再调用业务 FailureHandler。
-
-`FailureLogger` 行为：
-
-- `Push` 非阻塞
-- 缓冲满时丢弃并输出标准日志
-- 达到 `BatchSize` 自动写入
-- 到达 `FlushInterval` 自动写入
-- context 取消后 flush 剩余日志
-- 写入前 clone `Failure`，避免调用方后续修改 payload 影响日志
-- `PushContext` 会保留 context values 里的 trace/request/track 信息，但剥离任务 context 的取消信号，避免 asynq 任务结束后异步写库直接收到 `context canceled`
-
-典型接入由 `queue.RuntimeKernel` 负责组合：
-
-```go
-kernel, err := queue.InitRuntimeKernel(ctx, cfg.Queue, queue.RuntimeKernelConfig{
-    FailureHandler: queue.LogFailureHandler("Worker队列任务失败"),
-    FailureWriter:  workerbootstrap.NewQueueFailureWriter(database.DB, 100),
-    FailureLog: queue.FailureLogConfig{
-        QueueSize:     1024,
-        BatchSize:     100,
-        FlushInterval: 200 * time.Millisecond,
-    },
-})
-defer kernel.Close()
-```
-
-失败日志表保留 `task_id`、`queue`、`type`、`payload`、`retry_count`、`max_retry`、`rate_limited`、`track_id`、`request_id`、`trace_id`、`span_id` 和 `error`，用于排查和后台重投。
+`core/queue` 不再维护 provider failure callback、`queue.Failure`、`FailureHandler`、`FailureWriter` 或 `FailureLogger`。标准错误日志由 runtime logging middleware 输出；后台失败列表和失败重投应基于 `system_queue_task_run` 联 `system_queue_task` 查询。
 
 ## 固定 TaskID 和重投
 
@@ -1054,7 +973,7 @@ defer kernel.Close()
 
 后台重投流程：
 
-1. 从失败日志读取 `queue + task_id + type + payload`
+1. 从任务索引和执行记录读取 `queue + task_id + type + payload`
 2. 调用 `operations.DeleteTask(ctx, row.Queue, row.TaskID)` 删除队列内已有任务
 3. 用原始 payload 重新 `queue.Enqueue`
 
@@ -1088,13 +1007,12 @@ go run ./cmd/sdkitgo queue stats
 
 队列日志统一使用 `core/logger`。当前 Asynq 日志通过 `logger.Asynq("asynq")` 接入。
 
-业务失败日志应统一记录任务上下文：
+业务错误日志应统一记录任务上下文：
 
 - trace id 或请求上下文中的链路字段
 - task id
 - queue
 - task type
-- payload
 - retry count
 - max retry
 - latency
@@ -1145,9 +1063,7 @@ go run ./cmd/sdkitgo queue stats
 - `MaxRetry`、`Timeout`、`ProcessIn`、`ProcessAt`、`TaskID`、`Unique`、`Retention` 和 `Group` 可正常映射到 provider
 - 普通错误按配置重试
 - `queue.RateLimited(...)` 使用指定延迟，并默认不计入失败统计
-- 失败回调能拿到任务 ID、队列、类型、payload、错误和重试信息
-- `FailureLogger` 能按 batch、interval 和退出 flush 写入
-- 失败日志能记录 `track_id/request_id/trace_id/span_id`
+- 执行记录能记录 `track_id/request_id/trace_id/span_id`
 - 固定 `TaskID` 失败后可以先删除队列内已有任务再重投
 - 真实 Redis/DB 集成 demo 使用短唯一队列名，避免被本机其他 worker 抢消费
 - 队列统计命令可查看各队列状态

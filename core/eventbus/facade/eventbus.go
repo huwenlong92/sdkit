@@ -10,6 +10,7 @@ import (
 
 	coreeventbus "github.com/huwenlong92/sdkit/core/eventbus"
 	eventbusmemory "github.com/huwenlong92/sdkit/pkg/eventbus/memory"
+	eventbusnats "github.com/huwenlong92/sdkit/pkg/eventbus/nats"
 	eventbusredis "github.com/huwenlong92/sdkit/pkg/eventbus/redis"
 	eventbusstream "github.com/huwenlong92/sdkit/pkg/eventbus/redisstream"
 
@@ -115,7 +116,9 @@ func NormalizeConfig(cfg Config) Config {
 	if cfg.Driver == "" {
 		cfg.Driver = DriverMemory
 	}
+	cfg.Addr = strings.TrimSpace(cfg.Addr)
 	cfg.TopicPrefix = strings.Trim(cfg.TopicPrefix, ":")
+	cfg.SubjectPrefix = strings.Trim(cfg.SubjectPrefix, ".")
 	cfg.NodeName = strings.TrimSpace(cfg.NodeName)
 	return cfg
 }
@@ -126,10 +129,10 @@ func ValidateConfig(cfg Config) error {
 		return nil
 	}
 	switch driver {
-	case DriverMemory, DriverRedis, DriverRedisStream:
+	case DriverMemory, DriverRedis, DriverRedisStream, DriverNATS:
 		return nil
 	default:
-		return fmt.Errorf("eventbus driver %q is invalid, want memory, redis, or redis_stream", cfg.Driver)
+		return fmt.Errorf("eventbus driver %q is invalid, want memory, redis, redis_stream, or nats", cfg.Driver)
 	}
 }
 
@@ -236,8 +239,14 @@ func buildBus(cfg Config, option options) (coreeventbus.Bus, error) {
 		}
 		nodeName := eventBusNodeName(cfg)
 		return eventbusstream.New(option.redis, cfg.TopicPrefix, nodeName, nodeName, eventbusstream.WithMaxLen(cfg.StreamMaxLen)), nil
+	case DriverNATS:
+		subjectPrefix := cfg.SubjectPrefix
+		if subjectPrefix == "" {
+			subjectPrefix = strings.ReplaceAll(cfg.TopicPrefix, ":", ".")
+		}
+		return eventbusnats.New(cfg.Addr, subjectPrefix)
 	default:
-		return nil, fmt.Errorf("eventbus driver %q is invalid, want memory, redis, or redis_stream", cfg.Driver)
+		return nil, fmt.Errorf("eventbus driver %q is invalid, want memory, redis, redis_stream, or nats", cfg.Driver)
 	}
 }
 

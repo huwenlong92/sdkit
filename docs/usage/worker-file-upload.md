@@ -1,6 +1,6 @@
 # Worker 文件上传任务
 
-`worker/taskdef.FileGenerateUploadPayload` 用于把异步任务生成或获取到的文件上传到 filesystem 支持的存储后端，例如 OSS、COS、S3、MinIO 或本地存储。
+`worker/taskdef.FileGenerateUploadPayload` 用于把异步任务生成或获取到的文件上传到 core/storage 支持的存储后端，例如 OSS、COS、S3、MinIO 或本地存储。
 
 ## 适用场景
 
@@ -32,7 +32,7 @@ Handler 按以下顺序选择输入源：
 tmpPath := "/tmp/report-2026-05-11.xlsx"
 
 payload := taskdef.FileGenerateUploadPayload{
-    Policy: fscore.StoragePolicy{
+    Policy: storage.Policy{
         Driver:    "oss",
         Bucket:    "my-bucket",
         Endpoint:  "oss-cn-beijing.aliyuncs.com",
@@ -68,7 +68,7 @@ if err != nil {
 
 ```go
 payload := taskdef.FileGenerateUploadPayload{
-    Policy: fscore.StoragePolicy{
+    Policy: storage.Policy{
         Driver:    "oss",
         Bucket:    "my-bucket",
         Endpoint:  "oss-cn-beijing.aliyuncs.com",
@@ -95,7 +95,7 @@ if err != nil {
 执行行为：
 
 - Worker 使用 `UploadFromURL` 发起 HTTP GET。
-- 响应 body 作为 reader 直接传给 filesystem。
+- 响应 body 作为 reader 直接传给 core/storage。
 - OSS driver 以流式方式上传，不需要把视频整体读入队列 payload。
 
 ## 本机路径上传
@@ -136,4 +136,4 @@ payload := taskdef.FileGenerateUploadPayload{
 - 服务独立部署时，API 服务本地路径通常不能直接给 worker 用；跨服务文件来源优先用 `source_url`。
 - `temp_file_path` 上传成功后会被 worker 删除；需要保留源文件时使用 `source_path`。
 - `source_url` 下载失败或返回非 2xx 状态会导致任务失败，由队列重试策略处理。
-- `policy` 可以来自配置或数据库策略行，driver 专属字段由 filesystem driver 自己读取。
+- `policy` 可以来自配置或数据库策略行，driver 专属字段由 storage driver 自己读取。

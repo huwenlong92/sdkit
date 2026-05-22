@@ -156,11 +156,11 @@ func Provider() bootstrap.Provider {
 服务启动层统一接入 framework runtime。服务私有能力通过 `RuntimeCapabilities` 声明；Filesystem 这类全服务共享能力由 bootstrap 注册，并在 capability 的 `Register` 中把实例绑定到 runtime container；服务目录只保留业务 adapter：
 
 ```go
-filesystemcap.Use(
-    filesystemcap.WithConfigLoader(func(*runtime.App) (filesystemcap.Config, error) {
+storagefacade.Use(
+    storagefacade.WithConfigLoader(func(*runtime.App) (storagefacade.Config, error) {
         cfg, err := boot.requireConfig()
         if err != nil {
-            return filesystemcap.Config{}, err
+            return storagefacade.Config{}, err
         }
         return cfg.FileSystem, nil
     }),
@@ -169,7 +169,7 @@ filesystemcap.Use(
 
 DB、Redis、Cache、Logger、Tracing、RateLimit、Session、Filesystem 仍然是 bootstrap 初始化的基础公共能力，业务代码继续使用对应 core 根包 API 或服务 adapter。
 
-Filesystem 这类多服务通用 framework runtime，由 `infra/capabilities/*` 提供默认实现；EventBus、Realtime 和 Queue producer 使用对应 `core/*/facade`。服务目录只保留 `infra/notify`、`infra/storage`、`infra/realtime` 这类业务 adapter。
+Filesystem 这类多服务通用 framework runtime，由 `infra/capabilities/*` 提供默认实现；EventBus、Realtime 和 Queue producer 使用对应 `core/*/facade`。服务目录只保留 `infra/notify`、`core/storage`、`infra/realtime` 这类业务 adapter。
 
 ## services 配置
 

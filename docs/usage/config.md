@@ -53,7 +53,7 @@ imports:
   - eventbus.yaml
   - worker.yaml
   - crontab.yaml
-  - filesystem.yaml
+  - storage.yaml
   - tracing.yaml
 
 app:
@@ -87,7 +87,7 @@ err := config.LoadKey("configs/config.yaml", "worker.queue", &cfg)
 
 - 公共启动配置放在 `bootstrap.Config`，例如 app、log、database、redis、cache、jwt、session、tracing。
 - 服务配置放在服务自己的 `config` 包，例如 `app/admin/config.ServiceConfig`、`app/api/config.ServiceConfig`。
-- 模块配置放在模块内，例如 `core/queue.Config`、`pkg/filesystem/core.Config`。
+- 模块配置放在模块内，例如 `core/queue.Config`、`core/storage.Config`。
 - 服务需要 core 或 pkg 能力时，由服务配置加载器自己组合，不向 `bootstrap.Config` 继续加字段。
 - HTTP 服务配置覆盖公共配置。例如 `admin.jwt` 覆盖全局 `jwt`，`admin.session` 覆盖全局 `session`。
 
@@ -158,7 +158,7 @@ type ServiceConfig struct {
     JWT        auth.JWTConfig
     Session    session.Config
     Queue      queue.Config
-    FileSystem fscore.Config
+    Storage storage.Config
 }
 ```
 
@@ -244,7 +244,7 @@ type Config struct {
     Type       string
     Enabled    bool
     Queue      queue.Config
-    FileSystem fscore.Config
+    Storage storage.Config
 }
 
 func Load(configPath string, name string, base *bootstrap.Config) (Config, error) {

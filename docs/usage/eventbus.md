@@ -53,6 +53,19 @@ eventbus:
 
 `redis` driver 使用 Redis PubSub，只保证在线广播，不保证离线补偿、ACK、重试和持久化。
 
+已有 NATS 服务时可直接使用 NATS PubSub：
+
+```yaml
+eventbus:
+  driver: nats
+  addr: 192.168.1.126:4222
+  topic: rt:events
+  subject_prefix: sdkitgo.rt
+  node_name: realtime-01
+```
+
+`nats` driver 使用普通 NATS PubSub，适合跨进程实时广播；它不使用 JetStream，也不提供 ACK、重试和离线补偿。
+
 显式配置 `driver: redis` 或 `driver: redis_stream` 时，必须先通过 `core/redis/facade.Use` 或手动 Redis 初始化提供 Redis client。Redis client 不存在时初始化会直接返回错误，不会降级为 `memory`。
 
 ## 初始化
@@ -80,6 +93,16 @@ capability, err := eventbuscap.New(eventbuscap.Config{
     Driver:      "redis",
     TopicPrefix: "sdkitgo:rt",
 }, eventbuscap.WithRedisClient(redisClient))
+```
+
+NATS 场景直接通过配置传入 `Addr`，facade 会创建并托管 NATS 连接：
+
+```go
+capability, err := eventbuscap.New(eventbuscap.Config{
+    Driver:        "nats",
+    Addr:          "192.168.1.126:4222",
+    SubjectPrefix: "sdkitgo.rt",
+})
 ```
 
 `eventbuscap.New` 默认会设置 `core/eventbus` default bus。需要临时或局部 bus 时使用 `WithoutDefault()`；需要把外部注入 bus 的生命周期交给 capability 时使用 `WithOwnedBus()`。
@@ -126,7 +149,7 @@ eventbus.SetDefaultWithDriver(bus, "redis")
 - websocket / SSE / mqtt 连接管理
 - room、online presence、connection push
 - HTTP handler、gin router 或 gateway server
-- Redis PubSub / Redis Stream 具体实现细节
+- Redis PubSub / Redis Stream / NATS PubSub 具体实现细节
 
 具体 driver 在 `pkg/eventbus/*`。websocket、SSE、mqtt 等实时传输后续由 `pkg/realtime/*` adapter 和 `app/realtime` gateway 承接，eventbus 只把事件交给订阅者。
 
@@ -200,7 +223,7 @@ defer subscription.Close()
 
 订阅 handler 统一接收 `*eventbus.Event`，不再提供只接收 `topic` 和 `payload` 的订阅入口。handler context 会从 `Event.Headers` 恢复 trace、track 和 request 信息，日志可以继续使用 `logger.WithContext(ctx, log)`。
 
-默认 memory、redis、redis_stream driver 都会为单次 handler 调用创建 `eventbus.handle <event_name|topic>` span。handler 返回 error 或 panic 时，该 span 会记录错误；panic 仍由 Recover middleware 处理。
+默认 memory、redis、redis_stream、nats driver 都会为单次 handler 调用创建 `eventbus.handle <event_name|topic>` span。handler 返回 error 或 panic 时，该 span 会记录错误；panic 仍由 Recover middleware 处理。
 
 ## SSE 接入
 

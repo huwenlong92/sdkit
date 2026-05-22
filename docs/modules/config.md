@@ -93,7 +93,7 @@ imports:
   - eventbus.yaml
   - worker.yaml
   - crontab.yaml
-  - filesystem.yaml
+  - storage.yaml
   - tracing.yaml
 ```
 

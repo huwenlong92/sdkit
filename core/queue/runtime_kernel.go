@@ -8,10 +8,6 @@ import (
 type OutboxFactory func(QueueRunner) (Outbox, error)
 
 type RuntimeKernelConfig struct {
-	FailureHandler FailureHandler
-	FailureWriter  FailureWriter
-	FailureLog     FailureLogConfig
-
 	IsFailure IsFailureFunc
 
 	RateLimiter     RateLimiter
@@ -28,7 +24,6 @@ type RuntimeKernelConfig struct {
 type RuntimeKernel struct {
 	runner QueueRunner
 
-	cancelFailureLog   context.CancelFunc
 	cancelOutboxPoller context.CancelFunc
 
 	rateLimiter RateLimiter
@@ -55,25 +50,7 @@ func InitRuntimeKernel(ctx context.Context, cfg Config, runtimeCfg RuntimeKernel
 	}
 	kernel.orchestrator = NewOrchestrator(orchestratorOpts...)
 
-	failureHandler := runtimeCfg.FailureHandler
-	if failureHandler == nil {
-		failureHandler = LogFailureHandler("")
-	}
-	if runtimeCfg.FailureWriter != nil {
-		logCtx, cancel := context.WithCancel(ctx)
-		failureLogger := NewFailureLogger(runtimeCfg.FailureWriter, runtimeCfg.FailureLog)
-		failureLogger.Start(logCtx)
-		baseHandler := failureHandler
-		failureHandler = func(ctx context.Context, failure *Failure) {
-			baseHandler(ctx, failure)
-			failureLogger.PushContext(ctx, failure)
-		}
-		kernel.cancelFailureLog = cancel
-	}
-
-	opts := []RuntimeOption{
-		WithFailureHandler(failureHandler),
-	}
+	opts := make([]RuntimeOption, 0, 1)
 	if runtimeCfg.IsFailure != nil {
 		opts = append(opts, WithIsFailure(runtimeCfg.IsFailure))
 	}
@@ -132,10 +109,6 @@ func (k *RuntimeKernel) Orchestrator() *Orchestrator {
 func (k *RuntimeKernel) Close() {
 	if k == nil {
 		return
-	}
-	if k.cancelFailureLog != nil {
-		k.cancelFailureLog()
-		k.cancelFailureLog = nil
 	}
 	if k.cancelOutboxPoller != nil {
 		k.cancelOutboxPoller()

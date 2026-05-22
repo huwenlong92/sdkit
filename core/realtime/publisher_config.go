@@ -7,11 +7,13 @@ import (
 )
 
 type PublisherConfig struct {
-	Driver       string `mapstructure:"driver" yaml:"driver"`
-	Topic        string `mapstructure:"topic" yaml:"topic"`
-	TopicPrefix  string `mapstructure:"topic_prefix" yaml:"topic_prefix"`
-	NodeName     string `mapstructure:"node_name" yaml:"node_name"`
-	StreamMaxLen int64  `mapstructure:"stream_max_len" yaml:"stream_max_len"`
+	Driver        string `mapstructure:"driver" yaml:"driver"`
+	Addr          string `mapstructure:"addr" yaml:"addr"`
+	Topic         string `mapstructure:"topic" yaml:"topic"`
+	TopicPrefix   string `mapstructure:"topic_prefix" yaml:"topic_prefix"`
+	SubjectPrefix string `mapstructure:"subject_prefix" yaml:"subject_prefix"`
+	NodeName      string `mapstructure:"node_name" yaml:"node_name"`
+	StreamMaxLen  int64  `mapstructure:"stream_max_len" yaml:"stream_max_len"`
 }
 
 func NewConfiguredPublisher(cfg PublisherConfig, logName string) (Publisher, string, error) {
@@ -26,8 +28,8 @@ func ValidatePublisherConfig(cfg PublisherConfig) error {
 	if driver == "" {
 		return fmt.Errorf("eventbus.driver is required for realtime/eventbus capability; add configs/eventbus.yaml to imports or configure eventbus.driver")
 	}
-	if driver != "memory" && driver != "redis" && driver != "redis_stream" {
-		return fmt.Errorf("eventbus.driver %q is invalid, want memory, redis, or redis_stream", cfg.Driver)
+	if driver != "memory" && driver != "redis" && driver != "redis_stream" && driver != "nats" {
+		return fmt.Errorf("eventbus.driver %q is invalid, want memory, redis, redis_stream, or nats", cfg.Driver)
 	}
 	if strings.TrimSpace(cfg.Topic) == "" {
 		return fmt.Errorf("eventbus.topic is required for realtime/eventbus capability")

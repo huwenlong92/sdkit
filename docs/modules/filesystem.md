@@ -2,7 +2,7 @@
 
 ## 作用
 
-`pkg/filesystem` 提供统一文件能力，屏蔽 local、S3/MinIO、COS、OSS 的差异。它只作为基础工具库存在，不负责 router、server 或业务注入。
+`core/storage` 提供统一文件能力，屏蔽 local、S3/MinIO、COS、OSS 的差异。它只作为基础工具库存在，不负责 router、server 或业务注入。
 
 主要覆盖：
 
@@ -29,33 +29,33 @@ defer fs.Close()
 文件系统作为 bootstrap 公共 runtime capability 注册，服务 provider 不再声明 `admin.filesystem`、`worker.filesystem` 或 `crontab.filesystem`：
 
 ```go
-filesystemcap.Use(
-    filesystemcap.WithConfigLoader(func(*runtime.App) (filesystemcap.Config, error) {
+storagefacade.Use(
+    storagefacade.WithConfigLoader(func(*runtime.App) (storagefacade.Config, error) {
         cfg, err := boot.requireConfig()
         if err != nil {
-            return filesystemcap.Config{}, err
+            return storagefacade.Config{}, err
         }
         return cfg.FileSystem, nil
     }),
 )
 ```
 
-服务目录只保留业务侧入口，例如 `app/admin/infra/storage`、`app/api/infra/storage`、`worker/infra/storage`、`crontab/infra/storage`。这些 adapter 优先使用服务内显式设置的默认实例，未设置时 fallback 到 bootstrap 公共 filesystem。handler/task 使用服务 adapter：
+服务目录只保留业务侧入口，例如 `core/storage`、`core/storage`、`core/storage`、`core/storage`。这些 adapter 优先使用服务内显式设置的默认实例，未设置时 fallback 到 bootstrap 公共 filesystem。handler/task 使用服务 adapter：
 
 ```go
-fs, err := storage.DefaultFileSystem()
+fs, err := storage.Default()
 if err != nil {
     return err
 }
 ```
 
-默认实例在 bootstrap runtime 初始化时创建，在 runtime capability shutdown 时释放。`NewFileSystem()` 只用于确实需要独立实例的场景，业务工厂不放在 `pkg/filesystem` 中。
+默认实例在 bootstrap runtime 初始化时创建，在 runtime capability shutdown 时释放。`NewFileSystem()` 只用于确实需要独立实例的场景，业务工厂不放在 `core/storage` 中。
 
-各服务可以独立运行；开发阶段的统一启动只做进程编排，不改变服务内依赖的初始化边界。framework runtime 生命周期实现放在 `infra/capabilities/filesystem`，服务侧 adapter 只保存当前服务默认入口。配置装配是启动层细节，对 handler/task 只暴露文件系统使用接口。通用默认值由 `pkg/filesystem` 处理，driver 专属字段由各 driver 自己读取，不放到 `core` 或根目录 `internal`。
+各服务可以独立运行；开发阶段的统一启动只做进程编排，不改变服务内依赖的初始化边界。framework runtime 生命周期实现放在 `core/storage/facade`，服务侧 adapter 只保存当前服务默认入口。配置装配是启动层细节，对 handler/task 只暴露文件系统使用接口。通用默认值由 `core/storage` 处理，driver 专属字段由各 driver 自己读取，不放到 `core` 或根目录 `internal`。
 
 ## 配置项
 
-核心策略为 `pkg/filesystem/core.StoragePolicy`：
+核心策略为 `core/storage.StoragePolicy`：
 
 | 字段 | 说明 |
 |------|------|
@@ -118,7 +118,7 @@ if err != nil {
 HTTP handler 使用服务自己的默认实例：
 
 ```go
-fs, err := storage.DefaultFileSystem()
+fs, err := storage.Default()
 if err != nil {
     response.Error(c, apperrors.NewCodeWithData(apperrors.CodeInternal, "文件系统初始化失败", nil))
     return
@@ -174,5 +174,5 @@ worker 文件上传任务的完整用法见 [worker-file-upload.md](../usage/wor
 
 ## Breaking Changes
 
-- `pkg/filesystem/core.Config` 支持统一 `policy`，同时通过通用 `DriverConfig` 兼容旧的 `local/s3/cos/oss` 嵌套配置；driver 专属字段由对应 driver 读取。
-- HTTP 文件接口不再使用包级全局 `InitFileSystem` 存放 `fsClient`，改为由服务启动层复用 `infra/capabilities/filesystem` 初始化默认实例，并由本服务 `infra/storage` 在 handler/task 侧提供入口。
+- `core/storage.Config` 支持统一 `policy`，同时通过通用 `DriverConfig` 兼容旧的 `local/s3/cos/oss` 嵌套配置；driver 专属字段由对应 driver 读取。
+- HTTP 文件接口不再使用包级全局 `InitFileSystem` 存放 `fsClient`，改为由服务启动层复用 `core/storage/facade` 初始化默认实例，并由本服务 `core/storage` 在 handler/task 侧提供入口。

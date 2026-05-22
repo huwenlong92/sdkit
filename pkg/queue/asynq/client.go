@@ -14,7 +14,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	oteltrace "go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap"
 )
 
 type Queue struct {
@@ -47,9 +46,6 @@ func New(cfg corequeue.Config, opts ...corequeue.RuntimeOption) *Queue {
 			Logger:         logger.Asynq("asynq"),
 			RetryDelayFunc: asynqRetryDelay(),
 			IsFailure:      runtime.IsFailure,
-			ErrorHandler: hibasynq.ErrorHandlerFunc(func(ctx context.Context, task *hibasynq.Task, err error) {
-				handleFailure(ctx, runtime.FailureHandler, failureFromAsynq(ctx, task, err))
-			}),
 		}),
 		mux: hibasynq.NewServeMux(),
 	}
@@ -258,42 +254,6 @@ func setQueueCorrelationAttributes(ctx context.Context, span oteltrace.Span) {
 	corequeue.SetSpanCorrelationAttributes(ctx, span)
 }
 
-func failureFromAsynq(ctx context.Context, task *hibasynq.Task, err error) *corequeue.Failure {
-	id, _ := hibasynq.GetTaskID(ctx)
-	queueName, _ := hibasynq.GetQueueName(ctx)
-	retried, _ := hibasynq.GetRetryCount(ctx)
-	maxRetry, _ := hibasynq.GetMaxRetry(ctx)
-	return &corequeue.Failure{
-		TaskID:      id,
-		Queue:       queueName,
-		Type:        task.Type(),
-		Payload:     task.Payload(),
-		Headers:     cloneHeaders(task.Headers()),
-		Err:         err,
-		RetryCount:  retried,
-		MaxRetry:    maxRetry,
-		RateLimited: corequeue.IsRateLimitError(err),
-	}
-}
-
-func handleFailure(ctx context.Context, handler corequeue.FailureHandler, failure *corequeue.Failure) {
-	if failure == nil {
-		return
-	}
-	ctx = contextFromTaskHeaders(ctx, failure.Headers)
-	ctx = contextWithFailureFields(ctx, failure)
-	if handler != nil {
-		handler(ctx, failure)
-		return
-	}
-	logger.WithContext(ctx, logger.L).Error("队列任务处理失败",
-		zap.Int("retried", failure.RetryCount),
-		zap.Int("max_retry", failure.MaxRetry),
-		zap.Bool("rate_limited", failure.RateLimited),
-		zap.Error(failure.Err),
-	)
-}
-
 func contextWithMessageFields(ctx context.Context, msg *corequeue.Message) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
@@ -311,18 +271,4 @@ func contextWithMessageFields(ctx context.Context, msg *corequeue.Message) conte
 		ctx = logger.WithField(ctx, logger.TypeKey, msg.Type)
 	}
 	return ctx
-}
-
-func contextWithFailureFields(ctx context.Context, failure *corequeue.Failure) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if failure == nil {
-		return ctx
-	}
-	return contextWithMessageFields(ctx, &corequeue.Message{
-		ID:    failure.TaskID,
-		Queue: failure.Queue,
-		Type:  failure.Type,
-	})
 }

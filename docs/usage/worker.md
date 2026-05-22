@@ -1,6 +1,6 @@
 # Worker 使用说明
 
-Worker 是 Queue Runtime Host，负责注册业务事件、消费 Redis/Asynq 队列任务，并把失败尝试记录到数据库。
+Worker 是 Queue Runtime Host，负责注册业务事件、消费队列任务，并把执行尝试记录到数据库。
 
 ## 启动
 
@@ -13,20 +13,20 @@ go run ./cmd/sdkitgo serve worker -c configs/config.yaml
 1. `bootstrap.Init` 读取 `configs/tracing.yaml` 并自动初始化 OpenTelemetry。
 2. `worker/config.Load` 读取 `worker.queue`、filesystem、eventbus、websocket 发布配置。
 3. `worker.Server.Start` 初始化 `queue.RuntimeKernel`，注册 event registry，并启动消费者。
-4. `worker.Server.Shutdown` 关闭消费者、queue kernel、flush 失败日志，并关闭 tracing。
+4. `worker.Server.Shutdown` 关闭消费者、queue kernel，并关闭 tracing。
 
-## 失败日志入库
+## 任务错误入库
 
-worker 队列任务返回 error 时会写两类日志：
+worker 队列任务返回 error 时会写两类记录：
 
-- 标准日志：`Worker队列任务失败`，带 `task_id`、`queue`、`type`、`retry_count`、`max_retry`、`rate_limited`、`err`，并从 `ctx` 自动补充 `trace_id/span_id`。
-- 数据库日志：写入 `system_queue_failure_log`，保留任务 payload、错误、重试次数，以及 `track_id/request_id/trace_id/span_id`。
+- 标准日志：runtime logging middleware 带 `task_id`、`queue`、`type`、`retry_count`、`max_retry`、`err`，并从 `ctx` 自动补充链路字段。
+- 数据库记录：写入 `system_queue_task`、`system_queue_task_run` 和 `system_queue_task_run_log`，保留 payload、错误、执行次数，以及 `track_id/request_id/trace_id/span_id`。
 
-失败表用于排查和后台重投。查询示例：
+任务执行表用于排查和后台重投。查询示例：
 
 ```sql
-SELECT id, task_id, queue, type, retry_count, max_retry, rate_limited, trace_id, error
-FROM sd_system_queue_failure_log
+SELECT id, task_id, queue, type, attempt, trace_id, error
+FROM sd_system_queue_task_run
 WHERE task_id = 'your-task-id'
 ORDER BY id DESC;
 ```
@@ -37,7 +37,7 @@ ORDER BY id DESC;
 
 - `user:sync` + `source=retry_fast`：200ms，供真实集成测试快速覆盖多次重试。
 - 普通 `user:sync`：按重试次数分钟级退避。
-- `queue.RateLimited(...)`：使用错误里的 `RetryIn`，并标记 `rate_limited=true`。
+- `queue.RateLimited(...)`：使用错误里的 `RetryIn`，错误写入执行记录。
 
 业务事件只需要返回 error，不直接依赖 Asynq 的错误类型。
 
@@ -112,7 +112,7 @@ outbox := gormoutbox.NewGormOutbox(database.DB, runtime.Client())
 err := outbox.Flush(ctx, 100)
 ```
 
-真实 demo 会验证：Outbox 记录写入 DB、flush 后进入 Redis 队列、worker 消费失败后写入 `system_queue_failure_log`，并保留 trace/tracking 字段。
+真实 demo 会验证：Outbox 记录写入 DB、flush 后进入队列、worker 消费失败后写入 `system_queue_task_run`，并保留 trace/tracking 字段。
 
 Worker 可通过配置启动常驻 poller：
 
@@ -147,7 +147,7 @@ _, err := queue.Enqueue(ctx,
 有明确业务唯一 ID 时使用固定 `queue.TaskID(id)`。如果任务失败，已有任务仍可能停留在 retry 或 archived 状态，再用同一个 TaskID 入队会冲突。后台重投必须先删队列内已有任务：
 
 ```go
-row := loadFailureLog(ctx, taskID)
+row := loadQueueTask(ctx, taskID)
 
 runtime := queue.Runtime(ctx)
 if runtime == nil {
@@ -197,10 +197,10 @@ SDKITGO_INTEGRATION=1 go test ./worker/tests -run TestWorkerQueueMechanismDemoFr
 
 该测试覆盖：
 
-- retry_fast 多次重试，并检查 `system_queue_failure_log` 中的 retry_count。
-- rate_limit 错误入库，并检查 `rate_limited=true`。
+- retry_fast 多次重试，并检查 `system_queue_task_run` 中的 attempt。
+- rate_limit 错误入库，并检查执行错误。
 - Redis RateLimiter middleware 先允许一次，再限制同 key 第二次任务。
 - `queue.Unique` 重复投递冲突。
 - Outbox 保存后由常驻 poller 自动 flush 到队列，并验证 worker 消费和链路字段。
 - 固定 TaskID 失败后先 `DeleteTask`，再用同一个 TaskID 重投。
-- 队列 producer/consumer span 自动生成，并验证失败日志中的 trace 字段。
+- 队列 producer/consumer span 自动生成，并验证执行记录中的 trace 字段。

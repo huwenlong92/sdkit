@@ -5,7 +5,7 @@
 ## 结构
 
 ```
-pkg/filesystem/
+core/storage/
 ├── fs.go                 # filesystem.New() 工厂
 ├── core/
 │   ├── types.go          # Handler 接口 + 文件类型 + Config + 凭证
@@ -95,14 +95,14 @@ filesystem:
 
 `filesystem.New` 会在初始化时按 `driver` 分配具体驱动。统一 `policy` 可直接用于数据库策略行；旧的 `local/s3/cos/oss` 嵌套配置仍兼容，作为 driver 自己读取的配置段。
 
-项目从 yaml 配置创建文件系统时，由 bootstrap 通过 `infra/capabilities/filesystem.Use(...)` 注册公共 runtime capability，handler 或任务通过本服务 `infra/storage` 的 `DefaultFileSystem()` 获取实例。服务目录只保留业务默认入口，未显式设置服务内实例时 fallback 到 bootstrap 公共 filesystem。配置装配函数不作为业务 API 暴露；driver 专属字段由对应 driver 自己读取。
+项目从 yaml 配置创建文件系统时，由 bootstrap 通过 `core/storage/facade.Use(...)` 注册公共 runtime capability，handler 或任务通过本服务 `core/storage` 的 `Default()` 获取实例。服务目录只保留业务默认入口，未显式设置服务内实例时 fallback 到 bootstrap 公共 filesystem。配置装配函数不作为业务 API 暴露；driver 专属字段由对应 driver 自己读取。
 
 ```go
-filesystemcap.Use(
-    filesystemcap.WithConfigLoader(func(*runtime.App) (filesystemcap.Config, error) {
+storagefacade.Use(
+    storagefacade.WithConfigLoader(func(*runtime.App) (storagefacade.Config, error) {
         cfg, err := boot.requireConfig()
         if err != nil {
-            return filesystemcap.Config{}, err
+            return storagefacade.Config{}, err
         }
         return cfg.FileSystem, nil
     }),
@@ -183,8 +183,8 @@ type Handler interface {
 文件流经服务端转发到后端存储。
 
 ```go
-import "github.com/huwenlong92/sdkit/pkg/filesystem"
-import "github.com/huwenlong92/sdkit/pkg/filesystem/core"
+import "github.com/huwenlong92/sdkit/core/storage"
+import "github.com/huwenlong92/sdkit/core/storage"
 
 fs, _ := filesystem.New(&core.Config{
     Policy: core.StoragePolicy{
@@ -455,7 +455,7 @@ info, err := fs.UploadStream(ctx, reader, core.FileInfo{Name: "a.txt"})
 ```go
 package mydriver
 
-import "github.com/huwenlong92/sdkit/pkg/filesystem/core"
+import "github.com/huwenlong92/sdkit/core/storage"
 
 type Driver struct{}
 

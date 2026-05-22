@@ -299,7 +299,7 @@ client
 - `chat.typing`：发布 `message.typing` domain event，并回复 `chat.typing.ack`。
 - `presence.sync`：读取 gateway state presence，并推送 `presence.online`。
 
-业务 handler 不直接写 connection，也不直接调用 `publisher.PushRoom`。`app/im/infra/notify` 封装 `NotifyUser`、`NotifyRoom`、`Broadcast`；`app/im/infra/realtime` 再封装业务语义事件，例如 `PushChatMessage`。
+业务 handler 不直接写 connection。`app/im/infra/realtime` 提供包级业务语义入口，例如 `PushChatMessage(ctx, roomID, payload)`，内部直接复用 `core/realtime` Push API，避免 handler 自己拼 publisher 或 eventbus 中转。
 
 ## EventBus 边界
 

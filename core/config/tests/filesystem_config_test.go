@@ -8,7 +8,7 @@ import (
 
 	"github.com/huwenlong92/sdkit/core/config"
 	"github.com/huwenlong92/sdkit/core/logger"
-	fscore "github.com/huwenlong92/sdkit/pkg/filesystem/core"
+	fscore "github.com/huwenlong92/sdkit/pkg/storage/core"
 )
 
 func TestFilesystemConfigKeepsDriverConfig(t *testing.T) {

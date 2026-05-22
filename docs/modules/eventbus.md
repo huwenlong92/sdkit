@@ -193,6 +193,19 @@ Redis PubSub 不提供可靠性保证：订阅者离线会丢消息，没有 ACK
 
 redis_stream driver 和 memory/redis 一样默认启用 Recover 和 Tracing middleware，保证 SSE 单事件处理 span 一致。
 
+### nats
+
+`pkg/eventbus/nats` 基于 `github.com/nats-io/nats.go` 普通 PubSub，适合已有 NATS 服务的多进程实时广播。
+
+- `Publish` 使用 `Conn.Publish`
+- `Subscribe` 使用 `Conn.Subscribe`
+- topic 会按 `subject_prefix` 转成 NATS subject
+- 订阅受 `Subscription.Close` 和 bus `Close` 控制
+- 消息体为 JSON 编码的 `eventbus.Event`
+- 默认启用 Recover 和 Tracing middleware
+
+NATS eventbus 不使用 JetStream，不提供持久化、ACK、重试和离线补偿；需要可靠任务时继续使用 queue NATS driver。
+
 ## Capability
 
 每个 driver 通过 `Capability()` 声明能力：
@@ -212,6 +225,7 @@ type Capability struct {
 
 - memory：`Fanout=true`
 - redis PubSub：`Fanout=true`
+- nats PubSub：`Fanout=true`
 - redis stream：`Persistent=true`、`ConsumerGrp=true`
 
 调用方设置当前 driver 不支持的重能力选项时返回 `ErrUnsupported`。
@@ -220,10 +234,11 @@ type Capability struct {
 
 `core/eventbus/facade` 是通用 EventBus runtime facade：
 
-- `Config.Driver` 支持 `memory`、`redis`、`redis_stream`。
-- driver 实例来自 `pkg/eventbus/memory`、`pkg/eventbus/redis`、`pkg/eventbus/redisstream`。
+- `Config.Driver` 支持 `memory`、`redis`、`redis_stream`、`nats`。
+- driver 实例来自 `pkg/eventbus/memory`、`pkg/eventbus/redis`、`pkg/eventbus/redisstream`、`pkg/eventbus/nats`。
 - `memory` 可直接创建。
 - 手动调用 `New` 时，`redis` 和 `redis_stream` 必须通过 `WithRedisClient(*redis.Client)` 显式传入外部 Redis client；facade 不自行创建 Redis 连接。
+- `nats` 通过 `Config.Addr` 创建连接，`Config.SubjectPrefix` 控制 subject 前缀；未设置时由 `TopicPrefix` 转换得到。
 - runtime 调用 `Use` 时，会优先使用 `UseWithRedisClient` 注入的 client；未注入时从 `core/redis/facade.From(app)` 复用 Redis runtime client。
 - `New` 默认设置 `core/eventbus` default bus，且校验已有 default 的 driver 是否与当前配置一致。
 - `WithoutDefault()` 可创建不注册 default 的局部 bus。
@@ -290,6 +305,7 @@ crontab.finished
 - `trace_id` 只能表示 OpenTelemetry trace ID，业务追踪 ID 必须使用 `track_id` / `X-Track-ID`
 - 新 driver 必须完整保留 `Event.Headers`，不得自行定义 trace/track/request 字段语义
 - Redis 不允许暴露到公网
+- NATS 不允许暴露到公网
 - 新 driver 必须实现 `Close`、`Capability` 和 `unsubscribe`
 - 新 driver 应默认启用 `eventbus.Recover` 和 `eventbus.Tracing`，或者在 Subscribe 路径显式提供等价能力
 - `pkg/eventbus/*` 不主动读取 `core/redis.RDB`，Redis client 由装配层传入
@@ -302,6 +318,7 @@ crontab.finished
 ## 更新记录
 
 - 2026-05-16：通用 EventBus runtime capability 从原 bootstrap 装配包下沉到 `core/eventbus/facade`；`core/eventbus` 根包只保留 `KeyEventBus`、`From`、`Bind` 等最小原语，统一放在 `binding.go`，避免 root 与 facade 同时实现 `Use`。
+- 2026-05-22：新增 `pkg/eventbus/nats` 普通 PubSub driver，eventbus facade 支持 `driver=nats`、`addr` 和 `subject_prefix`。
 - 2026-05-14：第三阶段 realtime runtime breaking refactor 后，删除独立 capability 文件，`Capability` 并入核心 bus 契约；driver 能力字段改为 `Fanout`，避免 eventbus 暴露实时推送语义。
 - 2026-05-14：第二阶段 realtime runtime 整改后，eventbus 文档补充边界：eventbus 只保存和转发事件，realtime target、gateway router、本地 dispatcher、presence/room 均留在 `core/realtime` 与 `pkg/realtime/*`。
 - 2026-05-14：新增通用 eventbus capability 边界说明，明确 driver 来源、Redis client 外部传入、default bus 和 Close 生命周期规则。

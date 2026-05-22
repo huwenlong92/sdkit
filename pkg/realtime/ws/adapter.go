@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/realtime"
@@ -14,15 +15,26 @@ import (
 	"github.com/huwenlong92/sdkit/pkg/realtime/transport"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 type Adapter struct {
 	registry Registry
 	opts     Options
+	upgrader websocket.Upgrader
 }
 
 func New(registry Registry, opts Options) *Adapter {
-	return &Adapter{registry: registry, opts: opts.normalize()}
+	opts = opts.normalize()
+	return &Adapter{
+		registry: registry,
+		opts:     opts,
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  opts.ReadBufferSize,
+			WriteBufferSize: opts.WriteBufferSize,
+			CheckOrigin:     opts.CheckOrigin,
+		},
+	}
 }
 
 func (a *Adapter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -36,17 +48,16 @@ func (a *Adapter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(key, value)
 		}
 	}
-	conn, err := Upgrade(w, r, responseHeaders)
+	conn, err := a.upgrader.Upgrade(w, r, responseHeaders)
 	if err != nil {
 		transport.Warn(ctx, a.opts.Logger, "websocket upgrade failed", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	client := a.clientFromRequest(r)
 	a.ServeConn(ctx, conn, client)
 }
 
-func (a *Adapter) ServeConn(ctx context.Context, conn *Conn, client *realtime.Client) {
+func (a *Adapter) ServeConn(ctx context.Context, conn *websocket.Conn, client *realtime.Client) {
 	if a == nil || a.registry == nil || conn == nil || client == nil {
 		return
 	}
@@ -85,6 +96,7 @@ func (a *Adapter) ServeConn(ctx context.Context, conn *Conn, client *realtime.Cl
 		}
 	}()
 
+	writer := &connWriter{conn: conn}
 	closer := transport.NewCloser(cancel, conn.Close)
 
 	go func() {
@@ -95,7 +107,7 @@ func (a *Adapter) ServeConn(ctx context.Context, conn *Conn, client *realtime.Cl
 	writeDone := make(chan struct{})
 	go func() {
 		defer close(writeDone)
-		a.writeLoop(ctx, conn, client, opts, closer)
+		a.writeLoop(ctx, writer, client, opts, closer)
 	}()
 
 	a.readLoop(ctx, conn, client, opts)
@@ -103,7 +115,10 @@ func (a *Adapter) ServeConn(ctx context.Context, conn *Conn, client *realtime.Cl
 	<-writeDone
 }
 
-func (a *Adapter) readLoop(ctx context.Context, conn *Conn, client *realtime.Client, opts Options) {
+func (a *Adapter) readLoop(ctx context.Context, conn *websocket.Conn, client *realtime.Client, opts Options) {
+	if opts.MaxMessageSize > 0 {
+		conn.SetReadLimit(opts.MaxMessageSize)
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return
@@ -111,7 +126,7 @@ func (a *Adapter) readLoop(ctx context.Context, conn *Conn, client *realtime.Cli
 		if opts.ReadTimeout > 0 {
 			_ = conn.SetReadDeadline(time.Now().Add(opts.ReadTimeout))
 		}
-		payload, opcode, err := conn.ReadText(opts.MaxMessageSize)
+		messageType, payload, err := conn.ReadMessage()
 		if err != nil {
 			if ctx.Err() == nil {
 				transport.Warn(ctx, opts.Logger, "websocket read failed", err, "client_id", client.ID)
@@ -125,19 +140,14 @@ func (a *Adapter) readLoop(ctx context.Context, conn *Conn, client *realtime.Cli
 		} else {
 			client.LastActiveAt = time.Now()
 		}
-		switch opcode {
-		case opText:
+		switch messageType {
+		case websocket.TextMessage:
 			if opts.OnMessage != nil {
 				if err := opts.OnMessage(ctx, client, payload); err != nil {
 					transport.Warn(ctx, opts.Logger, "websocket message handler failed", err, "client_id", client.ID)
 				}
 			}
-		case opPing:
-			if err := conn.WritePong(payload); err != nil {
-				transport.Warn(ctx, opts.Logger, "websocket pong failed", err, "client_id", client.ID)
-				return
-			}
-		case opClose:
+		case websocket.CloseMessage:
 			return
 		}
 	}
@@ -157,7 +167,7 @@ func (a *Adapter) disconnect(ctx context.Context, client *realtime.Client, opts 
 	return a.registry.Remove(client.ID)
 }
 
-func (a *Adapter) writeLoop(ctx context.Context, conn *Conn, client *realtime.Client, opts Options, closer *transport.Closer) {
+func (a *Adapter) writeLoop(ctx context.Context, writer *connWriter, client *realtime.Client, opts Options, closer *transport.Closer) {
 	var ticker *time.Ticker
 	if opts.PingInterval > 0 {
 		ticker = time.NewTicker(opts.PingInterval)
@@ -170,11 +180,11 @@ func (a *Adapter) writeLoop(ctx context.Context, conn *Conn, client *realtime.Cl
 	for {
 		select {
 		case <-ctx.Done():
-			_ = conn.WriteClose()
+			_ = writer.WriteClose(opts.WriteTimeout)
 			return
 		case event, ok := <-client.Ch:
 			if !ok {
-				_ = conn.WriteClose()
+				_ = writer.WriteClose(opts.WriteTimeout)
 				_ = closer.Close()
 				return
 			}
@@ -183,25 +193,53 @@ func (a *Adapter) writeLoop(ctx context.Context, conn *Conn, client *realtime.Cl
 				transport.WarnTrace(opts.Logger, event.TraceID, "websocket event encode failed", err, "client_id", client.ID)
 				continue
 			}
-			if opts.WriteTimeout > 0 {
-				_ = conn.SetWriteDeadline(time.Now().Add(opts.WriteTimeout))
-			}
-			if err := conn.WriteText(payload); err != nil {
+			if err := writer.WriteText(payload, opts.WriteTimeout); err != nil {
 				transport.WarnTrace(opts.Logger, event.TraceID, "websocket write failed", err, "client_id", client.ID)
 				_ = closer.Close()
 				return
 			}
 		case <-tick:
-			if opts.WriteTimeout > 0 {
-				_ = conn.SetWriteDeadline(time.Now().Add(opts.WriteTimeout))
-			}
-			if err := conn.WritePing(nil); err != nil {
+			if err := writer.WritePing(opts.WriteTimeout); err != nil {
 				transport.Warn(ctx, opts.Logger, "websocket ping failed", err, "client_id", client.ID)
 				_ = closer.Close()
 				return
 			}
 		}
 	}
+}
+
+type connWriter struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+}
+
+func (w *connWriter) WriteText(payload []byte, timeout time.Duration) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if timeout > 0 {
+		_ = w.conn.SetWriteDeadline(time.Now().Add(timeout))
+	}
+	return w.conn.WriteMessage(websocket.TextMessage, payload)
+}
+
+func (w *connWriter) WritePing(timeout time.Duration) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	deadline := time.Time{}
+	if timeout > 0 {
+		deadline = time.Now().Add(timeout)
+	}
+	return w.conn.WriteControl(websocket.PingMessage, nil, deadline)
+}
+
+func (w *connWriter) WriteClose(timeout time.Duration) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	deadline := time.Time{}
+	if timeout > 0 {
+		deadline = time.Now().Add(timeout)
+	}
+	return w.conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), deadline)
 }
 
 func (a *Adapter) clientFromRequest(r *http.Request) *realtime.Client {

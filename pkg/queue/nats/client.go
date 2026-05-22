@@ -97,11 +97,8 @@ func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequ
 	if task.ID != "" {
 		applied.TaskID = task.ID
 	}
-	if applied.UniqueTTL > 0 {
-		return nil, unsupported(corequeue.CapUnique)
-	}
-	if applied.ProcessIn > 0 || !applied.ProcessAt.IsZero() {
-		return nil, unsupported(corequeue.CapDelay)
+	if err := validateOptions(applied); err != nil {
+		return nil, err
 	}
 	queueName := firstNonEmpty(applied.Queue, corequeue.DefaultQueueName)
 	headers := corequeue.CorrelationHeadersFromContext(ctx)
@@ -154,6 +151,28 @@ func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequ
 		CreatedAt: now,
 		UpdatedAt: now,
 	}, nil
+}
+
+func validateOptions(opts corequeue.EnqueueOptions) error {
+	if opts.Timeout > 0 {
+		return unsupported(corequeue.CapTimeout)
+	}
+	if !opts.Deadline.IsZero() {
+		return unsupported(corequeue.CapDeadline)
+	}
+	if opts.ProcessIn > 0 || !opts.ProcessAt.IsZero() {
+		return unsupported(corequeue.CapDelay)
+	}
+	if opts.UniqueTTL > 0 {
+		return unsupported(corequeue.CapUnique)
+	}
+	if opts.Priority != 0 {
+		return unsupported(corequeue.CapPriority)
+	}
+	if opts.RateLimitKey != "" {
+		return unsupported(corequeue.CapRateLimit)
+	}
+	return nil
 }
 
 func (q *Queue) BatchEnqueue(ctx context.Context, tasks []corequeue.Task, opts ...corequeue.Option) ([]*corequeue.TaskInfo, error) {

@@ -29,6 +29,22 @@ func Enqueue(ctx context.Context, task Task, opts ...Option) (*TaskInfo, error) 
 	return runtime.Enqueue(ctx, task, opts...)
 }
 
+func RequeueTaskRecord(ctx context.Context, record TaskRecord) (*TaskInfo, error) {
+	runtime := Runtime(ctx)
+	if runtime == nil {
+		return nil, ErrNotInitialized
+	}
+	return runtime.RequeueTaskRecord(ctx, record)
+}
+
+func DispatchAutoRetryTasks(ctx context.Context, limit int) (int, error) {
+	runtime := Runtime(ctx)
+	if runtime == nil {
+		return 0, ErrNotInitialized
+	}
+	return runtime.DispatchAutoRetryTasks(ctx, limit)
+}
+
 func BatchEnqueue(ctx context.Context, tasks []Task, opts ...Option) ([]*TaskInfo, error) {
 	runtime := Runtime(ctx)
 	if runtime == nil {

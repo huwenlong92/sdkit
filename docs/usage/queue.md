@@ -263,12 +263,10 @@ info, err := queue.Enqueue(
 )
 ```
 
-worker 可以在初始化 Queue Runtime Kernel 时接入失败回调、失败统计判断、限流器和 outbox poller：
+worker 可以在初始化 Queue Runtime Kernel 时接入失败统计判断、限流器和 outbox poller：
 
 ```go
 runtime, err := queue.InitRuntimeInstance(ctx, cfg.Queue, queue.RuntimeKernelConfig{
-    FailureHandler: queue.LogFailureHandler("Worker队列任务失败"),
-    FailureWriter:  workerbootstrap.NewQueueFailureWriter(database.DB, 100),
     IsFailure: func(err error) bool {
         return !queue.IsRateLimitError(err)
     },
@@ -348,22 +346,7 @@ running -> retrying
 running -> failed -> deadletter
 ```
 
-driver manager 查询仍返回 provider 状态，例如 `StatePending`、`StateActive`、`StateRetry`、`StateArchived`。
-
-如果需要失败日志批量入库，把 writer 交给 `queue.RuntimeKernel`：
-
-```go
-runtime, err := queue.InitRuntimeInstance(ctx, cfg.Queue, queue.RuntimeKernelConfig{
-    FailureHandler: queue.LogFailureHandler("Worker队列任务失败"),
-    FailureWriter:  workerbootstrap.NewQueueFailureWriter(database.DB, 100),
-    FailureLog: queue.FailureLogConfig{
-        QueueSize:     1024,
-        BatchSize:     100,
-        FlushInterval: 200 * time.Millisecond,
-    },
-})
-defer runtime.Close() // 退出时 flush 剩余失败日志并关闭底层队列资源
-```
+driver manager 查询仍返回 provider 状态，例如 `StatePending`、`StateActive`、`StateRetry`、`StateArchived`。任务错误记录由 `TaskStoreMiddleware` 写入任务执行记录。
 
 ## 定义任务
 
@@ -687,7 +670,7 @@ go run ./cmd/sdkitgo queue outbox flush --limit=100
 go run ./cmd/sdkitgo queue outbox poll --limit=100 --interval=5s
 ```
 
-Outbox 会保存 payload、headers 和投递 options。headers 包含当前 context 的 tracking/request/tracing 信息，所以 worker 失败日志仍能写入 `track_id/request_id/trace_id/span_id`。
+Outbox 会保存 payload、headers 和投递 options。headers 包含当前 context 的 tracking/request/tracing 信息，所以 worker 执行记录仍能写入 `track_id/request_id/trace_id/span_id`。
 
 当前已实现：`Save`、`SaveBatch`、`Flush`、常驻 poller、独立 command、DB 迁移、重复任务语义处理、真实 DB/Redis 集成测试。
 
@@ -695,7 +678,7 @@ Outbox 会保存 payload、headers 和投递 options。headers 包含当前 cont
 
 ### 文件上传任务
 
-`worker/taskdef.FileGenerateUploadPayload` 是内置文件上传任务 payload，适合把 worker 生成或获取到的文件异步保存到 filesystem 支持的后端。
+`worker/taskdef.FileGenerateUploadPayload` 是内置文件上传任务 payload，适合把 worker 生成或获取到的文件异步保存到 core/storage 支持的后端。
 
 按文件来源选择字段：
 
@@ -1023,7 +1006,7 @@ X-Request-ID: demo-request
 | `trace_probe` | event 中执行 PostgreSQL 查询和 Redis `INCR`，用于验证跨组件 trace |
 | `retry` | event 返回普通错误，按 worker 重试策略重试 |
 | `retry_fast` | event 返回普通错误，worker 使用 200ms 快速重试 |
-| `rate_limit` | event 返回 `queue.RateLimited`，失败日志写入 `rate_limited=true` |
+| `rate_limit` | event 返回 `queue.RateLimited`，错误写入任务执行记录 |
 
 响应会返回 `trace_id`、`track_id`、`request_id`、`task_id`、`queue` 和 `type`，可直接用 `trace_id` 在 Jaeger 中查询 HTTP -> queue producer -> worker consumer -> event handler 链路。
 
@@ -1236,52 +1219,21 @@ func HandleUserSync(_ context.Context, msg *queue.Message) error {
 
 不希望重试的错误不要在业务层直接依赖 Asynq 的 `SkipRetry`，使用 `queue.NewIgnoredError(err)` 表达 provider-agnostic 的忽略语义。
 
-## 失败接收
+## 失败记录
 
-队列任务执行失败时，`core/queue` 会调用 `FailureHandler`。标准失败日志只打印任务 ID、队列、类型、重试信息、trace/request 字段和错误原因，不打印 payload：
+队列任务执行失败时，错误记录由 `TaskStoreMiddleware` 写入任务执行表：
 
-```go
-failureHandler := queue.LogFailureHandler("Worker队列任务失败")
-```
+- `system_queue_task`：任务索引、payload、当前状态、最近错误和链路字段。
+- `system_queue_task_run`：每次执行尝试、attempt、耗时、错误和链路字段。
+- `system_queue_task_run_log`：执行过程日志。
 
-`queue.Failure` 字段：
-
-| 字段 | 说明 |
-|------|------|
-| `TaskID` | 任务 ID |
-| `Queue` | 失败所在队列 |
-| `Type` | 任务类型 |
-| `Payload` | 原始 payload |
-| `Err` | handler 返回的错误 |
-| `RetryCount` | 当前重试次数 |
-| `MaxRetry` | 最大重试次数 |
-| `RateLimited` | 是否为 `queue.RateLimited(...)` |
-| `Headers` | Asynq task headers，包含 `X-Track-ID`、`X-Request-ID`、`traceparent` 等链路字段 |
-
-### 批量入库
-
-`core/queue` 只定义通用接口，不绑定具体表：
-
-```go
-type FailureWriter interface {
-    WriteBatch(ctx context.Context, failures []*Failure) error
-}
-```
-
-项目内示例 writer：
-
-- `worker/bootstrap/failure_writer.go`
-- `models.SystemQueueFailureLog`
-
-项目自己的 migrate 命令需要显式创建失败日志分区父表 `system_queue_failure_log`，按 `created_at` 做 PostgreSQL `RANGE` 月分区，并预创建当前月和下月分区。`payload` 使用 `jsonb`，便于后续按原 payload 重新投递任务。生产环境如果通过独立迁移流程建表，需要同步 `models.SystemQueueFailureLog` 对应结构；bootstrap 不再隐式执行 `models.AutoMigrate()`。
-
-表内保留 `task_id`、`queue`、`type`、`payload`、`retry_count`、`max_retry`、`rate_limited`、`track_id`、`request_id`、`trace_id`、`span_id` 和 `error`，用于后台排查、删除队列内已有失败任务，以及按原任务内容重新投递。
+`core/queue` 不再维护 provider failure callback、`queue.Failure`、`FailureHandler` 或 `FailureWriter`。后台失败列表和失败重投基于 `system_queue_task_run` 联 `system_queue_task` 查询。
 
 ### 固定 task_id / 唯一任务重投
 
 asynq 中固定 `TaskID` 或唯一任务失败后，已有任务仍在 retry / archived 等状态里。失败代表任务没有完整处理完，原 `task_id` 仍会占用，再用相同 `TaskID` 入队会冲突。
 
-后台重试这类任务时，先用日志表里的 `queue + task_id` 删除 asynq 内已有任务，再重新入队：
+后台重试这类任务时，先用任务索引里的 `queue + task_id` 删除 driver 内已有任务，再重新入队：
 
 ```go
 operations := queue.Runtime(ctx).Operations()
@@ -1298,14 +1250,6 @@ _, err := queue.Enqueue(ctx,
 ```
 
 `OperationsRuntime.DeleteTask` 底层会删除 pending、scheduled、retry 或 archived 状态的 asynq 任务；active 状态不能删除，应等待任务结束后再操作。
-
-`queue.FailureLogger` 行为和 `core/accesslog.Logger` 类似：
-
-- `Push` 非阻塞，缓冲满时丢弃并输出标准日志
-- 达到 `BatchSize` 自动写入
-- 到达 `FlushInterval` 自动写入
-- context 取消后会 flush 剩余日志
-- `PushContext` 会保留 context values 里的 trace/request/track 信息，但不会继承任务 context 的取消信号；异步落库不会因为 asynq 任务结束而拿到 canceled context
 
 ## 队列统计
 
@@ -1325,10 +1269,9 @@ go run ./cmd/sdkitgo queue stats
 - `worker/event/file_upload.go`：文件上传事件处理，负责流式上传和临时文件清理
 - `worker/registry.go`：event 和 middleware 挂载
 - `worker/bootstrap/runtime.go`：队列运行时接线
-- `worker/bootstrap/failure_writer.go`：失败日志批量入库 writer
 - `worker/bootstrap/retry.go`：重试间隔接线
 - `worker/tests/worker_queue_demo_test.go`：真实 DB/Redis demo，覆盖重试、限流、唯一任务、删除后重投和 tracing
-- `models/system_queue_failure_log.go`：失败日志分区表模型
+- `models/system_queue_task.go`：任务索引、执行记录和执行日志分区表模型
 - `core/queue/facade/producer`：只创建 producer client
 - `core/queue/facade/operations`：创建 producer client、manager 和 `RuntimeInstance`
 - `app/admin/handler/notification.go`：HTTP handler 投递任务
@@ -1375,17 +1318,19 @@ Admin 服务自己注册队列 HTTP 路由，实际路径为 `/admin/v1/queue/*`
 
 | 方法 | 路径 | 参数 |
 |------|------|------|
-| GET | `/admin/v1/queue/queues` | 无 |
-| GET | `/admin/v1/queue/queue` | query: `queue` |
+| GET | `/admin/v1/queue/dashboard` | 无 |
 | GET | `/admin/v1/queue/tasks` | query: `queue`、`state`、`type`、`task_id`、`limit`、`offset`、`cursor` |
-| GET | `/admin/v1/queue/task` | query: `queue`、`id` |
-| POST | `/admin/v1/queue/tasks` | JSON body: 入队请求 |
+| GET | `/admin/v1/queue/task/runs` | query: `record_id`、`task_id`、`queue`、`page`、`limit` |
+| GET | `/admin/v1/queue/task/run/logs` | query: `run_db_id`、`run_id`、`page`、`limit` |
 | POST | `/admin/v1/queue/task/retry` | JSON body: `queue`、`id` |
 | POST | `/admin/v1/queue/task/archive` | JSON body: `queue`、`id` |
 | POST | `/admin/v1/queue/task/cancel` | JSON body: `queue`、`id` |
 | POST | `/admin/v1/queue/task/delete` | JSON body: `queue`、`id` |
+| GET | `/admin/v1/queue/failures` | query: `queue`、`type`、`task_id`、`trace_id`、`request_id`、`track_id`、`retry_only` |
+| POST | `/admin/v1/queue/failure/requeue` | JSON body: `id`、`queue`、`reuse_task_id`、`max_retry`、`timeout_seconds` |
 | POST | `/admin/v1/queue/queue/pause` | JSON body: `queue` |
 | POST | `/admin/v1/queue/queue/resume` | JSON body: `queue` |
+| POST | `/admin/v1/queue/queue/drain` | JSON body: `queue` |
 
 约束：
 

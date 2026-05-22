@@ -190,7 +190,6 @@ models.InitTableNames()
 | `models.ApiT` | SystemApi | `sd_system_api` |
 | `models.ConfigureT` | SystemConfigure | `sd_system_configure` |
 | `models.AccessLogT` | SystemAccessLog | `sd_system_access_log` |
-| `models.QueueFailureLogT` | SystemQueueFailureLog | `sd_system_queue_failure_log` |
 
 ### 2. `database.TableName()` / `database.Table()`
 

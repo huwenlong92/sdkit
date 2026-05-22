@@ -75,7 +75,7 @@ go test ./...
 - `core/tracing`：OpenTelemetry 初始化、传播、span 工具
 - `core/tracking`：业务追踪 ID 生成与透传
 - `core/ginresponder`：Gin middleware 响应注入点
-- `pkg/filesystem`：本地、OSS、COS、S3 文件存储实现
+- `core/storage`：本地、OSS、COS、S3 文件存储实现
 - `pkg/queue/asynq`：Asynq 队列驱动
 - `pkg/eventbus/*`：memory、Redis、Redis Stream 事件总线实现
 - `pkg/realtime/*`：WebSocket、SSE、gateway、transport 实现

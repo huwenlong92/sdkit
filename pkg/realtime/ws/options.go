@@ -24,6 +24,9 @@ type Options struct {
 	PingInterval     time.Duration
 	ClientBufferSize int
 	MaxMessageSize   int64
+	ReadBufferSize   int
+	WriteBufferSize  int
+	CheckOrigin      func(*http.Request) bool
 	Logger           transport.Logger
 	Lifecycle        transport.Lifecycle
 	OnMessage        MessageHandler
@@ -42,6 +45,9 @@ func (o Options) normalize() Options {
 	}
 	if o.Logger == nil {
 		o.Logger = transport.NopLogger{}
+	}
+	if o.CheckOrigin == nil {
+		o.CheckOrigin = func(*http.Request) bool { return true }
 	}
 	return o
 }

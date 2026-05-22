@@ -197,6 +197,15 @@ func TestRedisDriversUseProvidedClient(t *testing.T) {
 	}
 }
 
+func TestNATSDriverRequiresAddr(t *testing.T) {
+	resetDefault(t)
+
+	_, err := eventbuscap.New(eventbuscap.Config{Driver: eventbuscap.DriverNATS})
+	if err == nil || !strings.Contains(err.Error(), "nats addr") {
+		t.Fatalf("New: want nats addr error, got %v", err)
+	}
+}
+
 func TestDriverErrors(t *testing.T) {
 	t.Run("invalid driver", func(t *testing.T) {
 		resetDefault(t)

@@ -57,6 +57,23 @@ func TestAsynqOptionsMatchDocumentedOptions(t *testing.T) {
 	}
 }
 
+func TestAsynqUnsupportedOptions(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		opts []corequeue.Option
+	}{
+		{name: "priority", opts: []corequeue.Option{corequeue.WithPriority(1)}},
+		{name: "rate limit key", opts: []corequeue.Option{corequeue.WithRateLimitKey("tenant-a")}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateOptions(corequeue.ApplyOptions(tc.opts))
+			if !errors.Is(err, corequeue.ErrCapabilityUnsupported) {
+				t.Fatalf("validateOptions() error = %v, want ErrCapabilityUnsupported", err)
+			}
+		})
+	}
+}
+
 func TestAsynqRetryDelay(t *testing.T) {
 	err := corequeue.RateLimited(2*time.Minute, errors.New("limited"))
 	delay := asynqRetryDelay()(1, err, hibasynq.NewTask("user:sync", []byte(`{}`)))

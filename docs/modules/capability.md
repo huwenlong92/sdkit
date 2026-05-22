@@ -69,7 +69,7 @@ core/<module>/facade/
 - `core/<module>/facade` 放 core 模块自己的 runtime facade。
 - Queue producer 使用 `core/queue/facade/producer`；Queue 管理能力使用 `core/queue/facade/operations`；Worker queue runtime 由 Worker 服务自行初始化，不作为 bootstrap capability。
 - capability 包放运行时生命周期、默认实现和最小注册 helper。
-- 服务私有业务入口放服务目录的 `infra/<adapter>`，例如 `app/admin/infra/storage`、`app/admin/infra/realtime`。
+- 服务私有业务入口放服务目录的 `infra/<adapter>`，例如 `core/storage`、`app/admin/infra/realtime`。
 - handler/task 不直接初始化 framework runtime，只调用业务 adapter 或 `core/*` 公共入口。
 - 配置装配函数使用私有函数，例如 `configure`，不暴露给 handler。
 
@@ -78,11 +78,11 @@ core/<module>/facade/
 framework capability 通过 runtime capability 注册。Filesystem 属于 bootstrap 公共能力，服务 provider 不再单独声明：
 
 ```go
-filesystemcap.Use(
-    filesystemcap.WithConfigLoader(func(*runtime.App) (filesystemcap.Config, error) {
+storagefacade.Use(
+    storagefacade.WithConfigLoader(func(*runtime.App) (storagefacade.Config, error) {
         cfg, err := boot.requireConfig()
         if err != nil {
-            return filesystemcap.Config{}, err
+            return storagefacade.Config{}, err
         }
         return cfg.FileSystem, nil
     }),
@@ -93,11 +93,11 @@ filesystemcap.Use(
 
 | 服务 | 业务 adapter |
 |---|---|
-| Admin | `app/admin/infra/storage`、`app/admin/infra/realtime` |
-| API | `app/api/infra/storage`、`app/api/infra/realtime` |
+| Admin | `core/storage`、`app/admin/infra/realtime` |
+| API | `core/storage`、`app/api/infra/realtime` |
 | Realtime Gateway | `app/realtime/infra/realtime` |
-| Worker | `worker/infra/storage`、`worker/infra/realtime` |
-| Crontab | `crontab/infra/storage`、`crontab/infra/realtime` |
+| Worker | `core/storage`、`worker/infra/realtime` |
+| Crontab | `core/storage`、`crontab/infra/realtime` |
 
 通用 realtime 推送能力放在：
 
@@ -115,12 +115,12 @@ Admin 当前复用的通用能力实现：
 
 | 能力 | 通用实现 |
 |---|---|
-| `filesystem` | `infra/capabilities/filesystem` |
+| `filesystem` | `core/storage/facade` |
 | `queue` | `core/queue/facade/producer` 或 `core/queue/facade/operations` |
 | `eventbus` | `core/eventbus/facade` |
 | `realtime` | `core/realtime/facade` |
 
-服务目录仍保留自己的业务 adapter，例如 `app/admin/infra/storage`。它的职责是保存 Admin 默认入口，并在需要定制时包一层服务私有逻辑。
+服务目录仍保留自己的业务 adapter，例如 `core/storage`。它的职责是保存 Admin 默认入口，并在需要定制时包一层服务私有逻辑。
 
 ## 通用 EventBus Capability
 
@@ -258,7 +258,7 @@ publisher 来源顺序：
 - 2026-05-16：移除旧泛型注册器、各 `bootstrap/capabilities/*` 的旧声明入口，以及服务内注册函数；服务本地能力统一由 Provider `RuntimeCapabilities` 声明，生命周期交给 runtime。
 - 2026-05-16：`filesystem` 从 `bootstrap/capabilities` 迁移到 `infra/capabilities`；`realtime` 下沉到 `core/realtime/facade`；旧 SSE/WebSocket publisher capability 删除；Queue producer 收敛到 `core/queue/facade/producer`，Queue 管理能力收敛到 `core/queue/facade/operations`，Worker queue runtime 由 Worker 服务自行初始化。
 - 2026-05-16：删除旧 SSE/WebSocket publisher bridge，实时推送统一通过 `realtime` capability 和服务 `infra/realtime` adapter。
-- 2026-05-15：删除服务私有 capability bootstrap，Admin/API/Worker/Crontab 迁移到 `infra/storage`、`infra/realtime`、`infra/notify` 等业务 adapter，Realtime Gateway 迁移到 `app/realtime/infra/realtime`。
+- 2026-05-15：删除服务私有 capability bootstrap，Admin/API/Worker/Crontab 迁移到 `core/storage`、`infra/realtime`、`infra/notify` 等业务 adapter，Realtime Gateway 迁移到 `app/realtime/infra/realtime`。
 - 2026-05-11：将实时推送能力收敛到 `core/realtime/facade`，Admin、API、Worker、Crontab 只做服务接入，Realtime Gateway 负责接收 EventBus 并推给浏览器。
 - 2026-05-11：补充 Admin 的 `filesystem`、`queue` 通用能力实现，服务目录只保留接入声明和默认入口。
 - 2026-05-16：通用 `eventbus` runtime facade 下沉到 `core/eventbus/facade`，`core/eventbus` 根包只保留最小运行时原语。

@@ -5,11 +5,6 @@ import (
 	"errors"
 	"testing"
 	"time"
-
-	"github.com/huwenlong92/sdkit/core/tracing"
-
-	"go.opentelemetry.io/otel"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 type payloadFixture struct {
@@ -540,26 +535,15 @@ func TestRuntimeOptionsDefaultRateLimitIsNotFailure(t *testing.T) {
 	}
 }
 
-func TestRuntimeKernelOwnsFailureLoggerAndRateLimitState(t *testing.T) {
+func TestRuntimeKernelOwnsRateLimitState(t *testing.T) {
 	runner := &testQueueRunner{}
 	driver := &countingDriver{name: "test-runtime-kernel", runner: runner}
 	if err := RegisterDriver(driver); err != nil {
 		t.Fatalf("RegisterDriver() error = %v", err)
 	}
 
-	writer := &recordingFailureWriter{ch: make(chan []*Failure, 1)}
-	baseFailureCalled := false
 	limiter := &testRateLimiter{}
 	kernel, err := InitRuntimeKernel(context.Background(), Config{Driver: driver.name}, RuntimeKernelConfig{
-		FailureHandler: func(context.Context, *Failure) {
-			baseFailureCalled = true
-		},
-		FailureWriter: writer,
-		FailureLog: FailureLogConfig{
-			QueueSize:     2,
-			BatchSize:     1,
-			FlushInterval: time.Hour,
-		},
 		RateLimiter: limiter,
 		RateLimitConfig: RateLimitConfig{
 			Enabled:       true,
@@ -578,12 +562,6 @@ func TestRuntimeKernelOwnsFailureLoggerAndRateLimitState(t *testing.T) {
 	gotLimiter, gotRateLimit, ok := kernel.RateLimiter()
 	if !ok || gotLimiter != limiter || gotRateLimit.DefaultLimit != 1 || gotRateLimit.DefaultWindow != time.Minute {
 		t.Fatalf("RateLimiter() = %#v %+v %v", gotLimiter, gotRateLimit, ok)
-	}
-
-	driver.runtime.FailureHandler(context.Background(), &Failure{TaskID: "task-1", Type: "user:sync"})
-	_ = waitFailureBatch(t, writer.ch)
-	if !baseFailureCalled {
-		t.Fatal("base failure handler was not called")
 	}
 }
 
@@ -618,99 +596,4 @@ type testRateLimiter struct{}
 
 func (l *testRateLimiter) Allow(context.Context, string, int, time.Duration) (bool, time.Duration, error) {
 	return true, 0, nil
-}
-
-type recordingFailureWriter struct {
-	ch  chan []*Failure
-	ctx chan context.Context
-}
-
-func (w *recordingFailureWriter) WriteBatch(ctx context.Context, failures []*Failure) error {
-	copied := make([]*Failure, len(failures))
-	copy(copied, failures)
-	w.ch <- copied
-	if w.ctx != nil {
-		w.ctx <- ctx
-	}
-	return nil
-}
-
-func TestFailureLoggerFlushesOnBatchIntervalAndCancel(t *testing.T) {
-	writer := &recordingFailureWriter{ch: make(chan []*Failure, 3)}
-	ctx, cancel := context.WithCancel(context.Background())
-	logger := NewFailureLogger(writer, FailureLogConfig{
-		QueueSize:     4,
-		BatchSize:     2,
-		FlushInterval: time.Hour,
-	})
-	logger.Start(ctx)
-
-	first := &Failure{TaskID: "1", Queue: "critical", Type: "user:sync", Payload: []byte(`{"source":"retry"}`)}
-	logger.Push(first)
-	first.Payload[0] = '['
-	logger.Push(&Failure{TaskID: "2", Queue: "critical", Type: "user:sync"})
-
-	batch := waitFailureBatch(t, writer.ch)
-	if len(batch) != 2 || batch[0].TaskID != "1" || string(batch[0].Payload) != `{"source":"retry"}` || batch[1].TaskID != "2" {
-		t.Fatalf("batch flush = %+v", batch)
-	}
-
-	logger.Push(&Failure{TaskID: "3", Queue: "low", Type: "user:sync"})
-	cancel()
-
-	batch = waitFailureBatch(t, writer.ch)
-	if len(batch) != 1 || batch[0].TaskID != "3" {
-		t.Fatalf("cancel flush = %+v", batch)
-	}
-}
-
-func TestFailureLoggerPassesFailureContextToWriter(t *testing.T) {
-	oldProvider := otel.GetTracerProvider()
-	provider := sdktrace.NewTracerProvider()
-	otel.SetTracerProvider(provider)
-	defer otel.SetTracerProvider(oldProvider)
-	defer provider.Shutdown(context.Background())
-
-	writer := &recordingFailureWriter{
-		ch:  make(chan []*Failure, 1),
-		ctx: make(chan context.Context, 1),
-	}
-	runCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	logger := NewFailureLogger(writer, FailureLogConfig{
-		QueueSize:     2,
-		BatchSize:     1,
-		FlushInterval: time.Hour,
-	})
-	logger.Start(runCtx)
-
-	failureCtx, span := tracing.StartSpan(context.Background(), "worker user:sync")
-	canceledFailureCtx, cancelFailure := context.WithCancel(failureCtx)
-	cancelFailure()
-	logger.PushContext(canceledFailureCtx, &Failure{TaskID: "1", Queue: "critical", Type: "user:sync"})
-	_ = waitFailureBatch(t, writer.ch)
-	span.End()
-
-	select {
-	case got := <-writer.ctx:
-		if got.Err() != nil {
-			t.Fatalf("writer context err = %v, want nil", got.Err())
-		}
-		if tracing.TraceID(got) != tracing.TraceID(failureCtx) {
-			t.Fatalf("writer trace_id = %q, want %q", tracing.TraceID(got), tracing.TraceID(failureCtx))
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for writer context")
-	}
-}
-
-func waitFailureBatch(t *testing.T, ch <-chan []*Failure) []*Failure {
-	t.Helper()
-	select {
-	case batch := <-ch:
-		return batch
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for failure batch")
-		return nil
-	}
 }

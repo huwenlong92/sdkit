@@ -42,16 +42,22 @@ func (OutboxRecord) TableName() string {
 }
 
 type outboxOptions struct {
-	Queue     string     `json:"queue,omitempty"`
-	TaskID    string     `json:"task_id,omitempty"`
-	MaxRetry  *int       `json:"max_retry,omitempty"`
-	Timeout   int64      `json:"timeout,omitempty"`
-	Deadline  *time.Time `json:"deadline,omitempty"`
-	ProcessAt *time.Time `json:"process_at,omitempty"`
-	ProcessIn int64      `json:"process_in,omitempty"`
-	UniqueTTL int64      `json:"unique_ttl,omitempty"`
-	Retention int64      `json:"retention,omitempty"`
-	Group     string     `json:"group,omitempty"`
+	Queue            string     `json:"queue,omitempty"`
+	TaskID           string     `json:"task_id,omitempty"`
+	MaxRetry         *int       `json:"max_retry,omitempty"`
+	Timeout          int64      `json:"timeout,omitempty"`
+	Deadline         *time.Time `json:"deadline,omitempty"`
+	ProcessAt        *time.Time `json:"process_at,omitempty"`
+	ProcessIn        int64      `json:"process_in,omitempty"`
+	UniqueTTL        int64      `json:"unique_ttl,omitempty"`
+	Retention        int64      `json:"retention,omitempty"`
+	Group            string     `json:"group,omitempty"`
+	Priority         int        `json:"priority,omitempty"`
+	RateLimitKey     string     `json:"rate_limit_key,omitempty"`
+	Trace            *bool      `json:"trace,omitempty"`
+	AutoRetryEnabled bool       `json:"auto_retry_enabled,omitempty"`
+	AutoRetryMax     int        `json:"auto_retry_max,omitempty"`
+	AutoRetryDelay   int64      `json:"auto_retry_delay,omitempty"`
 }
 
 type GormOutbox struct {
@@ -232,14 +238,20 @@ func markOutboxFailed(tx *gorm.DB, row OutboxRecord, err error) error {
 
 func toOutboxOptions(opts corequeue.EnqueueOptions) outboxOptions {
 	out := outboxOptions{
-		Queue:     opts.Queue,
-		TaskID:    opts.TaskID,
-		MaxRetry:  opts.MaxRetry,
-		Timeout:   int64(opts.Timeout),
-		ProcessIn: int64(opts.ProcessIn),
-		UniqueTTL: int64(opts.UniqueTTL),
-		Retention: int64(opts.Retention),
-		Group:     opts.Group,
+		Queue:            opts.Queue,
+		TaskID:           opts.TaskID,
+		MaxRetry:         opts.MaxRetry,
+		Timeout:          int64(opts.Timeout),
+		ProcessIn:        int64(opts.ProcessIn),
+		UniqueTTL:        int64(opts.UniqueTTL),
+		Retention:        int64(opts.Retention),
+		Group:            opts.Group,
+		Priority:         opts.Priority,
+		RateLimitKey:     opts.RateLimitKey,
+		Trace:            &opts.Trace,
+		AutoRetryEnabled: opts.AutoRetryEnabled,
+		AutoRetryMax:     opts.AutoRetryMax,
+		AutoRetryDelay:   int64(opts.AutoRetryDelay),
 	}
 	if !opts.Deadline.IsZero() {
 		out.Deadline = &opts.Deadline
@@ -251,7 +263,7 @@ func toOutboxOptions(opts corequeue.EnqueueOptions) outboxOptions {
 }
 
 func fromOutboxOptions(opts outboxOptions) []corequeue.Option {
-	out := make([]corequeue.Option, 0, 9)
+	out := make([]corequeue.Option, 0, 14)
 	if opts.Queue != "" {
 		out = append(out, corequeue.Queue(opts.Queue))
 	}
@@ -281,6 +293,18 @@ func fromOutboxOptions(opts outboxOptions) []corequeue.Option {
 	}
 	if opts.Group != "" {
 		out = append(out, corequeue.Group(opts.Group))
+	}
+	if opts.Priority != 0 {
+		out = append(out, corequeue.WithPriority(opts.Priority))
+	}
+	if opts.RateLimitKey != "" {
+		out = append(out, corequeue.WithRateLimitKey(opts.RateLimitKey))
+	}
+	if opts.Trace != nil {
+		out = append(out, corequeue.WithTrace(*opts.Trace))
+	}
+	if opts.AutoRetryEnabled {
+		out = append(out, corequeue.AutoRetry(opts.AutoRetryMax, time.Duration(opts.AutoRetryDelay)))
 	}
 	return out
 }
