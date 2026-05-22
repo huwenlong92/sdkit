@@ -6,11 +6,29 @@ const DefaultQueueName = "default"
 
 const defaultConcurrency = 10
 const defaultRateLimitWindow = time.Minute
+const defaultNATSStream = "SDKT_QUEUE"
+const defaultNATSSubjectPrefix = "sdkit.queue"
+const defaultNATSDurablePrefix = "sdkit"
 
 type RedisConfig struct {
 	Addr     string `mapstructure:"addr" yaml:"addr"`
 	Password string `mapstructure:"password" yaml:"password"`
 	DB       int    `mapstructure:"db" yaml:"db"`
+}
+
+type NATSConfig struct {
+	Stream        string        `mapstructure:"stream" yaml:"stream"`
+	SubjectPrefix string        `mapstructure:"subject_prefix" yaml:"subject_prefix"`
+	DurablePrefix string        `mapstructure:"durable_prefix" yaml:"durable_prefix"`
+	AckWait       time.Duration `mapstructure:"ack_wait" yaml:"ack_wait"`
+	MaxDeliver    int           `mapstructure:"max_deliver" yaml:"max_deliver"`
+	MaxAge        time.Duration `mapstructure:"max_age" yaml:"max_age"`
+	Duplicates    time.Duration `mapstructure:"duplicates" yaml:"duplicates"`
+	Storage       string        `mapstructure:"storage" yaml:"storage"`
+	Replicas      int           `mapstructure:"replicas" yaml:"replicas"`
+	FetchBatch    int           `mapstructure:"fetch_batch" yaml:"fetch_batch"`
+	FetchWait     time.Duration `mapstructure:"fetch_wait" yaml:"fetch_wait"`
+	RetryDelay    time.Duration `mapstructure:"retry_delay" yaml:"retry_delay"`
 }
 
 type RateLimitConfig struct {
@@ -35,6 +53,12 @@ type OutboxConfig struct {
 	BatchSize     int           `mapstructure:"batch_size" yaml:"batch_size"`
 }
 
+type ScheduleConfig struct {
+	Enabled      bool          `mapstructure:"enabled" yaml:"enabled"`
+	PollInterval time.Duration `mapstructure:"poll_interval" yaml:"poll_interval"`
+	BatchSize    int           `mapstructure:"batch_size" yaml:"batch_size"`
+}
+
 type WorkerProfile struct {
 	Name            string         `mapstructure:"name" yaml:"name"`
 	Concurrency     int            `mapstructure:"concurrency" yaml:"concurrency"`
@@ -46,6 +70,7 @@ type WorkerProfile struct {
 type Config struct {
 	Driver string      `mapstructure:"driver" yaml:"driver"`
 	Redis  RedisConfig `mapstructure:"redis" yaml:"redis"`
+	NATS   NATSConfig  `mapstructure:"nats" yaml:"nats"`
 
 	Addr     string `mapstructure:"addr" yaml:"addr"`
 	Password string `mapstructure:"password" yaml:"password"`
@@ -60,6 +85,7 @@ type Config struct {
 	Lock        LockConfig               `mapstructure:"lock" yaml:"lock"`
 	Idempotency IdempotencyConfig        `mapstructure:"idempotency" yaml:"idempotency"`
 	Outbox      OutboxConfig             `mapstructure:"outbox" yaml:"outbox"`
+	Schedule    ScheduleConfig           `mapstructure:"schedule" yaml:"schedule"`
 }
 
 func FromConfig(cfg *Config) Config {
@@ -88,6 +114,45 @@ func (c Config) Normalize() Config {
 	}
 	if len(c.Queues) == 0 {
 		c.Queues = map[string]int{DefaultQueueName: 1}
+	}
+	if c.NATS.Stream == "" {
+		c.NATS.Stream = defaultNATSStream
+	}
+	if c.NATS.SubjectPrefix == "" {
+		c.NATS.SubjectPrefix = defaultNATSSubjectPrefix
+	}
+	if c.NATS.DurablePrefix == "" {
+		c.NATS.DurablePrefix = defaultNATSDurablePrefix
+	}
+	if c.NATS.AckWait <= 0 {
+		c.NATS.AckWait = 30 * time.Second
+	}
+	if c.NATS.MaxDeliver <= 0 {
+		c.NATS.MaxDeliver = 5
+	}
+	if c.NATS.Duplicates <= 0 {
+		c.NATS.Duplicates = 2 * time.Minute
+	}
+	if c.NATS.Storage == "" {
+		c.NATS.Storage = "file"
+	}
+	if c.NATS.Replicas <= 0 {
+		c.NATS.Replicas = 1
+	}
+	if c.NATS.FetchBatch <= 0 {
+		c.NATS.FetchBatch = c.Concurrency
+	}
+	if c.NATS.FetchWait <= 0 {
+		c.NATS.FetchWait = time.Second
+	}
+	if c.NATS.RetryDelay <= 0 {
+		c.NATS.RetryDelay = 5 * time.Second
+	}
+	if c.Schedule.PollInterval <= 0 {
+		c.Schedule.PollInterval = time.Second
+	}
+	if c.Schedule.BatchSize <= 0 {
+		c.Schedule.BatchSize = 50
 	}
 	return c
 }

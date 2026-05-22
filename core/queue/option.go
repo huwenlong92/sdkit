@@ -18,6 +18,10 @@ type EnqueueOptions struct {
 	Priority     int
 	RateLimitKey string
 	Trace        bool
+
+	AutoRetryEnabled bool
+	AutoRetryMax     int
+	AutoRetryDelay   time.Duration
 }
 
 func Queue(name string) Option {
@@ -118,6 +122,25 @@ func WithRateLimitKey(key string) Option {
 		o.RateLimitKey = key
 	}
 }
+
+func AutoRetry(max int, delay time.Duration) Option {
+	return func(o *EnqueueOptions) {
+		if max <= 0 {
+			o.AutoRetryEnabled = false
+			o.AutoRetryMax = 0
+			o.AutoRetryDelay = 0
+			return
+		}
+		o.AutoRetryEnabled = true
+		o.AutoRetryMax = max
+		if delay < 0 {
+			delay = 0
+		}
+		o.AutoRetryDelay = delay
+	}
+}
+
+func WithAutoRetry(max int, delay time.Duration) Option { return AutoRetry(max, delay) }
 
 func WithTrace(enabled bool) Option {
 	return func(o *EnqueueOptions) {

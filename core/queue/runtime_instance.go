@@ -3,7 +3,9 @@ package queue
 import (
 	"context"
 	"errors"
+	"time"
 
+	"github.com/google/uuid"
 	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
 )
 
@@ -27,6 +29,9 @@ type RuntimeInstance struct {
 	registry   *RegistryRuntime
 	operations *OperationsRuntime
 	metadata   RuntimeMetadata
+	taskStore  TaskStore
+
+	cancelSchedulePoller context.CancelFunc
 }
 
 type runtimeContextKey struct{}
@@ -133,6 +138,14 @@ func WithRuntimeMetadata(metadata RuntimeMetadata) RuntimeInstanceOption {
 			if rt.operations != nil {
 				rt.operations.SetMetadata(rt.metadata)
 			}
+		}
+	}
+}
+
+func WithRuntimeTaskStore(store TaskStore) RuntimeInstanceOption {
+	return func(rt *RuntimeInstance) {
+		if rt != nil {
+			rt.taskStore = store
 		}
 	}
 }
@@ -248,19 +261,339 @@ func (rt *RuntimeInstance) Enqueue(ctx context.Context, task Task, opts ...Optio
 	if rt == nil || rt.client == nil {
 		return nil, ErrNotInitialized
 	}
-	return rt.client.Enqueue(ctx, task, opts...)
+	info, scheduled, err := rt.recordScheduled(ctx, task, opts...)
+	if err != nil {
+		return nil, err
+	}
+	if scheduled {
+		return info, nil
+	}
+	task, opts, pendingRecord, prepared, err := rt.recordSubmitting(ctx, task, opts...)
+	if err != nil {
+		return nil, err
+	}
+	info, err = rt.client.Enqueue(ctx, task, opts...)
+	if err != nil {
+		if prepared {
+			pendingRecord.LastError = err.Error()
+			_ = RecordTaskDispatchFailed(ctx, rt.taskStore, pendingRecord)
+		}
+		return nil, err
+	}
+	rt.recordEnqueued(ctx, task, info, pendingRecord, prepared, opts...)
+	return info, nil
+}
+
+func (rt *RuntimeInstance) RequeueTaskRecord(ctx context.Context, record TaskRecord) (*TaskInfo, error) {
+	if rt == nil || rt.client == nil {
+		return nil, ErrNotInitialized
+	}
+	queueName := taskStoreFirstNonEmpty(record.Queue, DefaultQueueName)
+	if record.TaskID != "" && rt.manager != nil {
+		if err := rt.operationsRuntime().DeleteTask(ctx, queueName, record.TaskID); err != nil &&
+			!errors.Is(err, ErrTaskNotFound) &&
+			!errors.Is(err, ErrCapabilityUnsupported) {
+			return nil, err
+		}
+	}
+	record.NextRetryAt = nil
+	record.LastRetryError = ""
+	task := Task{
+		ID:      record.TaskID,
+		Type:    record.Type,
+		Queue:   queueName,
+		Payload: record.Payload,
+		Headers: record.Headers,
+	}
+	opts := taskRecordOptions(record)
+	info, err := rt.client.Enqueue(ctx, task, opts...)
+	if err != nil {
+		record.LastError = err.Error()
+		_ = RecordTaskDispatchFailed(ctx, rt.taskStore, record)
+		return nil, err
+	}
+	rt.recordEnqueued(ctx, task, info, record, true, opts...)
+	return info, nil
+}
+
+func (rt *RuntimeInstance) DispatchAutoRetryTasks(ctx context.Context, limit int) (int, error) {
+	if rt == nil || rt.client == nil || rt.taskStore == nil {
+		return 0, nil
+	}
+	store, ok := rt.taskStore.(TaskAutoRetryStore)
+	if !ok || store == nil {
+		return 0, nil
+	}
+	records, err := store.ClaimAutoRetryTasks(ctx, time.Now(), limit, rt.scheduleWorkerID(), rt.Metadata().Driver)
+	if err != nil {
+		return 0, err
+	}
+	dispatched := 0
+	var dispatchErr error
+	for _, record := range records {
+		if _, err := rt.RequeueTaskRecord(ctx, record); err != nil {
+			_ = store.MarkAutoRetryFailed(ctx, record, err)
+			dispatchErr = errors.Join(dispatchErr, err)
+			continue
+		}
+		dispatched++
+	}
+	return dispatched, dispatchErr
 }
 
 func (rt *RuntimeInstance) BatchEnqueue(ctx context.Context, tasks []Task, opts ...Option) ([]*TaskInfo, error) {
 	if rt == nil || rt.client == nil {
 		return nil, ErrNotInitialized
 	}
-	return rt.client.BatchEnqueue(ctx, tasks, opts...)
+	if rt.taskStore != nil {
+		if _, ok := rt.taskStore.(TaskSubmissionStore); ok {
+			infos := make([]*TaskInfo, 0, len(tasks))
+			for _, task := range tasks {
+				info, err := rt.Enqueue(ctx, task, opts...)
+				if err != nil {
+					return infos, err
+				}
+				infos = append(infos, info)
+			}
+			return infos, nil
+		}
+	}
+	infos, err := rt.client.BatchEnqueue(ctx, tasks, opts...)
+	if err != nil {
+		return infos, err
+	}
+	for i, task := range tasks {
+		var info *TaskInfo
+		if i < len(infos) {
+			info = infos[i]
+		}
+		rt.recordEnqueued(ctx, task, info, TaskRecord{}, false, opts...)
+	}
+	return infos, nil
+}
+
+func (rt *RuntimeInstance) recordScheduled(ctx context.Context, task Task, opts ...Option) (*TaskInfo, bool, error) {
+	if rt == nil || rt.taskStore == nil {
+		return nil, false, nil
+	}
+	if _, ok := rt.taskStore.(TaskScheduleStore); !ok {
+		return nil, false, nil
+	}
+	applied := ApplyOptions(opts)
+	if task.Queue != "" {
+		applied.Queue = task.Queue
+	}
+	if task.ID != "" {
+		applied.TaskID = task.ID
+	}
+	scheduledAt, ok := enqueueScheduledAt(applied)
+	if !ok || !scheduledAt.After(time.Now()) {
+		return nil, false, nil
+	}
+	if applied.TaskID == "" {
+		applied.TaskID = uuid.NewString()
+		task.ID = applied.TaskID
+	}
+	record, err := rt.taskRecordFromEnqueue(ctx, task, nil, applied, StateScheduled)
+	if err != nil {
+		return nil, false, err
+	}
+	record.ScheduledAt = &scheduledAt
+	record, err = RecordTaskScheduled(ctx, rt.taskStore, record)
+	if err != nil {
+		return nil, false, err
+	}
+	return &TaskInfo{
+		ID:        record.TaskID,
+		Type:      record.Type,
+		Queue:     record.Queue,
+		State:     StateScheduled,
+		Payload:   record.Payload,
+		Headers:   record.Headers,
+		MaxRetry:  record.MaxRetry,
+		NextRunAt: record.ScheduledAt,
+		CreatedAt: record.CreatedAt,
+		UpdatedAt: record.UpdatedAt,
+		TrackID:   record.TrackID,
+		RequestID: record.RequestID,
+		TraceID:   record.TraceID,
+		SpanID:    record.SpanID,
+	}, true, nil
+}
+
+func (rt *RuntimeInstance) recordSubmitting(ctx context.Context, task Task, opts ...Option) (Task, []Option, TaskRecord, bool, error) {
+	if rt == nil || rt.taskStore == nil {
+		return task, opts, TaskRecord{}, false, nil
+	}
+	if _, ok := rt.taskStore.(TaskSubmissionStore); !ok {
+		return task, opts, TaskRecord{}, false, nil
+	}
+	applied := ApplyOptions(opts)
+	if task.Queue != "" {
+		applied.Queue = task.Queue
+	}
+	if task.ID != "" {
+		applied.TaskID = task.ID
+	}
+	if applied.TaskID == "" {
+		applied.TaskID = uuid.NewString()
+		task.ID = applied.TaskID
+		opts = append(opts, TaskID(applied.TaskID))
+	}
+	record, err := rt.taskRecordFromEnqueue(ctx, task, nil, applied, StateSubmitting)
+	if err != nil {
+		return task, opts, TaskRecord{}, false, err
+	}
+	record, err = RecordTaskSubmitting(ctx, rt.taskStore, record)
+	if err != nil {
+		return task, opts, TaskRecord{}, false, err
+	}
+	return task, opts, record, true, nil
+}
+
+func (rt *RuntimeInstance) recordEnqueued(ctx context.Context, task Task, info *TaskInfo, pendingRecord TaskRecord, prepared bool, opts ...Option) {
+	if rt == nil || rt.taskStore == nil || info == nil {
+		return
+	}
+	applied := ApplyOptions(opts)
+	if task.Queue != "" {
+		applied.Queue = task.Queue
+	}
+	if task.ID != "" {
+		applied.TaskID = task.ID
+	}
+	state := info.State
+	if state == "" {
+		state = StatePending
+	}
+	record, err := rt.taskRecordFromEnqueue(ctx, task, info, applied, state)
+	if err != nil {
+		return
+	}
+	if prepared {
+		record.RecordID = pendingRecord.RecordID
+		record.CreatedAt = pendingRecord.CreatedAt
+		record.AutoRetryEnabled = pendingRecord.AutoRetryEnabled
+		record.AutoRetryCount = pendingRecord.AutoRetryCount
+		record.AutoRetryMax = pendingRecord.AutoRetryMax
+		record.AutoRetryDelaySeconds = pendingRecord.AutoRetryDelaySeconds
+		record.NextRetryAt = pendingRecord.NextRetryAt
+		record.LastRetryError = pendingRecord.LastRetryError
+		_ = RecordTaskDispatched(ctx, rt.taskStore, record)
+		return
+	}
+	_ = RecordTaskEnqueued(ctx, rt.taskStore, record)
+}
+
+func (rt *RuntimeInstance) taskRecordFromEnqueue(ctx context.Context, task Task, info *TaskInfo, applied EnqueueOptions, state TaskState) (TaskRecord, error) {
+	payload, err := MarshalPayload(task.Payload)
+	if err != nil {
+		return TaskRecord{}, err
+	}
+	headers := CorrelationHeadersFromContext(ctx)
+	for k, v := range task.Headers {
+		if headers == nil {
+			headers = map[string]string{}
+		}
+		headers[k] = v
+	}
+	var scheduledAt *time.Time
+	if info != nil {
+		scheduledAt = info.NextRunAt
+	}
+	delaySeconds := 0
+	if !applied.ProcessAt.IsZero() {
+		scheduledAt = &applied.ProcessAt
+		delaySeconds = int(time.Until(applied.ProcessAt).Seconds())
+	} else if applied.ProcessIn > 0 {
+		at := time.Now().Add(applied.ProcessIn)
+		scheduledAt = &at
+		delaySeconds = int(applied.ProcessIn.Seconds())
+	}
+	if scheduledAt != nil && scheduledAt.After(time.Now()) && state == StatePending {
+		state = StateScheduled
+	}
+	maxRetry := 0
+	if info != nil {
+		maxRetry = info.MaxRetry
+	}
+	if applied.MaxRetry != nil {
+		maxRetry = *applied.MaxRetry
+	}
+	createdAt := time.Now()
+	if info != nil && !info.CreatedAt.IsZero() {
+		createdAt = info.CreatedAt
+	}
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
+	updatedAt := createdAt
+	if info != nil && !info.UpdatedAt.IsZero() {
+		updatedAt = info.UpdatedAt
+	}
+	if updatedAt.IsZero() {
+		updatedAt = createdAt
+	}
+	taskID := applied.TaskID
+	if info != nil && info.ID != "" {
+		taskID = info.ID
+	}
+	return TaskRecord{
+		Driver:                rt.metadata.Driver,
+		TaskID:                taskID,
+		Queue:                 taskStoreFirstNonEmpty(task.Queue, applied.Queue, DefaultQueueName),
+		Type:                  task.Type,
+		Payload:               payload,
+		State:                 state,
+		MaxRetry:              maxRetry,
+		TimeoutSeconds:        int(applied.Timeout.Seconds()),
+		UniqueSeconds:         int(applied.UniqueTTL.Seconds()),
+		DelaySeconds:          delaySeconds,
+		AutoRetryEnabled:      applied.AutoRetryEnabled,
+		AutoRetryMax:          applied.AutoRetryMax,
+		AutoRetryDelaySeconds: int(applied.AutoRetryDelay.Seconds()),
+		ScheduledAt:           scheduledAt,
+		CreatedAt:             createdAt,
+		UpdatedAt:             updatedAt,
+		Headers:               headers,
+	}, nil
+}
+
+func taskRecordOptions(record TaskRecord) []Option {
+	opts := []Option{Queue(taskStoreFirstNonEmpty(record.Queue, DefaultQueueName))}
+	if record.TaskID != "" {
+		opts = append(opts, TaskID(record.TaskID))
+	}
+	opts = append(opts, MaxRetry(record.MaxRetry))
+	if record.TimeoutSeconds > 0 {
+		opts = append(opts, Timeout(time.Duration(record.TimeoutSeconds)*time.Second))
+	}
+	if record.UniqueSeconds > 0 {
+		opts = append(opts, Unique(time.Duration(record.UniqueSeconds)*time.Second))
+	}
+	if record.AutoRetryEnabled && record.AutoRetryMax > 0 {
+		opts = append(opts, AutoRetry(record.AutoRetryMax, time.Duration(record.AutoRetryDelaySeconds)*time.Second))
+	}
+	return opts
+}
+
+func enqueueScheduledAt(applied EnqueueOptions) (time.Time, bool) {
+	if !applied.ProcessAt.IsZero() {
+		return applied.ProcessAt, true
+	}
+	if applied.ProcessIn > 0 {
+		return time.Now().Add(applied.ProcessIn), true
+	}
+	return time.Time{}, false
 }
 
 func (rt *RuntimeInstance) Close() error {
 	if rt == nil {
 		return nil
+	}
+	if rt.cancelSchedulePoller != nil {
+		rt.cancelSchedulePoller()
+		rt.cancelSchedulePoller = nil
 	}
 	if rt.kernel != nil {
 		rt.kernel.Close()
@@ -287,6 +620,77 @@ func (rt *RuntimeInstance) Close() error {
 		closeOnce(rt.client),
 		closeOnce(rt.manager),
 	)
+}
+
+func (rt *RuntimeInstance) StartSchedulePoller(ctx context.Context, cfg ScheduleConfig) context.CancelFunc {
+	if rt == nil || rt.client == nil || rt.taskStore == nil || !cfg.Enabled {
+		return nil
+	}
+	store, ok := rt.taskStore.(TaskScheduleStore)
+	if !ok || store == nil {
+		return nil
+	}
+	cfg = normalizeConfig(Config{Schedule: cfg}).Schedule
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	pollerCtx, cancel := context.WithCancel(ctx)
+	rt.cancelSchedulePoller = cancel
+	go rt.runSchedulePoller(pollerCtx, store, cfg)
+	return cancel
+}
+
+func (rt *RuntimeInstance) runSchedulePoller(ctx context.Context, store TaskScheduleStore, cfg ScheduleConfig) {
+	rt.dispatchScheduledTasks(ctx, store, cfg)
+	ticker := time.NewTicker(cfg.PollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			rt.dispatchScheduledTasks(ctx, store, cfg)
+		}
+	}
+}
+
+func (rt *RuntimeInstance) dispatchScheduledTasks(ctx context.Context, store TaskScheduleStore, cfg ScheduleConfig) {
+	records, err := store.ClaimScheduled(ctx, time.Now(), cfg.BatchSize, rt.scheduleWorkerID(), rt.Metadata().Driver)
+	if err != nil || len(records) == 0 {
+		return
+	}
+	for _, record := range records {
+		rt.dispatchScheduledTask(ctx, record)
+	}
+}
+
+func (rt *RuntimeInstance) dispatchScheduledTask(ctx context.Context, record TaskRecord) {
+	if rt == nil || rt.client == nil {
+		return
+	}
+	task := Task{
+		ID:      record.TaskID,
+		Type:    record.Type,
+		Queue:   record.Queue,
+		Payload: record.Payload,
+		Headers: record.Headers,
+	}
+	opts := taskRecordOptions(record)
+	info, err := rt.client.Enqueue(ctx, task, opts...)
+	if err != nil {
+		record.LastError = err.Error()
+		_ = RecordTaskDispatchFailed(ctx, rt.taskStore, record)
+		return
+	}
+	rt.recordEnqueued(ctx, task, info, record, true, opts...)
+}
+
+func (rt *RuntimeInstance) scheduleWorkerID() string {
+	if rt == nil {
+		return ""
+	}
+	metadata := rt.Metadata()
+	return taskStoreFirstNonEmpty(metadata.WorkerMetadata.ID, metadata.WorkerMetadata.Name, metadata.Worker, metadata.Name)
 }
 
 func (rt *RuntimeInstance) Handle(pattern string, handler HandlerFunc) {

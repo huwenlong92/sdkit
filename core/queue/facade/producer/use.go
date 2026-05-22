@@ -20,6 +20,7 @@ type useOptions struct {
 	configLoader ConfigLoader
 	producer     Producer
 	dependencies []runtime.Dependency
+	runtimeOpts  []corequeue.RuntimeInstanceOption
 	internal     bool
 }
 
@@ -55,6 +56,12 @@ func WithClient(client Client) UseOption {
 func WithDependencies(deps ...runtime.Dependency) UseOption {
 	return func(o *useOptions) {
 		o.dependencies = append(o.dependencies, deps...)
+	}
+}
+
+func WithRuntimeOptions(opts ...corequeue.RuntimeInstanceOption) UseOption {
+	return func(o *useOptions) {
+		o.runtimeOpts = append(o.runtimeOpts, opts...)
 	}
 }
 
@@ -108,7 +115,13 @@ func Use(opts ...UseOption) runtime.Capability {
 			if err != nil {
 				return err
 			}
-			producer = client
+			if len(o.runtimeOpts) > 0 {
+				instanceOpts := []corequeue.RuntimeInstanceOption{corequeue.WithRuntimeMetadata(corequeue.RuntimeMetadataFromConfig("", "", config))}
+				instanceOpts = append(instanceOpts, o.runtimeOpts...)
+				producer = corequeue.NewRuntimeInstanceFromParts(corequeue.RuntimeParts{Client: client}, instanceOpts...)
+			} else {
+				producer = client
+			}
 			ownsProducer = true
 		}
 		if producer == nil {

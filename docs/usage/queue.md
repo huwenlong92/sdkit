@@ -2,14 +2,18 @@
 
 `core/queue` 是异步任务基础设施入口。业务代码不要直接创建 `asynq.Client`、`asynq.Server` 或 `asynq.ServeMux`，也不要 import 第三方队列 SDK。
 
-当前默认 driver 是 Asynq + Redis，但业务侧只依赖 `core/queue` 的抽象。`queue.NewClient` 会按 `queue.Config.Driver` 从 driver registry 创建投递端；`queue.NewRunner` 创建完整运行实例，不暴露 Asynq 具体类型。
+当前默认 driver 是 Asynq + Redis，也支持 NATS JetStream 投递和消费。业务侧只依赖 `core/queue` 的抽象。`queue.NewClient` 会按 `queue.Config.Driver` 从 driver registry 创建投递端；`queue.NewRunner` 创建完整运行实例，不暴露具体 driver 类型。
 
 `core/queue` 不自动注册具体 driver。服务启动接线层需要在首次 `NewClient`、`NewManager` 或 `NewRunner` 前注册 driver：
 
 ```go
-import asynqdriver "github.com/huwenlong92/sdkit/pkg/queue/asynq"
+import (
+    asynqdriver "github.com/huwenlong92/sdkit/pkg/queue/asynq"
+    natsdriver "github.com/huwenlong92/sdkit/pkg/queue/nats"
+)
 
 asynqdriver.Register()
+natsdriver.Register()
 ```
 
 标准类型和接口都从 `core/queue` 根包导入，业务代码不使用内部路径或具体 driver 路径。
@@ -62,13 +66,60 @@ worker:
 
 | 字段 | 说明 |
 |------|------|
-| `addr` | Redis 地址 |
-| `password` | Redis 密码 |
-| `db` | Redis DB |
+| `driver` | 队列驱动，默认 `asynq`，可选 `nats` |
+| `addr` | 队列服务地址；`asynq` 为 Redis 地址，`nats` 为 NATS 地址 |
+| `password` | Redis 密码，仅 `asynq` 使用 |
+| `db` | Redis DB，仅 `asynq` 使用 |
 | `concurrency` | worker 并发数，默认 10 |
 | `queues` | 队列权重，默认只消费 `default` |
 | `strict_priority` | 是否严格按优先级消费，默认 false |
 | `workers` | worker profile 配置，适合 default/heavy/low 等独立 worker |
+
+`driver=nats` 使用 JetStream：
+
+```yaml
+worker:
+  queue:
+    driver: nats
+    addr: 127.0.0.1:4222
+    nats:
+      stream: SDKT_QUEUE
+      subject_prefix: sdkit.queue
+      durable_prefix: sdkitgo_worker
+      ack_wait: 30s
+      max_deliver: 5
+      duplicates: 2m
+      storage: file
+      replicas: 1
+      fetch_batch: 10
+      fetch_wait: 1s
+      retry_delay: 5s
+    schedule:
+      enabled: true
+      batch_size: 50
+      poll_interval: 1s
+```
+
+| 字段 | 说明 |
+|------|------|
+| `nats.stream` | JetStream stream 名称，默认 `SDKT_QUEUE` |
+| `nats.subject_prefix` | 任务 subject 前缀，实际 subject 为 `<prefix>.<queue>.<task_type>` |
+| `nats.durable_prefix` | durable consumer 前缀；同一组 worker 必须相同，避免同一任务被多个 durable 重复消费 |
+| `nats.ack_wait` | handler 未 ack 前的重投等待时间 |
+| `nats.max_deliver` | JetStream 最大投递次数 |
+| `nats.duplicates` | `Nats-Msg-Id` 去重窗口 |
+| `nats.storage` | stream 存储，`file` 或 `memory` |
+| `nats.replicas` | JetStream 副本数 |
+| `nats.fetch_batch` | pull consumer 每次拉取数量 |
+| `nats.fetch_wait` | 单次拉取最长等待 |
+| `nats.retry_delay` | handler 返回 error 后 `NakWithDelay` 的重试间隔 |
+| `schedule.enabled` | 是否启用 DB 延迟任务调度器 |
+| `schedule.batch_size` | 单次抢占到期延迟任务数量 |
+| `schedule.poll_interval` | 扫描到期延迟任务间隔 |
+
+JetStream driver 当前提供 `enqueue`、`consume`、`batch`、`log`、`trace` 能力。自动重试通过 JetStream redelivery 实现，达到最大重试后 `Term`。如果固定 `TaskID` 在 `nats.duplicates` 窗口内重复发布，driver 会把 JetStream duplicate ack 映射为 `queue.ErrTaskDuplicated`，应用层可稍后重投。后台任务列表、执行记录、日志、人工重试通过 `TaskStore` 管理；Inspector、归档、删除不直接依赖 JetStream driver。
+
+初始延迟任务统一走 DB 调度层：`Enqueue(..., queue.ProcessIn/ProcessAt)` 会先写入 `system_queue_task(status=scheduled)`，到期后由 worker 的 schedule poller 抢占并投递到当前 driver。这样 Asynq、JetStream 和后续 driver 的延迟语义保持一致。
 
 ## 初始化边界
 
@@ -225,6 +276,54 @@ runtime, err := queue.InitRuntimeInstance(ctx, cfg.Queue, queue.RuntimeKernelCon
 defer runtime.Close()
 ```
 
+需要把投递任务、执行记录和执行日志落到业务库时，在应用层实现 `queue.TaskStore`，再挂到 runtime instance 和 worker middleware：
+
+```go
+store := queuestore.NewStore(db, "asynq", workerID)
+
+runtime, err := queue.InitRuntimeInstance(
+    ctx,
+    cfg.Queue,
+    runtimeCfg,
+    queue.WithRuntimeTaskStore(store),
+)
+
+registry := runtime.NewRegistry()
+registry.Use(queue.TaskStoreMiddleware(store, queue.TaskStoreOptions{
+    Driver:   "asynq",
+    WorkerID: workerID,
+    RunID:    uuid.NewString,
+}))
+```
+
+`core/queue` 只定义任务存储接口、投递记录入口、执行 middleware 和任务日志 context，不绑定具体数据库表。Gorm、PostgreSQL RANGE 分区、日志保留策略等由宿主应用实现。
+
+如果 store 同时实现 `queue.TaskSubmissionStore`，runtime 会在真实投递前先记录 `submitting`，投递成功后更新为 `pending`，投递失败后更新为 `submit_failed` 并保存错误。这个生命周期在 core 内完成，适用于 Asynq、NATS 或后续其它 driver。
+
+如果 store 同时实现 `queue.TaskScheduleStore`，runtime 会把 future `ProcessIn/ProcessAt` 记录为 `scheduled`，不立即投递。worker 侧调用 `runtime.StartSchedulePoller(ctx, cfg.Queue.Schedule)` 后，会批量抢占到期任务并投递到当前 driver。
+
+如果 store 同时实现 `queue.TaskAutoRetryStore`，runtime 可以在任务终态失败或投递失败后做 driver-neutral 自动恢复。投递时显式传入：
+
+```go
+_, err := runtime.Enqueue(
+    ctx,
+    queue.NewTask("user:sync", payload),
+    queue.MaxRetry(3),                 // driver 内部执行重试
+    queue.AutoRetry(2, time.Minute),   // 终态失败后最多自动重投 2 次
+)
+```
+
+`queue.MaxRetry` 和 `queue.AutoRetry` 是两层语义：前者由 Asynq、JetStream 等 driver 在同一次投递内处理；后者只在最终失败后由宿主应用定时调用 `runtime.DispatchAutoRetryTasks(ctx, limit)`，重新投递同一条 `TaskRecord`。未配置 `AutoRetry` 时默认不会自动恢复。
+
+任务 handler 中可以写入执行日志：
+
+```go
+taskLog := queue.TaskLoggerFromContext(ctx)
+taskLog.Info("user sync completed", "user_id", payload.UserID)
+```
+
+没有配置 `TaskStoreMiddleware` 时，`TaskLoggerFromContext` 返回空实现，不影响 handler 执行。
+
 Queue Runtime Kernel 会创建 runtime orchestrator。需要把任务事件推给 dashboard、SSE、WebSocket 或自定义指标聚合时，通过 `RuntimeKernelConfig` 注入 publisher / observer：
 
 ```go
@@ -328,6 +427,7 @@ response.Success(c, gin.H{"task_id": info.ID})
 | `queue.ProcessAt(t)` | 指定时间执行 |
 | `queue.TaskID(id)` | 指定任务 ID |
 | `queue.Unique(ttl)` | 指定时间内按 type + payload + queue 去重 |
+| `queue.AutoRetry(max, delay)` | 终态失败后由应用调度层自动恢复重投 |
 | `queue.Retention(d)` | 成功任务保留时间 |
 | `queue.Group(name)` | 分组聚合 |
 | `queue.WithPriority(n)` | 当前 asynq driver 不支持，返回 `ErrCapabilityUnsupported` |
@@ -803,10 +903,10 @@ runtime, err := queue.InitRuntimeInstance(ctx, cfg.Queue, queue.RuntimeKernelCon
 使用建议：
 
 - dashboard、SSE、WebSocket 推送任务状态时用 `EventPublisher`。
-- 聚合自定义 metrics、audit 或 runtime health 时用 `Observer`。
+- 聚合自定义 metrics、任务日志或 runtime health 时用 `Observer`。
 - publisher / observer 必须轻量，避免阻塞 worker handler；耗时逻辑应转成异步队列或内部缓冲。
 - 不要在 publisher / observer 中修改业务结果、重试策略或 deadletter 行为，这些属于 middleware stage 或业务 handler。
-- 已有 realtime 能力时，默认不需要接 `EventPublisher` / `Observer`。只有当 Admin/dashboard/SSE/WebSocket 需要实时展示 queue runtime 状态，或需要 queue audit stream 时，才把 Runtime Event 接到现有 realtime 发布器。
+- 已有 realtime 能力时，默认不需要接 `EventPublisher` / `Observer`。只有当 Admin/dashboard/SSE/WebSocket 需要实时展示 queue runtime 状态，或需要 queue task stream 时，才把 Runtime Event 接到现有 realtime 发布器。
 - 如果任务状态通过 Admin API 查询、tracing/log/metrics 已满足观测，保持 `RuntimeKernelConfig.EventPublishers` 和 `Observers` 为空即可。
 
 RuntimeContext 和 task state 用于读取当前执行态：
@@ -1324,7 +1424,7 @@ Admin 服务自己注册队列 HTTP 路由，实际路径为 `/admin/v1/queue/*`
 }
 ```
 
-写操作应由上层后台路由接入鉴权和审计；`core/queue` 已预留 `AuditLogger` 接口。
+写操作应由上层后台路由接入鉴权和动作记录；`core/queue` 已预留 `ActionLogger` 接口。
 
 ## Command 管理
 

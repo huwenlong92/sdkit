@@ -19,6 +19,7 @@ type useOptions struct {
 	hasConfig    bool
 	configLoader ConfigLoader
 	dependencies []runtime.Dependency
+	runtimeOpts  []corequeue.RuntimeInstanceOption
 	internal     bool
 }
 
@@ -44,6 +45,12 @@ func WithConfigLoader(loader ConfigLoader) UseOption {
 func WithDependencies(deps ...runtime.Dependency) UseOption {
 	return func(o *useOptions) {
 		o.dependencies = append(o.dependencies, deps...)
+	}
+}
+
+func WithRuntimeOptions(opts ...corequeue.RuntimeInstanceOption) UseOption {
+	return func(o *useOptions) {
+		o.runtimeOpts = append(o.runtimeOpts, opts...)
 	}
 }
 
@@ -105,10 +112,9 @@ func Use(opts ...UseOption) runtime.Capability {
 		if isZeroMetadata(metadata) {
 			metadata = corequeue.RuntimeMetadataFromConfig("", "", queueCfg)
 		}
-		registered = corequeue.NewRuntimeInstanceFromParts(
-			corequeue.RuntimeParts{Client: client, Manager: manager},
-			corequeue.WithRuntimeMetadata(metadata),
-		)
+		instanceOpts := []corequeue.RuntimeInstanceOption{corequeue.WithRuntimeMetadata(metadata)}
+		instanceOpts = append(instanceOpts, o.runtimeOpts...)
+		registered = corequeue.NewRuntimeInstanceFromParts(corequeue.RuntimeParts{Client: client, Manager: manager}, instanceOpts...)
 		return app.Container().Bind(o.name, registered)
 	}, func(context.Context) error {
 		if registered == nil {

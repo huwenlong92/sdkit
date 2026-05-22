@@ -10,15 +10,17 @@ const (
 	TaskDeadLetter TaskState = "deadletter"
 	TaskSuccess    TaskState = "success"
 
-	StatePending   TaskState = "pending"
-	StateActive    TaskState = "active"
-	StateScheduled TaskState = "scheduled"
-	StateRetry     TaskState = "retry"
-	StateSucceeded TaskState = "succeeded"
-	StateFailed    TaskState = "failed"
-	StateArchived  TaskState = "archived"
-	StateCanceled  TaskState = "canceled"
-	StateUnknown   TaskState = "unknown"
+	StatePending      TaskState = "pending"
+	StateSubmitting   TaskState = "submitting"
+	StateSubmitFailed TaskState = "submit_failed"
+	StateActive       TaskState = "active"
+	StateScheduled    TaskState = "scheduled"
+	StateRetry        TaskState = "retry"
+	StateSucceeded    TaskState = "succeeded"
+	StateFailed       TaskState = "failed"
+	StateArchived     TaskState = "archived"
+	StateCanceled     TaskState = "canceled"
+	StateUnknown      TaskState = "unknown"
 )
 
 // SetTaskState 按状态机规则推进任务状态。非法流转会被忽略。

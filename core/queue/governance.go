@@ -84,11 +84,11 @@ type Outbox interface {
 	Flush(ctx context.Context, limit int) error
 }
 
-type AuditLogger interface {
-	LogQueueAction(ctx context.Context, action QueueAuditAction) error
+type ActionLogger interface {
+	LogQueueAction(ctx context.Context, action QueueAction) error
 }
 
-type QueueAuditAction struct {
+type QueueAction struct {
 	OperatorID      string
 	OperatorName    string
 	Action          string

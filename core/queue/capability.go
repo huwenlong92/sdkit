@@ -35,7 +35,7 @@ const (
 	CapMetrics     Capability = "metrics"
 	CapLog         Capability = "log"
 	CapTrace       Capability = "trace"
-	CapAudit       Capability = "audit"
+	CapActionLog   Capability = "action_log"
 	CapOutbox      Capability = "outbox"
 )
 
