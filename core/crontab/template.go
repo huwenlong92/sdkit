@@ -10,6 +10,7 @@ type Template struct {
 	Enabled      bool
 	AllowDB      bool
 	AllowOverlap bool
+	LogDisabled  bool
 	Timeout      time.Duration
 	Handler      RunHandler
 
@@ -30,6 +31,7 @@ type TemplateInfo struct {
 	AllowBuiltin    bool          `json:"allow_builtin"`
 	AllowDB         bool          `json:"allow_db"`
 	AllowOverlap    bool          `json:"allow_overlap"`
+	LogDisabled     bool          `json:"log_disabled"`
 	DefaultSpec     string        `json:"default_spec"`
 	DefaultPayload  string        `json:"default_payload"`
 	DefaultQueue    string        `json:"default_queue"`

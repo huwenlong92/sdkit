@@ -112,7 +112,7 @@ func (r *Registry) Dispatch(ctx context.Context, entry *Entry) error {
 		if runCtx != nil {
 			runCtx.Result = result
 		}
-		finishRuntime(runCtx, ctx, entryValue, result, startedAt, finishedAt, runningWritten)
+		finishRuntime(runCtx, ctx, entryValue, tpl, result, startedAt, finishedAt, runningWritten)
 		logRuntimeResult(ctx, runCtx, entryValue, tpl, result, duration)
 		notifyFailure(ctx, entryValue, tpl, startedAt, finishedAt, duration, result)
 	}()
@@ -166,13 +166,13 @@ func (r *Registry) Dispatch(ctx context.Context, entry *Entry) error {
 	defer unlock()
 
 	logRuntimeStart(ctx, runCtx, entryValue, tpl)
-	if err := writeRuntimeRunning(runCtx, ctx); err != nil {
+	if err := writeRuntimeRunning(runCtx, ctx, tpl); err != nil {
 		result = runResultFromMarkRunningError(err)
 		return runtimeResultError(result)
 	}
 	runningWritten = true
 
-	ctx = injectRuntimeJobLogger(ctx, runCtx, entryValue, job)
+	ctx = injectRuntimeJobLogger(ctx, runCtx, entryValue, job, tpl)
 	result = runRuntimeHandler(ctx, runCtx, tpl, job, timeout)
 	return runtimeResultError(result)
 }
@@ -330,15 +330,17 @@ func runtimeLockKey(entry Entry) string {
 	return "crontab:entry:" + id
 }
 
-func writeRuntimeRunning(runCtx *RunContext, ctx context.Context) error {
+func writeRuntimeRunning(runCtx *RunContext, ctx context.Context, tpl Template) error {
 	if runCtx == nil || runCtx.runner == nil {
 		return nil
 	}
-	runLog := runCtx.runningLog()
-	if err := runCtx.runner.store.MarkRunning(ctx, runLog); err != nil {
-		return err
+	if !tpl.LogDisabled {
+		runLog := runCtx.runningLog()
+		if err := runCtx.runner.store.MarkRunning(ctx, runLog); err != nil {
+			return err
+		}
+		_ = runCtx.runner.logger.Write(ctx, runLog)
 	}
-	_ = runCtx.runner.logger.Write(ctx, runLog)
 	if runCtx.runner.runtime != nil {
 		runCtx.runner.runtime.MarkRunning(runCtx.Entry, runCtx.StartedAt)
 	}
@@ -352,8 +354,13 @@ func runResultFromMarkRunningError(err error) RunResult {
 	return RunResult{Status: StatusFailed, Err: err}
 }
 
-func injectRuntimeJobLogger(ctx context.Context, runCtx *RunContext, entry Entry, job Job) context.Context {
+func injectRuntimeJobLogger(ctx context.Context, runCtx *RunContext, entry Entry, job Job, tpl Template) context.Context {
 	if runCtx == nil || runCtx.runner == nil {
+		return ctx
+	}
+	if tpl.LogDisabled {
+		ctx = WithJobLogger(ctx, NoopJobLogger{})
+		runCtx.SetContext(ctx)
 		return ctx
 	}
 	runLogger := &runJobLogger{
@@ -432,7 +439,7 @@ func executeTemplateHandler(ctx context.Context, runCtx *RunContext, tpl Templat
 	return nil
 }
 
-func finishRuntime(runCtx *RunContext, ctx context.Context, entry Entry, result RunResult, startedAt time.Time, finishedAt time.Time, runningWritten bool) {
+func finishRuntime(runCtx *RunContext, ctx context.Context, entry Entry, tpl Template, result RunResult, startedAt time.Time, finishedAt time.Time, runningWritten bool) {
 	if runCtx == nil || runCtx.runner == nil {
 		return
 	}
@@ -442,20 +449,28 @@ func finishRuntime(runCtx *RunContext, ctx context.Context, entry Entry, result 
 	if !runningWritten {
 		runCtx.Entry = entry
 	}
-	runLog := runCtx.finishedLog(result.normalize(), finishedAt)
-	_ = runCtx.runner.logger.Write(ctx, runLog)
-	_ = runCtx.runner.store.MarkFinished(ctx, runLog)
+	if !tpl.LogDisabled {
+		runLog := runCtx.finishedLog(result.normalize(), finishedAt)
+		_ = runCtx.runner.logger.Write(ctx, runLog)
+		_ = runCtx.runner.store.MarkFinished(ctx, runLog)
+	}
 	if runCtx.runner.runtime != nil {
 		runCtx.runner.runtime.MarkFinished(entry, runtimeStatus(result.Status), startedAt, finishedAt, result.Err)
 	}
 }
 
 func logRuntimeStart(ctx context.Context, runCtx *RunContext, entry Entry, tpl Template) {
+	if tpl.LogDisabled {
+		return
+	}
 	log := logger.WithContext(ctx, logger.Named("crontab-runtime"))
 	log.Info("crontab execute start", runtimeLogFields(runCtx, entry, tpl, RunResult{Status: StatusRunning}, 0)...)
 }
 
 func logRuntimeResult(ctx context.Context, runCtx *RunContext, entry Entry, tpl Template, result RunResult, duration time.Duration) {
+	if tpl.LogDisabled {
+		return
+	}
 	result = result.normalize()
 	fields := runtimeLogFields(runCtx, entry, tpl, result, duration)
 	log := logger.WithContext(ctx, logger.Named("crontab-runtime"))

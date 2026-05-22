@@ -197,6 +197,60 @@ func TestRunnerPreservesTrackingID(t *testing.T) {
 	}
 }
 
+func TestRunnerTemplateLogDisabledSkipsRunAndJobLogs(t *testing.T) {
+	registry := NewRegistry()
+	called := false
+	gotLogger := false
+	if err := registry.Register(Template{
+		Name:        "silent_template",
+		LogDisabled: true,
+		Handler: RunHandlerFromFunc(func(ctx context.Context, job Job) error {
+			called = true
+			JobLoggerFromContext(ctx).Info("should not persist")
+			_, gotLogger = ctx.Value(jobLoggerKey{}).(JobLogger)
+			return nil
+		}),
+		Enabled: true,
+		AllowDB: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	logStore := &memoryLogStore{}
+	writer := &memoryLogWriter{}
+	runtime := NewRuntimeState()
+	runner := NewRunner(RunnerOptions{
+		Config:   DefaultConfig(),
+		Registry: registry,
+		Logger:   writer,
+		LogStore: logStore,
+		Runtime:  runtime,
+	})
+	runner.Run(context.Background(), Job{
+		ID:      "db.2",
+		Name:    "silent_template",
+		Source:  SourceDB,
+		Mode:    ModeLocal,
+		Enabled: true,
+	})
+
+	if !called {
+		t.Fatal("handler was not called")
+	}
+	if !gotLogger {
+		t.Fatal("job logger should be injected as noop")
+	}
+	if len(writer.logs) != 0 {
+		t.Fatalf("run logs should be skipped: %#v", writer.logs)
+	}
+	if len(logStore.events) != 0 {
+		t.Fatalf("job log events should be skipped: %#v", logStore.events)
+	}
+	if info, ok := runtime.Get("db.2"); !ok || info.Status != RuntimeSuccess {
+		t.Fatalf("runtime state should still be updated: %#v ok=%v", info, ok)
+	}
+}
+
 func TestRunnerGeneratesTrackingIDWhenMissing(t *testing.T) {
 	registry := NewRegistry()
 	gotTrackID := ""

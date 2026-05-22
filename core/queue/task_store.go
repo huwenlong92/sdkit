@@ -32,6 +32,10 @@ type TaskScheduleStore interface {
 	ClaimScheduled(ctx context.Context, now time.Time, limit int, workerID string, driver string) ([]TaskRecord, error)
 }
 
+type TaskDeletionStore interface {
+	DeleteTaskRecord(ctx context.Context, queue string, taskID string) error
+}
+
 type TaskAutoRetryStore interface {
 	ClaimAutoRetryTasks(ctx context.Context, now time.Time, limit int, workerID string, driver string) ([]TaskRecord, error)
 	MarkAutoRetryFailed(ctx context.Context, record TaskRecord, err error) error
@@ -346,7 +350,9 @@ func finishStoredTaskRun(ctx context.Context, store TaskStore, task TaskRecord, 
 	errText := ""
 	if runErr != nil {
 		status = StateFailed
-		if IsRateLimitError(runErr) || msg.RetryCount < msg.MaxRetry {
+		if (IsRateLimitError(runErr) || msg.RetryCount < msg.MaxRetry) &&
+			!IsDeadLetterError(runErr) &&
+			!IsFatalError(runErr) {
 			status = StateRetry
 		}
 		level = TaskLogLevelError

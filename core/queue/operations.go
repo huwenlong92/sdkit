@@ -12,10 +12,11 @@ type QueueDrainer interface {
 }
 
 type OperationsRuntime struct {
-	mu       sync.RWMutex
-	manager  Manager
-	metadata RuntimeMetadata
-	draining map[string]bool
+	mu        sync.RWMutex
+	manager   Manager
+	taskStore TaskStore
+	metadata  RuntimeMetadata
+	draining  map[string]bool
 }
 
 func NewOperationsRuntime(manager Manager) *OperationsRuntime {
@@ -28,6 +29,15 @@ func (o *OperationsRuntime) SetManager(manager Manager) {
 	}
 	o.mu.Lock()
 	o.manager = manager
+	o.mu.Unlock()
+}
+
+func (o *OperationsRuntime) SetTaskStore(store TaskStore) {
+	if o == nil {
+		return
+	}
+	o.mu.Lock()
+	o.taskStore = store
 	o.mu.Unlock()
 }
 
@@ -47,6 +57,15 @@ func (o *OperationsRuntime) Manager() Manager {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 	return o.manager
+}
+
+func (o *OperationsRuntime) TaskStore() TaskStore {
+	if o == nil {
+		return nil
+	}
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return o.taskStore
 }
 
 func (o *OperationsRuntime) Metadata() RuntimeMetadata {
@@ -196,7 +215,24 @@ func (o *OperationsRuntime) DeleteTask(ctx context.Context, queueName string, ta
 	if manager == nil {
 		return ErrNotInitialized
 	}
-	return manager.DeleteTask(ctx, queueName, taskID)
+	err := manager.DeleteTask(ctx, queueName, taskID)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, ErrTaskNotFound) && !errors.Is(err, ErrCapabilityUnsupported) {
+		return err
+	}
+	store, ok := o.TaskStore().(TaskDeletionStore)
+	if !ok || store == nil {
+		return err
+	}
+	if storeErr := store.DeleteTaskRecord(ctx, queueName, taskID); storeErr != nil {
+		if errors.Is(storeErr, ErrTaskNotFound) {
+			return err
+		}
+		return storeErr
+	}
+	return nil
 }
 
 func (o *OperationsRuntime) RetryTask(ctx context.Context, queueName string, taskID string) error {

@@ -13,6 +13,10 @@ import (
 	corequeue "github.com/huwenlong92/sdkit/core/queue"
 
 	natsgo "github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 type Queue struct {
@@ -32,13 +36,15 @@ type Queue struct {
 }
 
 type envelope struct {
-	ID         string            `json:"id"`
-	Type       string            `json:"type"`
-	Queue      string            `json:"queue"`
-	Payload    json.RawMessage   `json:"payload"`
-	RetryCount int               `json:"retry_count"`
-	MaxRetry   int               `json:"max_retry"`
-	Headers    map[string]string `json:"headers,omitempty"`
+	ID             string            `json:"id"`
+	Type           string            `json:"type"`
+	Queue          string            `json:"queue"`
+	Payload        json.RawMessage   `json:"payload"`
+	RetryCount     int               `json:"retry_count"`
+	MaxRetry       int               `json:"max_retry"`
+	MaxRetrySet    bool              `json:"max_retry_set,omitempty"`
+	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
+	Headers        map[string]string `json:"headers,omitempty"`
 }
 
 func New(cfg corequeue.Config) (*Queue, error) {
@@ -100,7 +106,16 @@ func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequ
 	if err := validateOptions(applied); err != nil {
 		return nil, err
 	}
+	ctx, span := startEnqueueSpan(ctx, task.Type, applied)
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 	queueName := firstNonEmpty(applied.Queue, corequeue.DefaultQueueName)
+	maxRetry, maxRetrySet := q.maxRetryValue(applied.MaxRetry)
 	headers := corequeue.CorrelationHeadersFromContext(ctx)
 	for k, v := range task.Headers {
 		if headers == nil {
@@ -109,12 +124,14 @@ func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequ
 		headers[k] = v
 	}
 	env := envelope{
-		ID:       applied.TaskID,
-		Type:     task.Type,
-		Queue:    queueName,
-		Payload:  payload,
-		Headers:  headers,
-		MaxRetry: maxRetryValue(applied.MaxRetry),
+		ID:             applied.TaskID,
+		Type:           task.Type,
+		Queue:          queueName,
+		Payload:        payload,
+		Headers:        headers,
+		MaxRetry:       maxRetry,
+		MaxRetrySet:    maxRetrySet,
+		TimeoutSeconds: int(applied.Timeout.Seconds()),
 	}
 	body, err := json.Marshal(env)
 	if err != nil {
@@ -140,6 +157,10 @@ func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequ
 		return nil, corequeue.ErrTaskDuplicated
 	}
 	now := time.Now()
+	span.SetAttributes(
+		attribute.String("messaging.message.id", env.ID),
+		attribute.String("messaging.destination.name", env.Queue),
+	)
 	return &corequeue.TaskInfo{
 		ID:        env.ID,
 		Type:      env.Type,
@@ -148,15 +169,13 @@ func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequ
 		Payload:   payload,
 		Headers:   headers,
 		MaxRetry:  env.MaxRetry,
+		Timeout:   applied.Timeout,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}, nil
 }
 
 func validateOptions(opts corequeue.EnqueueOptions) error {
-	if opts.Timeout > 0 {
-		return unsupported(corequeue.CapTimeout)
-	}
 	if !opts.Deadline.IsZero() {
 		return unsupported(corequeue.CapDeadline)
 	}
@@ -336,6 +355,11 @@ func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler corequeue.Handle
 		retryCount = int(meta.NumDelivered) - 1
 	}
 	ctx := corequeue.ContextFromCorrelationHeaders(context.Background(), headers)
+	if env.TimeoutSeconds > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(env.TimeoutSeconds)*time.Second)
+		defer cancel()
+	}
 	queueMsg := &corequeue.Message{
 		ID:         env.ID,
 		Type:       env.Type,
@@ -346,16 +370,71 @@ func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler corequeue.Handle
 		Headers:    headers,
 	}
 	ctx = corequeue.ContextWithMessage(ctx, queueMsg)
+	ctx, span := startWorkerSpan(ctx, queueMsg)
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			span.RecordError(fmt.Errorf("panic: %v", recovered))
+			span.SetStatus(codes.Error, "panic")
+			span.End()
+			panic(recovered)
+		}
+		span.End()
+	}()
 	if err := handler(ctx, queueMsg); err != nil {
-		q.rejectMessage(msg, retryCount, env.MaxRetry)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		q.rejectMessage(msg, retryCount, env.MaxRetry, env.MaxRetrySet)
 		return
 	}
 	_ = msg.Ack()
 }
 
-func (q *Queue) rejectMessage(msg *natsgo.Msg, retryCount int, taskMaxRetry int) {
+func startWorkerSpan(ctx context.Context, msg *corequeue.Message) (context.Context, oteltrace.Span) {
+	attrs := []attribute.KeyValue{
+		attribute.String("messaging.system", "nats"),
+		attribute.String("messaging.operation", "process"),
+	}
+	spanName := "consumer::task"
+	if msg != nil {
+		spanName = "consumer::" + msg.Type
+		attrs = append(attrs,
+			attribute.String("messaging.destination.name", msg.Queue),
+			attribute.String("messaging.message.id", msg.ID),
+			attribute.String("messaging.message.type", msg.Type),
+			attribute.Int("messaging.message.retry_count", msg.RetryCount),
+			attribute.Int("messaging.message.max_retry", msg.MaxRetry),
+		)
+	}
+	ctx, span := otel.Tracer("sdkitgo/core/queue").Start(ctx, spanName,
+		oteltrace.WithSpanKind(oteltrace.SpanKindConsumer),
+		oteltrace.WithAttributes(attrs...),
+	)
+	corequeue.SetSpanCorrelationAttributes(ctx, span)
+	return ctx, span
+}
+
+func startEnqueueSpan(ctx context.Context, taskType string, opts corequeue.EnqueueOptions) (context.Context, oteltrace.Span) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	attrs := []attribute.KeyValue{
+		attribute.String("messaging.system", "nats"),
+		attribute.String("messaging.operation", "publish"),
+		attribute.String("messaging.destination.name", opts.Queue),
+		attribute.String("messaging.message.id", opts.TaskID),
+		attribute.String("messaging.message.type", taskType),
+	}
+	ctx, span := otel.Tracer("sdkitgo/core/queue").Start(ctx, "producer::"+taskType,
+		oteltrace.WithSpanKind(oteltrace.SpanKindProducer),
+		oteltrace.WithAttributes(attrs...),
+	)
+	corequeue.SetSpanCorrelationAttributes(ctx, span)
+	return ctx, span
+}
+
+func (q *Queue) rejectMessage(msg *natsgo.Msg, retryCount int, taskMaxRetry int, maxRetrySet bool) {
 	maxRetry := taskMaxRetry
-	if maxRetry <= 0 {
+	if !maxRetrySet {
 		maxRetry = q.maxDeliver() - 1
 	}
 	if maxRetry <= 0 || retryCount >= maxRetry {
@@ -486,11 +565,11 @@ func subjectExists(subjects []string, target string) bool {
 	return false
 }
 
-func maxRetryValue(value *int) int {
+func (q *Queue) maxRetryValue(value *int) (int, bool) {
 	if value == nil {
-		return 0
+		return q.maxDeliver() - 1, false
 	}
-	return *value
+	return *value, true
 }
 
 func firstNonEmpty(values ...string) string {

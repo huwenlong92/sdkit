@@ -78,6 +78,7 @@ func NewRuntimeInstanceFromParts(parts RuntimeParts, opts ...RuntimeInstanceOpti
 		rt.operations = NewOperationsRuntime(rt.manager)
 	}
 	rt.operations.SetManager(rt.manager)
+	rt.operations.SetTaskStore(rt.taskStore)
 	rt.operations.SetMetadata(rt.metadata)
 	return rt
 }
@@ -146,6 +147,9 @@ func WithRuntimeTaskStore(store TaskStore) RuntimeInstanceOption {
 	return func(rt *RuntimeInstance) {
 		if rt != nil {
 			rt.taskStore = store
+			if rt.operations != nil {
+				rt.operations.SetTaskStore(store)
+			}
 		}
 	}
 }

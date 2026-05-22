@@ -57,6 +57,7 @@ type Template struct {
     AllowDB bool
 
     AllowOverlap bool
+    LogDisabled bool
     Timeout time.Duration
 
     Handler RunHandler
@@ -75,6 +76,7 @@ type Template struct {
 - `Enabled`：代码级总开关。
 - `AllowDB`：是否允许 DB 动态任务引用。
 - `AllowOverlap`：是否允许同一 Entry 并发执行。
+- `LogDisabled`：是否禁用该模板的执行记录和执行过程日志。开启后不写 running/final run log、不注入持久化 JobLogger、不输出 runtime logger；runtime state、metrics、tracing 和 failure callback 仍保持。
 - `Timeout`：模板级执行超时。
 - `Handler`：业务执行入口。
 - `DefaultPayload` / `PayloadFormat` / `PayloadSchema`：模板展示和后台表单元数据，由 `Registry.ListTemplateInfo` / `ListDBTemplateInfo` 导出，不参与 runtime 执行。
@@ -204,13 +206,13 @@ Dispatch 顺序：
 5. build Job from Entry + Template
 6. prepare RunContext
 7. acquire entry-scoped lock when AllowOverlap=false
-8. write running log and runtime state
-9. inject JobLogger
+8. write running log and runtime state；`Template.LogDisabled=true` 时只更新 runtime state
+9. inject JobLogger；`Template.LogDisabled=true` 时注入 noop logger
 10. execute Handler with timeout and panic recover
 11. finish span
 12. record metrics
-13. write final log and runtime state
-14. write runtime logger
+13. write final log and runtime state；`Template.LogDisabled=true` 时只更新 runtime state
+14. write runtime logger；`Template.LogDisabled=true` 时跳过
 15. notify failure callback when failed/timeout/panic
 ```
 

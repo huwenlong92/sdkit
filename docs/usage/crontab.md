@@ -46,6 +46,7 @@ var SSEDemoTemplate = corecron.Template{
     Enabled:      true,
     AllowDB:      true,
     AllowOverlap: false,
+    LogDisabled:  false,
     Timeout:      3 * time.Minute,
     DefaultPayload: `{"event":"notify","data":{"title":"Crontab SSE demo"}}`,
     PayloadFormat:  "json",
@@ -129,6 +130,8 @@ Template
 - failure callback
 
 业务层禁止再挂 crontab middleware。需要审计、告警或通知时，使用 handler 内部逻辑或全局 failure callback。
+
+`Template.LogDisabled=true` 用于不需要历史执行记录的系统任务。开启后该模板不写 running/final run log，不写 `JobLoggerFromContext(ctx)` 产生的执行过程日志，也不输出 runtime start/result logger；runtime state、metrics、tracing 和 failure callback 仍保持。由于不写持久化 run log，依赖历史执行次数的 `max_run_count` 不适合与该开关同时使用。
 
 ## Failure Callback
 
@@ -217,6 +220,7 @@ crontab_overlap_skipped_total
 - `AllowOverlap` 控制任务级互斥
 - `AllowDB` 控制是否允许 DB 引用
 - `Enabled` 是代码级总开关
+- `LogDisabled` 控制是否跳过该模板的持久化执行记录和执行过程日志
 - `crontab.lock.enabled=false` 时跳过 runtime 分布式锁；开启时才按 Entry 粒度加锁
 
 同一个模板可以被多条 DB 任务引用。默认锁粒度是 Entry，不是 Template，所以不同 Entry 互不阻塞。

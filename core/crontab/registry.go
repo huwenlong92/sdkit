@@ -92,6 +92,7 @@ func (r *Registry) ListTemplateInfo() []TemplateInfo {
 			AllowBuiltin:   tpl.Spec != "",
 			AllowDB:        tpl.AllowDB,
 			AllowOverlap:   tpl.AllowOverlap,
+			LogDisabled:    tpl.LogDisabled,
 			DefaultSpec:    tpl.Spec,
 			DefaultPayload: tpl.DefaultPayload,
 			PayloadFormat:  templatePayloadFormat(tpl),

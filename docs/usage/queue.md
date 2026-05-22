@@ -117,7 +117,7 @@ worker:
 | `schedule.batch_size` | 单次抢占到期延迟任务数量 |
 | `schedule.poll_interval` | 扫描到期延迟任务间隔 |
 
-JetStream driver 当前提供 `enqueue`、`consume`、`batch`、`log`、`trace` 能力。自动重试通过 JetStream redelivery 实现，达到最大重试后 `Term`。如果固定 `TaskID` 在 `nats.duplicates` 窗口内重复发布，driver 会把 JetStream duplicate ack 映射为 `queue.ErrTaskDuplicated`，应用层可稍后重投。后台任务列表、执行记录、日志、人工重试通过 `TaskStore` 管理；Inspector、归档、删除不直接依赖 JetStream driver。
+JetStream driver 当前提供 `enqueue`、`consume`、`batch`、`timeout`、`log`、`trace` 能力。`queue.Timeout` 会作为 consumer handler 的 context deadline 下传。自动重试通过 JetStream redelivery 实现，达到最大重试后 `Term`。如果固定 `TaskID` 在 `nats.duplicates` 窗口内重复发布，driver 会把 JetStream duplicate ack 映射为 `queue.ErrTaskDuplicated`，应用层可稍后重投。后台任务列表、执行记录、日志、人工重试通过 `TaskStore` 管理；Inspector、归档、删除不直接依赖 JetStream driver。
 
 初始延迟任务统一走 DB 调度层：`Enqueue(..., queue.ProcessIn/ProcessAt)` 会先写入 `system_queue_task(status=scheduled)`，到期后由 worker 的 schedule poller 抢占并投递到当前 driver。这样 Asynq、JetStream 和后续 driver 的延迟语义保持一致。
 
@@ -296,9 +296,11 @@ registry.Use(queue.TaskStoreMiddleware(store, queue.TaskStoreOptions{
 
 `core/queue` 只定义任务存储接口、投递记录入口、执行 middleware 和任务日志 context，不绑定具体数据库表。Gorm、PostgreSQL RANGE 分区、日志保留策略等由宿主应用实现。
 
+`TaskStoreMiddleware` 会为每次执行尝试写入 run 记录。仍会继续重试的失败尝试状态为 `retry`，最终耗尽重试、deadletter 或 fatal error 的尝试状态为 `failed`；后台失败列表如果要展示完整尝试链路，应同时查询 `retry` 和 `failed` run。
+
 如果 store 同时实现 `queue.TaskSubmissionStore`，runtime 会在真实投递前先记录 `submitting`，投递成功后更新为 `pending`，投递失败后更新为 `submit_failed` 并保存错误。这个生命周期在 core 内完成，适用于 Asynq、NATS 或后续其它 driver。
 
-如果 store 同时实现 `queue.TaskScheduleStore`，runtime 会把 future `ProcessIn/ProcessAt` 记录为 `scheduled`，不立即投递。worker 侧调用 `runtime.StartSchedulePoller(ctx, cfg.Queue.Schedule)` 后，会批量抢占到期任务并投递到当前 driver。
+如果 store 同时实现 `queue.TaskScheduleStore`，runtime 会把 future `ProcessIn/ProcessAt` 记录为 `scheduled`，不立即投递。worker 侧调用 `runtime.StartSchedulePoller(ctx, cfg.Queue.Schedule)` 后，会批量抢占到期任务并投递到当前 driver。此时延迟任务的 `queue.Unique` 需要由 `RecordScheduled` 的存储实现检查，避免绕过 driver 侧唯一约束。
 
 如果 store 同时实现 `queue.TaskAutoRetryStore`，runtime 可以在任务终态失败或投递失败后做 driver-neutral 自动恢复。投递时显式传入：
 
@@ -1249,7 +1251,7 @@ _, err := queue.Enqueue(ctx,
 )
 ```
 
-`OperationsRuntime.DeleteTask` 底层会删除 pending、scheduled、retry 或 archived 状态的 asynq 任务；active 状态不能删除，应等待任务结束后再操作。
+`OperationsRuntime.DeleteTask` 底层会删除 pending、scheduled、retry 或 archived 状态的 asynq 任务；active 状态不能删除，应等待任务结束后再操作。对于由 `TaskScheduleStore` 暂存、尚未投递到 driver 的延迟任务，operations 会在 driver 返回 not found 后回退到 `TaskDeletionStore` 标记存储记录为 canceled。
 
 ## 队列统计
 

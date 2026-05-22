@@ -66,6 +66,7 @@ func capabilities() map[corequeue.Capability]bool {
 		corequeue.CapEnqueue: true,
 		corequeue.CapConsume: true,
 		corequeue.CapBatch:   true,
+		corequeue.CapTimeout: true,
 		corequeue.CapLog:     true,
 		corequeue.CapTrace:   true,
 	}

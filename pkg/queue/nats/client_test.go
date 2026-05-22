@@ -13,6 +13,7 @@ func TestNATSOptionsAcceptSupportedDeliveryOptions(t *testing.T) {
 		corequeue.Queue("default"),
 		corequeue.TaskID("task-1"),
 		corequeue.MaxRetry(3),
+		corequeue.Timeout(time.Second),
 		corequeue.AutoRetry(2, time.Minute),
 		corequeue.WithTrace(false),
 	}))
@@ -28,7 +29,6 @@ func TestNATSUnsupportedOptions(t *testing.T) {
 		name string
 		opts []corequeue.Option
 	}{
-		{name: "timeout", opts: []corequeue.Option{corequeue.Timeout(time.Second)}},
 		{name: "deadline", opts: []corequeue.Option{corequeue.Deadline(processAt)}},
 		{name: "process in", opts: []corequeue.Option{corequeue.ProcessIn(time.Second)}},
 		{name: "process at", opts: []corequeue.Option{corequeue.ProcessAt(processAt)}},
@@ -42,5 +42,20 @@ func TestNATSUnsupportedOptions(t *testing.T) {
 				t.Fatalf("validateOptions() error = %v, want ErrCapabilityUnsupported", err)
 			}
 		})
+	}
+}
+
+func TestNATSMaxRetryValueDistinguishesExplicitZero(t *testing.T) {
+	q := &Queue{cfg: corequeue.Config{NATS: corequeue.NATSConfig{MaxDeliver: 5}}}
+
+	got, explicit := q.maxRetryValue(nil)
+	if explicit || got != 4 {
+		t.Fatalf("maxRetryValue(nil) = (%d, %v), want (4, false)", got, explicit)
+	}
+
+	zero := 0
+	got, explicit = q.maxRetryValue(&zero)
+	if !explicit || got != 0 {
+		t.Fatalf("maxRetryValue(0) = (%d, %v), want (0, true)", got, explicit)
 	}
 }
