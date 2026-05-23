@@ -104,6 +104,8 @@ if err != nil {
 - `oss`：生成 GET 签名 URL
 - `cos`：生成 GET 签名 URL
 
+`s3`、`minio`、`r2` 底层使用 AWS SDK for Go v2。配置自建 S3 兼容服务时，`endpoint` 建议带上 `http://` 或 `https://`；未带协议时会按 `use_ssl` 自动补齐。
+
 `local` driver 没有对象存储签名能力，会生成带 `path`、`expires`、`signature` 的应用访问链接。需要配置签名密钥，并在应用路由中挂载校验 handler：
 
 ```yaml
