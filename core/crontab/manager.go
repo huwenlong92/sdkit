@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type Manager struct {
@@ -22,17 +23,18 @@ type Manager struct {
 }
 
 type ManagerOptions struct {
-	Config     Config
-	Registry   *Registry
-	Store      Store
-	Scheduler  Scheduler
-	Locker     Locker
-	Logger     LogWriter
-	Repository EntryRepository
-	Runner     *Runner
-	Runtime    *RuntimeState
-	LogStore   LogStore
-	Streamer   LogStreamer
+	Config        Config
+	Registry      *Registry
+	Store         Store
+	Scheduler     Scheduler
+	Locker        Locker
+	Logger        LogWriter
+	Repository    EntryRepository
+	Runner        *Runner
+	Runtime       *RuntimeState
+	LogStore      LogStore
+	Streamer      LogStreamer
+	RuntimeLogger *zap.Logger
 }
 
 func NewManager(opts ManagerOptions) (*Manager, error) {
@@ -52,14 +54,15 @@ func NewManager(opts ManagerOptions) (*Manager, error) {
 	runner := opts.Runner
 	if runner == nil {
 		runner = NewRunner(RunnerOptions{
-			Config:   opts.Config,
-			Registry: opts.Registry,
-			Store:    opts.Store,
-			Locker:   opts.Locker,
-			Logger:   opts.Logger,
-			LogStore: opts.LogStore,
-			Streamer: opts.Streamer,
-			Runtime:  opts.Runtime,
+			Config:        opts.Config,
+			Registry:      opts.Registry,
+			Store:         opts.Store,
+			Locker:        opts.Locker,
+			Logger:        opts.Logger,
+			LogStore:      opts.LogStore,
+			Streamer:      opts.Streamer,
+			RuntimeLogger: opts.RuntimeLogger,
+			Runtime:       opts.Runtime,
 		})
 	}
 	if opts.Repository == nil {

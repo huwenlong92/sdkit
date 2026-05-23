@@ -14,9 +14,27 @@ import (
 
 type ginContextKey struct{}
 
+func WithContext(ctx context.Context, c *gin.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if c == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, ginContextKey{}, c)
+}
+
+func ContextFrom(ctx context.Context) (*gin.Context, bool) {
+	if ctx == nil {
+		return nil, false
+	}
+	c, ok := ctx.Value(ginContextKey{}).(*gin.Context)
+	return c, ok && c != nil
+}
+
 func ContextMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ginContextKey{}, c))
+		c.Request = c.Request.WithContext(WithContext(c.Request.Context(), c))
 		c.Next()
 	}
 }
@@ -74,15 +92,15 @@ func authenticate(c *gin.Context, authenticator coreauth.RequestAuthenticator) (
 	if authenticator == nil {
 		return nil, coreauth.ErrUnauthorized
 	}
-	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ginContextKey{}, c))
+	c.Request = c.Request.WithContext(WithContext(c.Request.Context(), c))
 	return authenticator.AuthenticateRequest(c.Request.Context(), c.Request)
 }
 
 type SessionReader struct{}
 
 func (SessionReader) ReadSession(ctx context.Context, _ *http.Request, key string) (any, bool, error) {
-	c, _ := ctx.Value(ginContextKey{}).(*gin.Context)
-	if c == nil {
+	c, ok := ContextFrom(ctx)
+	if !ok {
 		return nil, false, nil
 	}
 	value := session.Get(c, key)

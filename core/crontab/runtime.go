@@ -459,21 +459,30 @@ func finishRuntime(runCtx *RunContext, ctx context.Context, entry Entry, tpl Tem
 	}
 }
 
+func runtimeLogger(runCtx *RunContext) *zap.Logger {
+	if runCtx == nil || runCtx.runner == nil {
+		return nil
+	}
+	return runCtx.runner.runtimeLogger
+}
+
 func logRuntimeStart(ctx context.Context, runCtx *RunContext, entry Entry, tpl Template) {
-	if tpl.LogDisabled {
+	log := runtimeLogger(runCtx)
+	if log == nil || tpl.LogDisabled {
 		return
 	}
-	log := logger.WithContext(ctx, logger.Named("crontab-runtime"))
+	log = logger.WithContext(ctx, log)
 	log.Info("crontab execute start", runtimeLogFields(runCtx, entry, tpl, RunResult{Status: StatusRunning}, 0)...)
 }
 
 func logRuntimeResult(ctx context.Context, runCtx *RunContext, entry Entry, tpl Template, result RunResult, duration time.Duration) {
-	if tpl.LogDisabled {
+	log := runtimeLogger(runCtx)
+	if log == nil || tpl.LogDisabled {
 		return
 	}
 	result = result.normalize()
 	fields := runtimeLogFields(runCtx, entry, tpl, result, duration)
-	log := logger.WithContext(ctx, logger.Named("crontab-runtime"))
+	log = logger.WithContext(ctx, log)
 	switch result.Status {
 	case StatusSuccess:
 		log.Info("crontab execute success", fields...)

@@ -18,7 +18,7 @@ core/crontab 负责全部 runtime governance
 - timeout
 - overlap lock
 - panic recover
-- runtime logger
+- runtime logger（由外层通过 `RunnerOptions.RuntimeLogger` 显式注入）
 - run log
 - runtime state
 - metrics
@@ -76,7 +76,7 @@ type Template struct {
 - `Enabled`：代码级总开关。
 - `AllowDB`：是否允许 DB 动态任务引用。
 - `AllowOverlap`：是否允许同一 Entry 并发执行。
-- `LogDisabled`：是否禁用该模板的执行记录和执行过程日志。开启后不写 running/final run log、不注入持久化 JobLogger、不输出 runtime logger；runtime state、metrics、tracing 和 failure callback 仍保持。
+- `LogDisabled`：是否禁用该模板的执行记录和执行过程日志。开启后不写 running/final run log、不注入持久化 JobLogger、不使用外层注入的 runtime logger；runtime state、metrics、tracing 和 failure callback 仍保持。
 - `Timeout`：模板级执行超时。
 - `Handler`：业务执行入口。
 - `DefaultPayload` / `PayloadFormat` / `PayloadSchema`：模板展示和后台表单元数据，由 `Registry.ListTemplateInfo` / `ListDBTemplateInfo` 导出，不参与 runtime 执行。
@@ -212,7 +212,7 @@ Dispatch 顺序：
 11. finish span
 12. record metrics
 13. write final log and runtime state；`Template.LogDisabled=true` 时只更新 runtime state
-14. write runtime logger；`Template.LogDisabled=true` 时跳过
+14. write runtime logger；仅当外层注入 `RunnerOptions.RuntimeLogger` 且 `Template.LogDisabled=false` 时执行
 15. notify failure callback when failed/timeout/panic
 ```
 
@@ -290,7 +290,7 @@ handler 内下游调用必须使用收到的 context。
 
 ## Logger
 
-runtime logger 统一在 `core/crontab` 内输出：
+runtime logger 由外层组装 Runner 时通过 `RunnerOptions.RuntimeLogger` 显式注入；未注入时 `core/crontab` 不输出标准 zap 日志。项目需要运行态标准日志时，可传入项目侧 logger，例如 `logger.Named("crontab-runtime")`。
 
 - `crontab execute start`
 - `crontab execute success`
@@ -361,6 +361,7 @@ crontab/
 
 ## Update Record
 
+- 2026-05-23：runtime 标准日志改为外层通过 `RunnerOptions.RuntimeLogger` 显式注入；core 不再硬编码创建 `crontab-runtime` logger。
 - 2026-05-21：`crontab.lock.enabled` 开始控制 runtime 加锁；`RunOnce` 同步返回 handler 失败、timeout、panic 和 `ErrJobRunning`；runtime schedule reload 会清理已移除 Entry 的内存状态。
 - 2026-05-17：新增 crontab operations facade，Admin 改为通过 `core/crontab.Service` 查询模板和管理 DB Entry；模板仍由项目 `crontab` 包硬编码注册，Admin 不维护 catalog。
 - 2026-05-17：Template-Driven Runtime freeze。删除 crontab middleware runtime、Router DSL、BuiltinJob registry 和 Template events；Dispatch 接管 tracing、logger、metrics、timeout、overlap lock、run log、panic recover 和 failure callback。

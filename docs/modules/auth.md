@@ -14,7 +14,7 @@
 
 `core/auth` 不负责业务用户模型、后台管理员语义、商户语义、菜单权限、RBAC 或 Casbin policy。
 
-JWT 的签发和解析复用 `pkg/jwtx`。Session 存储仍由 `core/session` 负责，`core/auth` 只通过 `SessionReader` 读取登录态并映射为 `Identity`。
+JWT 的签发和解析复用 `pkg/jwtx`。Session 存储仍由 `core/session` 负责，`core/auth` 只通过 `SessionReader` 读取登录态并映射为 `Identity`，并提供生命周期 hooks 给接入方挂载业务操作。
 
 ## Identity 约束
 
@@ -52,6 +52,11 @@ type Identity struct {
 
 通过 `SessionReader` 读取 session payload。payload 到 `Identity` 的映射由业务传入，core 不感知具体结构。
 
+- `Mapper`：把业务 session payload 映射成 `Identity`。
+- `Validators`：认证成功前的业务态校验，例如单点登录 token、账号状态。
+- `Refreshers`：认证成功后的续期动作，例如重写 session、刷新 Redis TTL。
+- `Failures`：认证失败后的清理动作，例如删除脏 session、清理辅助 cookie。
+
 ### ChainAuthenticator
 
 按顺序组合多个认证器，适合 Realtime、WebSocket、兼容 cookie 和 token 的入口。
@@ -63,6 +68,8 @@ type Identity struct {
 - `authgin.Optional(authenticator)`
 - `authgin.Required(authenticator)`
 - `authgin.ContextMiddleware()`
+- `authgin.WithContext(ctx, c)`
+- `authgin.ContextFrom(ctx)`
 - `authgin.SessionReader{}`
 
 ### Realtime
@@ -92,6 +99,7 @@ type Config struct {
 
 ## 更新记录
 
+- 2026-05-23：SessionAuthenticator 新增生命周期 hooks，支持接入方实现业务态校验、滑动续期和失败清理。
 - 2026-05-23：移除旧 `Auth` manager / `Guard` / Gin middleware 入口，统一改为 request authenticator；新增 JWT、Session、Chain、Realtime 适配能力。
 - 2026-05-15：新增 `CurrentIdentity(c)`、`UserID(c)`、`RoleID(c)` 和 `Claims(c)`，API handler 可直接读取认证主体信息；JWT claims 类型改名为 `JWTClaims`。
 - 2026-05-13：`Identity` 使用 `SubjectID` / `SubjectType` 主体语义；JWT 底层能力放在 `pkg/jwtx`。

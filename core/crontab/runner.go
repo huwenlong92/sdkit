@@ -4,28 +4,32 @@ import (
 	"context"
 	"os"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type Runner struct {
-	registry *Registry
-	store    Store
-	locker   Locker
-	logger   LogWriter
-	logStore LogStore
-	streamer LogStreamer
-	runtime  *RuntimeState
-	cfg      Config
+	registry      *Registry
+	store         Store
+	locker        Locker
+	logger        LogWriter
+	logStore      LogStore
+	streamer      LogStreamer
+	runtimeLogger *zap.Logger
+	runtime       *RuntimeState
+	cfg           Config
 }
 
 type RunnerOptions struct {
-	Config   Config
-	Registry *Registry
-	Store    Store
-	Locker   Locker
-	Logger   LogWriter
-	LogStore LogStore
-	Streamer LogStreamer
-	Runtime  *RuntimeState
+	Config        Config
+	Registry      *Registry
+	Store         Store
+	Locker        Locker
+	Logger        LogWriter
+	LogStore      LogStore
+	Streamer      LogStreamer
+	RuntimeLogger *zap.Logger
+	Runtime       *RuntimeState
 }
 
 func NewRunner(opts RunnerOptions) *Runner {
@@ -48,14 +52,15 @@ func NewRunner(opts RunnerOptions) *Runner {
 	}
 
 	return &Runner{
-		registry: opts.Registry,
-		store:    opts.Store,
-		locker:   opts.Locker,
-		logger:   opts.Logger,
-		logStore: opts.LogStore,
-		streamer: opts.Streamer,
-		runtime:  opts.Runtime,
-		cfg:      opts.Config,
+		registry:      opts.Registry,
+		store:         opts.Store,
+		locker:        opts.Locker,
+		logger:        opts.Logger,
+		logStore:      opts.LogStore,
+		streamer:      opts.Streamer,
+		runtimeLogger: opts.RuntimeLogger,
+		runtime:       opts.Runtime,
+		cfg:           opts.Config,
 	}
 }
 

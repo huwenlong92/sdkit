@@ -100,6 +100,26 @@ webAuth := auth.NewSessionAuthenticator(auth.SessionAuthenticator{
 })
 ```
 
+Session 认证器提供生命周期 hooks。core 只负责调用时机；单点登录校验、滑动续期、失败清理等操作由接入方自己实现。
+
+```go
+adminAuth := auth.NewSessionAuthenticator(auth.SessionAuthenticator{
+    Provider: "admin_session",
+    Key:      "admin_login",
+    Reader:   authgin.SessionReader{},
+    Mapper:   mapAdminSession,
+    Validators: []auth.IdentityHook{
+        validateSingleLogin,
+    },
+    Refreshers: []auth.IdentityHook{
+        refreshSessionTTL,
+    },
+    Failures: []auth.IdentityFailureHook{
+        clearInvalidSession,
+    },
+})
+```
+
 Gin 中使用 session 时，需要先挂 `core/session` middleware，再挂 auth middleware。
 
 ```go
@@ -109,6 +129,12 @@ if err != nil {
 }
 r.Use(sessionMiddleware)
 r.Use(authgin.Optional(webAuth))
+```
+
+`authgin.Required` / `authgin.Optional` 会把 Gin context 注入 request context。接入方如果手动调用 `AuthenticateRequest`，需要先注入：
+
+```go
+c.Request = c.Request.WithContext(authgin.WithContext(c.Request.Context(), c))
 ```
 
 ## Chain
@@ -132,12 +158,7 @@ rtAuth := auth.NewChainAuthenticator(
 authenticator := authrealtime.From(rtAuth)
 ```
 
-如果 Realtime 需要读取 Web session cookie，Gin 路由必须挂同一个 session store，并注入 Gin context。
-
-```go
-r.Use(sessionMiddleware)
-r.Use(authgin.ContextMiddleware())
-```
+Realtime 如果不挂 Gin session middleware，也可以由接入方实现自己的 `SessionReader`，直接从 request cookie 和 session store 中读取 payload。
 
 ## Handler 取身份
 

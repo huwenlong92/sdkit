@@ -120,7 +120,7 @@ Template
 
 - tracing span: `crontab.execute`
 - track_id 生成与透传
-- runtime logger: start / success / failed / timeout / overlap skipped
+- runtime logger: 仅当外层通过 `RunnerOptions.RuntimeLogger` 注入 logger 时输出 start / success / failed / timeout / overlap skipped
 - timeout: `Template.Timeout` 或 RunOnce 指定 timeout
 - overlap lock: `AllowOverlap=false` 时使用 `crontab:entry:<entry_id>`
 - running/final run log
@@ -131,7 +131,7 @@ Template
 
 业务层禁止再挂 crontab middleware。需要审计、告警或通知时，使用 handler 内部逻辑或全局 failure callback。
 
-`Template.LogDisabled=true` 用于不需要历史执行记录的系统任务。开启后该模板不写 running/final run log，不写 `JobLoggerFromContext(ctx)` 产生的执行过程日志，也不输出 runtime start/result logger；runtime state、metrics、tracing 和 failure callback 仍保持。由于不写持久化 run log，依赖历史执行次数的 `max_run_count` 不适合与该开关同时使用。
+`Template.LogDisabled=true` 用于不需要历史执行记录的系统任务。开启后该模板不写 running/final run log，不写 `JobLoggerFromContext(ctx)` 产生的执行过程日志，也不使用外层注入的 runtime logger 输出 start/result；runtime state、metrics、tracing 和 failure callback 仍保持。由于不写持久化 run log，依赖历史执行次数的 `max_run_count` 不适合与该开关同时使用。
 
 ## Failure Callback
 

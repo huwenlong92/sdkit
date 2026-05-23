@@ -14,6 +14,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	oteltrace "go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type memoryLogWriter struct {
@@ -201,6 +203,7 @@ func TestRunnerTemplateLogDisabledSkipsRunAndJobLogs(t *testing.T) {
 	registry := NewRegistry()
 	called := false
 	gotLogger := false
+	runtimeLogCore, runtimeLogs := observer.New(zap.InfoLevel)
 	if err := registry.Register(Template{
 		Name:        "silent_template",
 		LogDisabled: true,
@@ -220,11 +223,12 @@ func TestRunnerTemplateLogDisabledSkipsRunAndJobLogs(t *testing.T) {
 	writer := &memoryLogWriter{}
 	runtime := NewRuntimeState()
 	runner := NewRunner(RunnerOptions{
-		Config:   DefaultConfig(),
-		Registry: registry,
-		Logger:   writer,
-		LogStore: logStore,
-		Runtime:  runtime,
+		Config:        DefaultConfig(),
+		Registry:      registry,
+		Logger:        writer,
+		LogStore:      logStore,
+		RuntimeLogger: zap.New(runtimeLogCore),
+		Runtime:       runtime,
 	})
 	runner.Run(context.Background(), Job{
 		ID:      "db.2",
@@ -246,8 +250,42 @@ func TestRunnerTemplateLogDisabledSkipsRunAndJobLogs(t *testing.T) {
 	if len(logStore.events) != 0 {
 		t.Fatalf("job log events should be skipped: %#v", logStore.events)
 	}
+	if runtimeLogs.Len() != 0 {
+		t.Fatalf("runtime logs should be skipped: %#v", runtimeLogs.All())
+	}
 	if info, ok := runtime.Get("db.2"); !ok || info.Status != RuntimeSuccess {
 		t.Fatalf("runtime state should still be updated: %#v ok=%v", info, ok)
+	}
+}
+
+func TestRunnerUsesInjectedRuntimeLogger(t *testing.T) {
+	registry := NewRegistry()
+	if err := registry.Register(Template{
+		Name:    "runtime_logger",
+		Handler: RunHandlerFromFunc(func(context.Context, Job) error { return nil }),
+		Enabled: true,
+		AllowDB: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	runtimeLogCore, runtimeLogs := observer.New(zap.InfoLevel)
+	runner := NewRunner(RunnerOptions{
+		Config:        DefaultConfig(),
+		Registry:      registry,
+		Logger:        &memoryLogWriter{},
+		RuntimeLogger: zap.New(runtimeLogCore),
+	})
+	runner.Run(context.Background(), Job{Name: "runtime_logger", Source: SourceDB, Mode: ModeLocal, Enabled: true})
+
+	if runtimeLogs.Len() != 2 {
+		t.Fatalf("runtime log count = %d, want 2: %#v", runtimeLogs.Len(), runtimeLogs.All())
+	}
+	if msg := runtimeLogs.All()[0].Message; msg != "crontab execute start" {
+		t.Fatalf("first runtime log = %q", msg)
+	}
+	if msg := runtimeLogs.All()[1].Message; msg != "crontab execute success" {
+		t.Fatalf("second runtime log = %q", msg)
 	}
 }
 
