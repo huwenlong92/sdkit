@@ -1,2 +1,0 @@
-2026-05-11 14:42:34.739	INFO	config/config.go:164	配置加载成功	{"path": "/var/folders/c3/6jh_8z8j4z3fvwwsw1hwpswm0000gn/T/TestFilesystemConfigKeepsDriverConfig575979960/001/config.yaml"}
-2026-05-11 14:43:54.763	INFO	config/config.go:164	配置加载成功	{"path": "/var/folders/c3/6jh_8z8j4z3fvwwsw1hwpswm0000gn/T/TestFilesystemConfigKeepsDriverConfig3402554010/001/config.yaml"}
