@@ -51,8 +51,8 @@ m = r.sub == p.sub && keyMatch2(r.obj, p.obj) && keyMatch2(r.act, p.act)
 ```go
 import adminmiddleware "sdkitgo/app/admin/middleware"
 
-// 在 auth.Default.Middleware() 之后使用
-authorized.Use(auth.Default.Middleware())
+// 在 authgin.Required(authenticator) 之后使用
+authorized.Use(authgin.Required(authenticator))
 authz := authorized.Group("")
 authz.Use(adminmiddleware.Casbin())
 ```
