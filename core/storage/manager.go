@@ -72,6 +72,8 @@ func (m *Manager) Use(name string) (*FileSystem, error) {
 		return fs, nil
 	}
 	nextCfg := cfg.storageConfig()
+	nextCfg.StoreName = name
+	nextCfg.DefaultStore = name == m.defaultName
 	fs, err := pkgfs.New(&nextCfg)
 	if err != nil {
 		return nil, err
@@ -118,6 +120,40 @@ func (m *Manager) Config(name string) (StoreConfig, error) {
 	return cfg.Clone(), nil
 }
 
+func (m *Manager) AccessPath(name string, objectPath string) string {
+	objectPath = strings.TrimSpace(objectPath)
+	if objectPath == "" || hasURLScheme(objectPath) {
+		return objectPath
+	}
+	if m == nil {
+		return objectPath
+	}
+	name = strings.TrimSpace(name)
+
+	m.mu.RLock()
+	defaultName := m.defaultName
+	if name == "" {
+		name = defaultName
+	}
+	if name == "" || name == defaultName {
+		m.mu.RUnlock()
+		return objectPath
+	}
+	cfg, ok := m.configs[name]
+	m.mu.RUnlock()
+	if !ok {
+		return objectPath
+	}
+	baseURL := strings.TrimSpace(cfg.storageConfig().Policy.CDNURL)
+	if baseURL == "" {
+		return objectPath
+	}
+	if accessURL := fscore.JoinObjectURL(baseURL, objectPath); accessURL != "" {
+		return accessURL
+	}
+	return objectPath
+}
+
 func (m *Manager) DefaultName() string {
 	if m == nil {
 		return ""
@@ -155,4 +191,9 @@ func NewFileSystem(policy Policy, opts ...Option) (*FileSystem, error) {
 
 func NewFromPolicy(policy fscore.StoragePolicy, opts ...pkgfs.Option) (*FileSystem, error) {
 	return pkgfs.NewFromPolicy(policy, opts...)
+}
+
+func hasURLScheme(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	return strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")
 }

@@ -81,8 +81,8 @@ func TestUploadStreamReturnsFileWhenAfterHookFails(t *testing.T) {
 	}
 }
 
-func TestSourceUsesPublicURLPrefix(t *testing.T) {
-	fs, err := storage.NewFromPolicy(core.StoragePolicy{Driver: "local", LocalDir: t.TempDir(), PublicURL: "https://static.example.com/files", CDNURL: "https://cdn.example.com/assets"})
+func TestSourceUsesCDNURLPrefix(t *testing.T) {
+	fs, err := storage.NewFromPolicy(core.StoragePolicy{Driver: "local", LocalDir: t.TempDir(), CDNURL: "https://cdn.example.com/assets"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestSourceUsesPublicURLPrefix(t *testing.T) {
 
 func TestBackendOperationHooks(t *testing.T) {
 	dir := t.TempDir()
-	fs, err := storage.NewFromPolicy(core.StoragePolicy{Driver: "local", LocalDir: dir, PublicURL: "https://static.example.com/files"})
+	fs, err := storage.NewFromPolicy(core.StoragePolicy{Driver: "local", LocalDir: dir, CDNURL: "https://static.example.com/files"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,8 +227,7 @@ func TestNewFromPolicyUsesPolicyOnly(t *testing.T) {
 			Driver:   "local",
 			LocalDir: dir,
 		},
-		storage.WithUploadDir("files"),
-		storage.WithNameRules("{date}", "{originname}{ext}"),
+		storage.WithNameRules("files/{date}", "{originname}{ext}"),
 		storage.WithAllowedExtensions(".txt"),
 	)
 	if err != nil {

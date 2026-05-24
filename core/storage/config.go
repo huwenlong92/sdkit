@@ -19,7 +19,6 @@ const (
 
 type StoreConfig struct {
 	Driver            string        `mapstructure:"driver" yaml:"driver"`
-	UploadDir         string        `mapstructure:"upload_dir" yaml:"upload_dir"`
 	TempDir           string        `mapstructure:"temp_dir" yaml:"temp_dir"`
 	MaxSize           int64         `mapstructure:"max_size" yaml:"max_size"`
 	ChunkSize         int64         `mapstructure:"chunk_size" yaml:"chunk_size"`
@@ -32,17 +31,13 @@ type StoreConfig struct {
 	Bucket        string `mapstructure:"bucket" yaml:"bucket"`
 	Endpoint      string `mapstructure:"endpoint" yaml:"endpoint"`
 	EndpointInner string `mapstructure:"endpoint_inner" yaml:"endpoint_inner"`
-	PublicURL     string `mapstructure:"public_url" yaml:"public_url"`
 	CDNURL        string `mapstructure:"cdn_url" yaml:"cdn_url"`
-	SourceURL     string `mapstructure:"source_url" yaml:"source_url"`
-	SourceSecret  string `mapstructure:"source_secret" yaml:"source_secret"`
 	Region        string `mapstructure:"region" yaml:"region"`
 	AccessKey     string `mapstructure:"access_key" yaml:"access_key"`
 	SecretKey     string `mapstructure:"secret_key" yaml:"secret_key"`
 	SecretID      string `mapstructure:"secret_id" yaml:"secret_id"`
 	AccessKeyID   string `mapstructure:"access_key_id" yaml:"access_key_id"`
 	AccessSecret  string `mapstructure:"access_secret" yaml:"access_secret"`
-	UseSSL        bool   `mapstructure:"use_ssl" yaml:"use_ssl"`
 	Dir           string `mapstructure:"dir" yaml:"dir"`
 	LocalDir      string `mapstructure:"local_dir" yaml:"local_dir"`
 
@@ -79,19 +74,14 @@ func (c StoreConfig) storageConfig() fscore.Config {
 	policy.Bucket = firstNonEmpty(policy.Bucket, c.Bucket)
 	policy.Endpoint = firstNonEmpty(policy.Endpoint, c.Endpoint)
 	policy.EndpointInner = firstNonEmpty(policy.EndpointInner, c.EndpointInner)
-	policy.PublicURL = firstNonEmpty(policy.PublicURL, c.PublicURL)
 	policy.CDNURL = firstNonEmpty(policy.CDNURL, c.CDNURL)
-	policy.SourceURL = firstNonEmpty(policy.SourceURL, c.SourceURL)
-	policy.SourceSecret = firstNonEmpty(policy.SourceSecret, c.SourceSecret)
 	policy.Region = firstNonEmpty(policy.Region, c.Region)
 	policy.AccessKey = firstNonEmpty(policy.AccessKey, c.AccessKey, c.SecretID, c.AccessKeyID)
 	policy.SecretKey = firstNonEmpty(policy.SecretKey, c.SecretKey, c.AccessSecret)
-	policy.UseSSL = policy.UseSSL || c.UseSSL
 	policy.LocalDir = firstNonEmpty(policy.LocalDir, c.LocalDir, c.Dir)
 
 	return fscore.Config{
 		Driver:            firstNonEmpty(c.Driver, policy.Driver),
-		UploadDir:         c.UploadDir,
 		TempDir:           c.TempDir,
 		MaxSize:           c.MaxSize,
 		ChunkSize:         c.ChunkSize,

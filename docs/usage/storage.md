@@ -21,15 +21,14 @@ storage:
     local:
       driver: local
       local_dir: storage
-      source_url: https://admin.example.com/storage/source
-      source_secret: ${STORAGE_SOURCE_SECRET}
+      endpoint: https://admin.example.com/storage/source
+      secret_key: ${STORAGE_SOURCE_SECRET}
     minio:
       driver: minio
       bucket: private-assets
       endpoint: http://127.0.0.1:9000
       access_key: minio
       secret_key: minio-secret
-      use_ssl: false
     r2:
       driver: r2
       bucket: app-assets
@@ -86,6 +85,32 @@ if result.Error != nil {
 info := result.File
 ```
 
+需要默认存储的文件访问域名时，不要在应用层解析 policy：
+
+```go
+cdnURL := storage.DefaultCDNURL()
+```
+
+已经持有 `FileSystem` 实例时也可以直接读取：
+
+```go
+cdnURL := fs.CDNURL()
+```
+
+保存给前端的访问值由 manager 统一判断 default 与非 default：
+
+```go
+value := storage.AccessPath(storeName, objectPath)
+```
+
+规则固定为：默认 store 返回原始 `path`；非默认 store 配置了 `cdn_url` 时返回 `cdn_url + path`，否则仍返回原始 `path`。
+
+删除时可以传对象路径，也可以传当前 store 的访问值。`Delete` 会先把匹配当前 store `cdn_url` 的 URL 还原成对象路径：
+
+```go
+_ = fs.Delete("https://cdn.example.com/uploads/avatar.png")
+```
+
 ## 临时私有访问链接
 
 需要把私有文件临时发给别人时，使用 `Source(path, ttl)`。`ttl > 0` 表示生成带有效期的私有访问链接：
@@ -104,7 +129,7 @@ if err != nil {
 - `oss`：生成 GET 签名 URL
 - `cos`：生成 GET 签名 URL
 
-`s3`、`minio`、`r2` 底层使用 AWS SDK for Go v2。配置自建 S3 兼容服务时，`endpoint` 建议带上 `http://` 或 `https://`；未带协议时会按 `use_ssl` 自动补齐。
+`s3`、`minio`、`r2` 底层使用 AWS SDK for Go v2。配置自建 S3 兼容服务时，`endpoint` 建议带上 `http://` 或 `https://`；未带协议时默认按 `https://` 处理。
 
 `local` driver 没有对象存储签名能力，会生成带 `path`、`expires`、`signature` 的应用访问链接。需要配置签名密钥，并在应用路由中挂载校验 handler：
 
@@ -115,8 +140,8 @@ storage:
     local:
       driver: local
       local_dir: storage
-      source_url: https://admin.example.com/storage/source
-      source_secret: ${STORAGE_SOURCE_SECRET}
+      endpoint: https://admin.example.com/storage/source
+      secret_key: ${STORAGE_SOURCE_SECRET}
 ```
 
 ```go
@@ -127,9 +152,9 @@ if err != nil {
 router.GET("/storage/source", gin.WrapH(storage.SourceHandler(fs, sourceSecret)))
 ```
 
-`source_url` 是对外访问入口地址；为空时会生成相对路径 `/storage/source`。`source_secret` 必须和 handler 使用的密钥一致。未配置 `source_secret` 时，local 会兼容使用 `secret_key`。local 访问链接默认使用 `inline`，浏览器支持的图片、PDF 等文件会在线预览；需要强制下载时追加 `download=1`。
+local 的 `endpoint` 是对外签名访问入口地址；为空时会生成相对路径 `/storage/source`。`secret_key` 必须和 handler 使用的密钥一致。local 访问链接默认使用 `inline`，浏览器支持的图片、PDF 等文件会在线预览；需要强制下载时追加 `download=1`。
 
-`ttl <= 0` 保持公开访问语义：如果配置了 `cdn_url` 或 `public_url`，优先返回静态公开 URL；没有公开 URL 时，对象存储会使用默认 7 天有效期的签名 URL，local 返回本地文件路径。
+`ttl <= 0` 保持公开访问语义：如果配置了 `cdn_url`，优先返回静态公开 URL；没有公开 URL 时，对象存储会使用默认 7 天有效期的签名 URL，local 返回本地文件路径。
 
 ## 指定存储
 

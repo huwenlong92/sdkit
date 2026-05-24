@@ -22,7 +22,7 @@ Handler 按以下顺序选择输入源：
 3. `source_path`
 4. `content`
 
-`upload_dir` 只控制对象 key 前缀，不控制 driver 根目录或 bucket。真实存储位置由 `policy` 决定。
+`dir_rule` 控制对象 key 的目录规则，不控制 driver 根目录或 bucket。真实存储位置由 `policy` 决定。
 
 ## 每日 Excel 报表上传 OSS
 
@@ -39,7 +39,7 @@ payload := taskdef.FileGenerateUploadPayload{
         AccessKey: "access-key-id",
         SecretKey: "access-secret",
     },
-    UploadDir:    "daily-report",
+    DirRule:      "daily-report/{date}",
     FileName:     "2026-05-11.xlsx",
     MIMEType:     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     TempFilePath: tmpPath,
@@ -75,7 +75,7 @@ payload := taskdef.FileGenerateUploadPayload{
         AccessKey: "access-key-id",
         SecretKey: "access-secret",
     },
-    UploadDir: "video",
+    DirRule:   "video/{date}",
     FileName:  "demo.mp4",
     MIMEType:  "video/mp4",
     SourceURL: "https://example.com/demo.mp4",
@@ -105,7 +105,7 @@ if err != nil {
 ```go
 payload := taskdef.FileGenerateUploadPayload{
     Policy:     policy,
-    UploadDir:  "archive",
+    DirRule:    "archive/{date}",
     FileName:   "data.csv",
     MIMEType:   "text/csv",
     SourcePath: "/data/export/data.csv",
@@ -121,7 +121,7 @@ payload := taskdef.FileGenerateUploadPayload{
 ```go
 payload := taskdef.FileGenerateUploadPayload{
     Policy:    policy,
-    UploadDir: "debug",
+    DirRule:   "debug/{date}",
     FileName:  "hello.txt",
     MIMEType:  "text/plain",
     Content:   "hello",

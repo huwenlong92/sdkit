@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func JoinPublicURL(baseURL, objectPath string) string {
+func JoinObjectURL(baseURL, objectPath string) string {
 	if baseURL == "" {
 		return ""
 	}

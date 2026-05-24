@@ -33,12 +33,10 @@ type Config struct {
 	Bucket        string
 	Endpoint      string
 	EndpointInner string
-	PublicURL     string
 	CDNURL        string
 	Region        string
 	AccessKey     string
 	SecretKey     string
-	UseSSL        bool
 }
 
 func New(cfg Config, minio bool) (*Driver, error) {
@@ -68,12 +66,10 @@ func NewFromConfig(cfg core.Config, minio bool) (*Driver, error) {
 		Bucket:        firstNonEmpty(policy.Bucket, cfg.DriverString("s3", "bucket")),
 		Endpoint:      firstNonEmpty(policy.Endpoint, cfg.DriverString("s3", "endpoint")),
 		EndpointInner: firstNonEmpty(policy.EndpointInner, cfg.DriverString("s3", "endpoint_inner")),
-		PublicURL:     firstNonEmpty(policy.PublicURL, cfg.DriverString("s3", "public_url")),
 		CDNURL:        firstNonEmpty(policy.CDNURL, cfg.DriverString("s3", "cdn_url")),
 		Region:        firstNonEmpty(policy.Region, cfg.DriverString("s3", "region")),
 		AccessKey:     firstNonEmpty(policy.AccessKey, cfg.DriverString("s3", "access_key")),
 		SecretKey:     firstNonEmpty(policy.SecretKey, cfg.DriverString("s3", "secret_key")),
-		UseSSL:        policy.UseSSL || cfg.DriverBool("s3", "use_ssl"),
 	}, minio)
 }
 
@@ -89,12 +85,10 @@ func NewR2FromConfig(cfg core.Config) (*Driver, error) {
 		Bucket:        firstNonEmpty(policy.Bucket, cfg.DriverString("r2", "bucket")),
 		Endpoint:      endpoint,
 		EndpointInner: firstNonEmpty(policy.EndpointInner, cfg.DriverString("r2", "endpoint_inner")),
-		PublicURL:     firstNonEmpty(policy.PublicURL, cfg.DriverString("r2", "public_url")),
 		CDNURL:        firstNonEmpty(policy.CDNURL, cfg.DriverString("r2", "cdn_url")),
 		Region:        firstNonEmpty(policy.Region, cfg.DriverString("r2", "region"), "auto"),
 		AccessKey:     firstNonEmpty(policy.AccessKey, cfg.DriverString("r2", "access_key"), cfg.DriverString("r2", "access_key_id")),
 		SecretKey:     firstNonEmpty(policy.SecretKey, cfg.DriverString("r2", "secret_key"), cfg.DriverString("r2", "access_secret")),
-		UseSSL:        policy.UseSSL || cfg.DriverBool("r2", "use_ssl") || !strings.HasPrefix(endpoint, "http://"),
 	}, true)
 }
 
@@ -112,10 +106,7 @@ func s3Endpoint(cfg Config) string {
 	if endpoint == "" || strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
 		return endpoint
 	}
-	if cfg.UseSSL {
-		return "https://" + endpoint
-	}
-	return "http://" + endpoint
+	return "https://" + endpoint
 }
 
 func (d *Driver) Put(file core.FileHeader) error {
@@ -256,8 +247,8 @@ func (d *Driver) Token(info core.FileInfo, ttl time.Duration) (*core.UploadCrede
 
 func (d *Driver) Source(path string, ttl time.Duration) (string, error) {
 	if ttl <= 0 {
-		if publicURL := core.JoinPublicURL(publicBaseURL(d.cfg.PublicURL, d.cfg.CDNURL), path); publicURL != "" {
-			return publicURL, nil
+		if objectURL := core.JoinObjectURL(d.cfg.CDNURL, path); objectURL != "" {
+			return objectURL, nil
 		}
 	}
 	ttl = core.NormalizeSourceTTL(ttl)
@@ -271,13 +262,6 @@ func (d *Driver) Source(path string, ttl time.Duration) (string, error) {
 		return "", err
 	}
 	return req.URL, nil
-}
-
-func publicBaseURL(publicURL, cdnURL string) string {
-	if cdnURL != "" {
-		return cdnURL
-	}
-	return publicURL
 }
 
 func (d *Driver) presignCompleteMultipartUpload(ctx context.Context, objectPath string, uploadID string, ttl time.Duration) (string, error) {

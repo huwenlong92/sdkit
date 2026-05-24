@@ -32,7 +32,9 @@ type UploadChunkResult struct {
 	ReceivedText   string `json:"received_text"`
 	ChunkNum       int    `json:"chunk_num"`
 	Done           bool   `json:"done"`
+	Path           string `json:"path"`
 	FilePath       string `json:"file_path"`
+	AccessPath     string `json:"access_path"`
 	UploadComplete bool   `json:"upload_complete"`
 }
 
@@ -57,9 +59,11 @@ type UploadSession struct {
 }
 
 type UploadResult struct {
-	File     core.FileInfo
-	Uploaded bool
-	Error    error
+	File       core.FileInfo
+	Path       string
+	ObjectPath string
+	Uploaded   bool
+	Error      error
 }
 
 func (r UploadResult) OK() bool {
@@ -117,16 +121,16 @@ func (fs *FileSystem) upload(ctx context.Context, file core.FileHeader, hooks op
 	wrapped := fileWithInfo{FileHeader: file, info: info}
 
 	if err := fs.Trigger(ctx, HookBeforeUpload, hooks.event(fs, OperationUpload, HookBeforeUpload, info, nil), hooks.beforeUpload...); err != nil {
-		return UploadResult{File: info, Error: err}
+		return fs.uploadResult(info, false, err)
 	}
 	if err := fs.handler.Put(wrapped); err != nil {
 		_ = fs.Trigger(ctx, HookAfterUploadFailed, hooks.event(fs, OperationUpload, HookAfterUploadFailed, info, err), hooks.afterUploadFailed...)
-		return UploadResult{File: info, Error: err}
+		return fs.uploadResult(info, false, err)
 	}
 	if err := fs.Trigger(ctx, HookAfterUpload, hooks.event(fs, OperationUpload, HookAfterUpload, info, nil), hooks.afterUpload...); err != nil {
-		return UploadResult{File: info, Uploaded: true, Error: err}
+		return fs.uploadResult(info, true, err)
 	}
-	return UploadResult{File: info, Uploaded: true}
+	return fs.uploadResult(info, true, nil)
 }
 
 func (fs *FileSystem) UploadStream(ctx context.Context, reader io.Reader, info core.FileInfo) UploadResult {
@@ -217,6 +221,7 @@ func (fs *FileSystem) initUpload(ctx context.Context, req UploadInitRequest, hoo
 		return nil, err
 	}
 	cred.Path = info.Path
+	cred.AccessPath = fs.AccessPath(info.Path)
 	if cred.ChunkSize <= 0 {
 		cred.ChunkSize = fs.cfg.ChunkSize
 	}
@@ -310,6 +315,8 @@ func (fs *FileSystem) uploadChunk(ctx context.Context, uploadID string, index in
 		_ = session.Chunks.Cleanup()
 		if upload.Uploaded {
 			result.FilePath = upload.File.Path
+			result.Path = upload.Path
+			result.AccessPath = upload.Path
 			result.UploadComplete = true
 			fs.deleteSession(uploadID)
 			return result, upload.Error
@@ -317,6 +324,8 @@ func (fs *FileSystem) uploadChunk(ctx context.Context, uploadID string, index in
 		return nil, upload.Error
 	}
 	result.FilePath = upload.File.Path
+	result.Path = upload.Path
+	result.AccessPath = upload.Path
 	result.UploadComplete = true
 	_ = session.Chunks.Cleanup()
 	fs.deleteSession(uploadID)
@@ -416,7 +425,7 @@ func (fs *FileSystem) prepareInfo(info core.FileInfo) core.FileInfo {
 		info.Name = filepath.Base(info.Path)
 	}
 	if info.Path == "" {
-		info.Path = filepath.ToSlash(filepath.Join(fs.cfg.UploadDir, fs.namer.Generate(info.Name)))
+		info.Path = fs.namer.Generate(info.Name)
 	}
 	info.Path = filepath.ToSlash(strings.TrimLeft(info.Path, "/"))
 	return info
@@ -429,6 +438,16 @@ func (fs *FileSystem) sessionInfo(session *UploadSession) core.FileInfo {
 		Size:     session.TotalSize,
 		MIMEType: session.MIMEType,
 		Metadata: session.Metadata,
+	}
+}
+
+func (fs *FileSystem) uploadResult(info core.FileInfo, uploaded bool, err error) UploadResult {
+	return UploadResult{
+		File:       info,
+		Path:       fs.AccessPath(info.Path),
+		ObjectPath: info.Path,
+		Uploaded:   uploaded,
+		Error:      err,
 	}
 }
 

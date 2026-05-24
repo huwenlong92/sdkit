@@ -21,7 +21,6 @@ type Config struct {
 	Bucket        string
 	Endpoint      string
 	EndpointInner string
-	PublicURL     string
 	CDNURL        string
 	AccessKeyID   string
 	AccessSecret  string
@@ -52,7 +51,6 @@ func NewFromConfig(cfg core.Config) (*Driver, error) {
 		Bucket:        firstNonEmpty(policy.Bucket, cfg.DriverString("oss", "bucket")),
 		Endpoint:      firstNonEmpty(policy.Endpoint, cfg.DriverString("oss", "endpoint")),
 		EndpointInner: firstNonEmpty(policy.EndpointInner, cfg.DriverString("oss", "endpoint_inner")),
-		PublicURL:     firstNonEmpty(policy.PublicURL, cfg.DriverString("oss", "public_url")),
 		CDNURL:        firstNonEmpty(policy.CDNURL, cfg.DriverString("oss", "cdn_url")),
 		AccessKeyID:   firstNonEmpty(policy.AccessKey, cfg.DriverString("oss", "access_key_id")),
 		AccessSecret:  firstNonEmpty(policy.SecretKey, cfg.DriverString("oss", "access_secret")),
@@ -117,8 +115,8 @@ func (d *Driver) List(dir string) ([]core.Object, error) {
 
 func (d *Driver) Source(path string, ttl time.Duration) (string, error) {
 	if ttl <= 0 {
-		if publicURL := core.JoinPublicURL(publicBaseURL(d.cfg.PublicURL, d.cfg.CDNURL), path); publicURL != "" {
-			return publicURL, nil
+		if objectURL := core.JoinObjectURL(d.cfg.CDNURL, path); objectURL != "" {
+			return objectURL, nil
 		}
 	}
 	ttl = core.NormalizeSourceTTL(ttl)
@@ -145,11 +143,4 @@ func (d *Driver) Token(info core.FileInfo, ttl time.Duration) (*core.UploadCrede
 		ChunkNum:   1,
 		UploadURLs: []string{urlStr},
 	}, nil
-}
-
-func publicBaseURL(publicURL, cdnURL string) string {
-	if cdnURL != "" {
-		return cdnURL
-	}
-	return publicURL
 }

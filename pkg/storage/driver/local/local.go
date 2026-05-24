@@ -16,11 +16,10 @@ type Driver struct {
 }
 
 type Config struct {
-	Dir          string
-	PublicURL    string
-	CDNURL       string
-	SourceURL    string
-	SourceSecret string
+	Dir       string
+	CDNURL    string
+	Endpoint  string
+	SecretKey string
 }
 
 func New(dir string) *Driver {
@@ -36,11 +35,10 @@ func NewWithConfig(cfg Config) *Driver {
 func NewFromConfig(cfg core.Config) *Driver {
 	policy := cfg.Policy
 	return NewWithConfig(Config{
-		Dir:          firstNonEmpty(policy.LocalDir, cfg.DriverString("local", "dir")),
-		PublicURL:    firstNonEmpty(policy.PublicURL, cfg.DriverString("local", "public_url")),
-		CDNURL:       firstNonEmpty(policy.CDNURL, cfg.DriverString("local", "cdn_url")),
-		SourceURL:    firstNonEmpty(policy.SourceURL, cfg.DriverString("local", "source_url")),
-		SourceSecret: firstNonEmpty(policy.SourceSecret, policy.SecretKey, cfg.DriverString("local", "source_secret"), cfg.DriverString("local", "secret_key")),
+		Dir:       firstNonEmpty(policy.LocalDir, cfg.DriverString("local", "dir")),
+		CDNURL:    firstNonEmpty(policy.CDNURL, cfg.DriverString("local", "cdn_url")),
+		Endpoint:  firstNonEmpty(policy.Endpoint, cfg.DriverString("local", "endpoint")),
+		SecretKey: firstNonEmpty(policy.SecretKey, cfg.DriverString("local", "secret_key")),
 	})
 }
 
@@ -117,10 +115,10 @@ func (d *Driver) List(path string) ([]core.Object, error) {
 
 func (d *Driver) Source(path string, ttl time.Duration) (string, error) {
 	if ttl > 0 {
-		return core.SignSourceURL(d.cfg.SourceURL, path, d.cfg.SourceSecret, ttl, time.Now())
+		return core.SignSourceURL(d.cfg.Endpoint, path, d.cfg.SecretKey, ttl, time.Now())
 	}
-	if publicURL := core.JoinPublicURL(publicBaseURL(d.cfg.PublicURL, d.cfg.CDNURL), path); publicURL != "" {
-		return publicURL, nil
+	if objectURL := core.JoinObjectURL(d.cfg.CDNURL, path); objectURL != "" {
+		return objectURL, nil
 	}
 	return d.fullPath(path), nil
 }
@@ -132,11 +130,4 @@ func (d *Driver) Token(info core.FileInfo, ttl time.Duration) (*core.UploadCrede
 		Path:      info.Path,
 		ChunkSize: 5 << 20, // 5MB
 	}, nil
-}
-
-func publicBaseURL(publicURL, cdnURL string) string {
-	if cdnURL != "" {
-		return cdnURL
-	}
-	return publicURL
 }

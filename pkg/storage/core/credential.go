@@ -16,4 +16,5 @@ type UploadCredential struct {
 	UploadURLs  []string `json:"upload_urls"`  // 每片的直传 URL
 	CompleteURL string   `json:"complete_url"` // 完成合并的 URL
 	Path        string   `json:"path"`         // 存储路径
+	AccessPath  string   `json:"access_path"`  // 前端访问值
 }

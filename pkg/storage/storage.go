@@ -3,7 +3,9 @@ package storage
 import (
 	"context"
 	"io"
+	"net/url"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -181,12 +183,6 @@ func NewFileSystem(policy core.StoragePolicy, opts ...Option) (*FileSystem, erro
 	return NewFromPolicy(policy, opts...)
 }
 
-func WithUploadDir(uploadDir string) Option {
-	return func(cfg *core.Config) {
-		cfg.UploadDir = uploadDir
-	}
-}
-
 func WithTempDir(tempDir string) Option {
 	return func(cfg *core.Config) {
 		cfg.TempDir = tempDir
@@ -238,6 +234,65 @@ func (fs *FileSystem) Config() core.Config {
 	return fs.cfg
 }
 
+func (fs *FileSystem) CDNURL() string {
+	if fs == nil {
+		return ""
+	}
+	return strings.TrimRight(strings.TrimSpace(fs.cfg.Policy.CDNURL), "/")
+}
+
+func (fs *FileSystem) AccessPath(objectPath string) string {
+	objectPath = strings.TrimSpace(objectPath)
+	if objectPath == "" || hasURLScheme(objectPath) {
+		return objectPath
+	}
+	if fs == nil || fs.cfg.DefaultStore || strings.TrimSpace(fs.cfg.StoreName) == "" {
+		return objectPath
+	}
+	if accessURL := core.JoinObjectURL(fs.CDNURL(), objectPath); accessURL != "" {
+		return accessURL
+	}
+	return objectPath
+}
+
+func (fs *FileSystem) ObjectPath(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || !hasURLScheme(value) {
+		return strings.TrimLeft(value, "/")
+	}
+	baseURL := fs.CDNURL()
+	if baseURL == "" {
+		return value
+	}
+	base, err := url.Parse(baseURL)
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		return value
+	}
+	u, err := url.Parse(value)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return value
+	}
+	if !strings.EqualFold(u.Scheme, base.Scheme) || !strings.EqualFold(u.Host, base.Host) {
+		return value
+	}
+	basePath := strings.TrimRight(base.EscapedPath(), "/")
+	objectPath := u.EscapedPath()
+	if basePath != "" && basePath != "/" {
+		if objectPath != basePath && !strings.HasPrefix(objectPath, basePath+"/") {
+			return value
+		}
+		objectPath = strings.TrimPrefix(objectPath, basePath)
+	}
+	objectPath, err = url.PathUnescape(strings.TrimLeft(objectPath, "/"))
+	if err != nil {
+		return value
+	}
+	if objectPath == "" {
+		return value
+	}
+	return objectPath
+}
+
 func (fs *FileSystem) Put(file core.FileHeader) UploadResult {
 	return fs.PutWithHook(context.Background(), file)
 }
@@ -280,6 +335,9 @@ func (fs *FileSystem) delete(ctx context.Context, paths []string, hooks operatio
 		return DeleteResult{Paths: paths, Error: core.ErrUnknownDriver}
 	}
 	paths = append([]string(nil), paths...)
+	for i, path := range paths {
+		paths[i] = fs.ObjectPath(path)
+	}
 	event := hooks.eventWith(fs, OperationDelete, HookBeforeDelete, core.FileInfo{}, nil, func(event *Event) {
 		event.Paths = paths
 		if len(paths) == 1 {
@@ -429,4 +487,9 @@ func firstPath(paths []string) string {
 		return ""
 	}
 	return paths[0]
+}
+
+func hasURLScheme(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	return strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")
 }

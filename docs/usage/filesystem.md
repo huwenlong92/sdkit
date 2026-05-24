@@ -24,12 +24,11 @@ core/storage/
 ```yaml
 filesystem:
   driver: local                # local / s3 / minio / cos / oss
-  upload_dir: uploads          # 默认上传目录
   temp_dir: storage/.chunks    # local 服务端分片临时目录，默认 local.dir/.chunks
   max_size: 0                  # 单文件大小限制，0 表示不限制
   chunk_size: 5242880          # 服务端 local 分片大小
   token_ttl: 2h                # 直传凭证有效期
-  dir_rule: "{date}"           # 目录规则
+  dir_rule: "uploads/{date}"   # 目录规则
   file_rule: "{originname}{ext}" # 文件名规则
   allowed_extensions: [".jpg", ".png", ".txt"] # 空表示不限制
   policy:
@@ -38,32 +37,26 @@ filesystem:
     bucket: ""
     endpoint: ""               # 服务端外网 endpoint
     endpoint_inner: ""         # 服务端内网 endpoint
-    public_url: https://static.example.com/files
     cdn_url: https://cdn.example.com/files
     region: ""
     access_key: ""             # 统一访问标识，COS 的 SecretID / 部分服务的 AppID 也放这里
     secret_key: ""             # 统一访问密钥，部分服务的 AppKey 也放这里
-    use_ssl: true
     local_dir: storage
   local:
     dir: storage                # 本地存储根目录
-    public_url: https://static.example.com/files # 用户访问域名前缀，可选
-    cdn_url: https://cdn.example.com/files       # CDN 域名前缀，优先于 public_url
+    cdn_url: https://cdn.example.com/files       # 文件访问域名前缀，可选
   s3:
     bucket: my-bucket
-    endpoint: s3.amazonaws.com  # 服务端外网 endpoint，MinIO 用 192.168.1.x:9000
+    endpoint: s3.amazonaws.com  # 服务端外网 endpoint，MinIO HTTP 请显式写 http://192.168.1.x:9000
     endpoint_inner: ""          # 服务端内网 endpoint，可选
-    public_url: https://static.example.com/files # 用户访问域名前缀，可选
-    cdn_url: https://cdn.example.com/files       # CDN 域名前缀，优先于 public_url
+    cdn_url: https://cdn.example.com/files       # 文件访问域名前缀，可选
     region: us-east-1
     access_key: xxx
     secret_key: xxx
-    use_ssl: true               # MinIO 用 false
   cos:
     bucket: my-bucket
     endpoint: https://cos.ap-guangzhou.myqcloud.com       # 外网
     endpoint_inner: https://cos.ap-guangzhou.internal.com  # 内网（可选）
-    public_url: https://static.example.com/files
     cdn_url: https://cdn.example.com/files
     secret_id: ""
     secret_key: ""
@@ -71,7 +64,6 @@ filesystem:
     bucket: my-bucket
     endpoint: oss-cn-beijing.aliyuncs.com                 # 外网
     endpoint_inner: oss-cn-beijing-internal.aliyuncs.com  # 内网（可选）
-    public_url: https://static.example.com/files
     cdn_url: https://cdn.example.com/files
     access_key_id: ""
     access_secret: ""
@@ -85,12 +77,10 @@ filesystem:
 | `bucket` | bucket / bucket name |
 | `endpoint` | 服务端外网 endpoint |
 | `endpoint_inner` | 服务端内网 endpoint，存在时 SDK 优先使用 |
-| `public_url` | 给用户访问文件的公开域名前缀 |
-| `cdn_url` | CDN 加速域名前缀，`Source()` 优先使用 |
+| `cdn_url` | 文件访问域名前缀，`Source()` 优先使用 |
 | `region` | S3/MinIO 等需要 region 时填写 |
 | `access_key` | 统一访问标识；厂商叫 AccessKey、SecretID、AppID 时都存这里 |
 | `secret_key` | 统一访问密钥；厂商叫 SecretKey、AccessSecret、AppKey 时都存这里 |
-| `use_ssl` | S3/MinIO SDK 连接是否使用 SSL |
 | `local_dir` | local 驱动根目录 |
 
 `filesystem.New` 会在初始化时按 `driver` 分配具体驱动。统一 `policy` 可直接用于数据库策略行；旧的 `local/s3/cos/oss` 嵌套配置仍兼容，作为 driver 自己读取的配置段。
@@ -116,7 +106,6 @@ policy := core.StoragePolicy{
     Driver:    "oss",
     Bucket:    row.Bucket,
     Endpoint:  row.Endpoint,
-    PublicURL: row.PublicURL,
     CDNURL:    row.CDNURL,
     AccessKey: row.AccessKey, // 厂商叫 AppID / SecretID 时也放这里
     SecretKey: row.SecretKey, // 厂商叫 AppKey / AccessSecret 时也放这里
@@ -124,9 +113,8 @@ policy := core.StoragePolicy{
 
 fs, err := filesystem.NewFromPolicy(
     policy,
-    filesystem.WithUploadDir("uploads"),
     filesystem.WithChunkSize(5<<20),
-    filesystem.WithNameRules("{date}", "{uuid}{ext}"),
+    filesystem.WithNameRules("uploads/{date}", "{uuid}{ext}"),
     filesystem.WithAllowedExtensions(".jpg", ".png", ".pdf"),
 )
 if err != nil {
@@ -143,8 +131,7 @@ defer fs.Close()
 |------|------|
 | `endpoint` | 服务端 SDK 使用的外网 endpoint |
 | `endpoint_inner` | 服务端 SDK 优先使用的内网 endpoint |
-| `public_url` | 给用户访问文件的公开域名前缀 |
-| `cdn_url` | CDN 加速域名前缀，`Source()` 优先使用 |
+| `cdn_url` | 文件访问域名前缀，`Source()` 优先使用 |
 
 ## FileSystem 入口
 

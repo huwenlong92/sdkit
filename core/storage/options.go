@@ -6,10 +6,6 @@ import (
 	pkgfs "github.com/huwenlong92/sdkit/pkg/storage"
 )
 
-func WithUploadDir(uploadDir string) Option {
-	return pkgfs.WithUploadDir(uploadDir)
-}
-
 func WithTempDir(tempDir string) Option {
 	return pkgfs.WithTempDir(tempDir)
 }

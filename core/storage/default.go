@@ -35,6 +35,14 @@ func Default() (*FileSystem, error) {
 	return manager.Default()
 }
 
+func DefaultCDNURL() string {
+	fs, err := Default()
+	if err != nil {
+		return ""
+	}
+	return fs.CDNURL()
+}
+
 func Use(name string) (*FileSystem, error) {
 	manager, err := ManagerDefault()
 	if err != nil {
@@ -49,6 +57,14 @@ func PolicyOf(name string) (Policy, error) {
 		return Policy{}, err
 	}
 	return manager.Policy(name)
+}
+
+func AccessPath(name string, objectPath string) string {
+	manager, err := ManagerDefault()
+	if err != nil {
+		return objectPath
+	}
+	return manager.AccessPath(name, objectPath)
 }
 
 func Close() error {

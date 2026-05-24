@@ -24,7 +24,6 @@ type Config struct {
 	Bucket        string
 	Endpoint      string
 	EndpointInner string
-	PublicURL     string
 	CDNURL        string
 	SecretID      string
 	SecretKey     string
@@ -59,7 +58,6 @@ func NewFromConfig(cfg core.Config) (*Driver, error) {
 		Bucket:        firstNonEmpty(policy.Bucket, cfg.DriverString("cos", "bucket")),
 		Endpoint:      firstNonEmpty(policy.Endpoint, cfg.DriverString("cos", "endpoint")),
 		EndpointInner: firstNonEmpty(policy.EndpointInner, cfg.DriverString("cos", "endpoint_inner")),
-		PublicURL:     firstNonEmpty(policy.PublicURL, cfg.DriverString("cos", "public_url")),
 		CDNURL:        firstNonEmpty(policy.CDNURL, cfg.DriverString("cos", "cdn_url")),
 		SecretID:      firstNonEmpty(policy.AccessKey, cfg.DriverString("cos", "secret_id")),
 		SecretKey:     firstNonEmpty(policy.SecretKey, cfg.DriverString("cos", "secret_key")),
@@ -169,8 +167,8 @@ func (d *Driver) List(dir string) ([]core.Object, error) {
 
 func (d *Driver) Source(path string, ttl time.Duration) (string, error) {
 	if ttl <= 0 {
-		if publicURL := core.JoinPublicURL(publicBaseURL(d.cfg.PublicURL, d.cfg.CDNURL), path); publicURL != "" {
-			return publicURL, nil
+		if objectURL := core.JoinObjectURL(d.cfg.CDNURL, path); objectURL != "" {
+			return objectURL, nil
 		}
 	}
 	rawURL, err := d.client.Object.GetPresignedURL(context.Background(), http.MethodGet, path,
@@ -244,11 +242,4 @@ func (d *Driver) Token(info core.FileInfo, ttl time.Duration) (*core.UploadCrede
 		UploadURLs:  urls,
 		CompleteURL: completeURL.String(),
 	}, nil
-}
-
-func publicBaseURL(publicURL, cdnURL string) string {
-	if cdnURL != "" {
-		return cdnURL
-	}
-	return publicURL
 }

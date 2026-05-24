@@ -19,7 +19,7 @@
 工具库入口：
 
 ```go
-fs, err := pkgfs.NewFromPolicy(policy, pkgfs.WithUploadDir("uploads"))
+fs, err := pkgfs.NewFromPolicy(policy, pkgfs.WithNameRules("uploads/{date}", "{originname}{ext}"))
 if err != nil {
     return err
 }
@@ -63,12 +63,10 @@ if err != nil {
 | `bucket` | 对象存储 bucket |
 | `endpoint` | 服务端外网 endpoint |
 | `endpoint_inner` | 服务端内网 endpoint，存在时 SDK 优先使用 |
-| `public_url` | 用户访问文件的公开域名前缀 |
-| `cdn_url` | CDN 域名前缀，`Source()` 优先使用 |
+| `cdn_url` | 文件访问域名前缀，`Source()` 优先使用 |
 | `region` | S3/MinIO region |
 | `access_key` | 统一访问标识，兼容 AccessKey、SecretID、AppID 等命名 |
 | `secret_key` | 统一访问密钥，兼容 SecretKey、AccessSecret、AppKey 等命名 |
-| `use_ssl` | S3/MinIO 是否使用 SSL |
 | `local_dir` | local 驱动根目录 |
 
 驱动自身的 SDK 配置只保留在对应 driver 内部，对外不暴露 `S3Config`、`COSConfig`、`OSSConfig` 这类厂商结构。
@@ -130,7 +128,7 @@ Worker 任务如果只是做通用文件上传，优先使用 `worker/taskdef.Fi
 ```go
 payload := taskdef.FileGenerateUploadPayload{
     Policy:       policy,
-    UploadDir:    "daily-report",
+    DirRule:      "daily-report/{date}",
     FileName:     "2026-05-11.xlsx",
     MIMEType:     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     TempFilePath: tmpPath,
@@ -160,7 +158,7 @@ worker 文件上传任务的完整用法见 [worker-file-upload.md](../usage/wor
 ## 注意事项
 
 - `endpoint` / `endpoint_inner` 是服务端 SDK 使用地址，不直接给用户访问。
-- `public_url` / `cdn_url` 是文件访问域名前缀，`cdn_url` 优先级更高。
+- `cdn_url` 是文件访问域名前缀。
 - 图片裁剪是显式调用能力，不在普通上传链路中自动执行，避免额外 CPU 和内存成本。
 - HTTP 服务建议在服务启动时初始化默认 `FileSystem`，handler 复用默认实例，服务关闭时调用 `Close()`。
 - worker 文件上传的大文件来源优先使用 `temp_file_path` 或 `source_url`，不要把 Excel、视频、压缩包等放进队列 `content`。

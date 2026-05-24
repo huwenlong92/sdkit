@@ -75,15 +75,14 @@ storage:
     local:
       driver: local
       local_dir: storage
-      source_url: https://admin.example.com/storage/source
-      source_secret: ${STORAGE_SOURCE_SECRET}
+      endpoint: https://admin.example.com/storage/source
+      secret_key: ${STORAGE_SOURCE_SECRET}
     minio:
       driver: minio
       bucket: private-assets
       endpoint: http://127.0.0.1:9000
       access_key: minio
       secret_key: minio-secret
-      use_ssl: false
     r2:
       driver: r2
       bucket: app-assets
@@ -96,13 +95,12 @@ storage:
 
 - `driver` 决定底层 driver
 - `bucket`、`endpoint`、`region`、`access_key`、`secret_key` 等通用字段写入 `Policy`
-- `source_url` 用于 local 临时私有下载入口
-- `source_secret` 用于 local 临时私有下载签名，未配置时兼容使用 `secret_key`
+- local 的 `endpoint` 用于临时私有下载入口，`secret_key` 用于签名
 - `secret_id` 映射为 `AccessKey`，用于 COS
 - `access_key_id` 和 `access_secret` 映射为 `AccessKey` / `SecretKey`，用于 OSS
 - `dir` 和 `local_dir` 都映射为本地存储目录
 - Cloudflare R2 复用 S3 兼容实现，`driver` 为 `r2`，`endpoint` 使用 R2 S3 API endpoint，`region` 默认 `auto`
-- S3 / MinIO / R2 driver 使用 AWS SDK for Go v2；自建 S3 兼容服务的 `endpoint` 建议显式带协议，未带协议时按 `use_ssl` 自动补齐。
+- S3 / MinIO / R2 driver 使用 AWS SDK for Go v2；自建 S3 兼容服务的 `endpoint` 建议显式带协议，未带协议时默认按 `https://` 处理。
 
 ## Runtime Capability
 
@@ -131,9 +129,11 @@ app.RegisterCapabilities(storagecap.Use())
 ```go
 func NewManager(cfg Config) (*Manager, error)
 func Default() (*FileSystem, error)
+func DefaultCDNURL() string
 func Use(name string) (*FileSystem, error)
 func New(policy Policy, opts ...Option) (*FileSystem, error)
 func PolicyOf(name string) (Policy, error)
+func AccessPath(name string, objectPath string) string
 func SourceHandler(fs *FileSystem, secret string) http.Handler
 func Close() error
 ```
@@ -171,9 +171,9 @@ if result.Error != nil {
 临时私有访问链接统一使用 `Source(path, ttl)`：
 
 - `ttl > 0`：生成带有效期的私有访问链接，R2 会走 S3 兼容 presigned URL
-- `ttl <= 0`：保持公开访问语义，优先返回 `cdn_url` / `public_url`
+- `ttl <= 0`：保持公开访问语义，优先返回 `cdn_url`
 
-对象存储 driver 使用各自 SDK 的 GET 签名 URL。local driver 生成带 `path`、`expires`、`signature` 的链接，需要应用把 `SourceHandler` 挂载到 `source_url` 对应路由上，由 handler 校验签名和过期时间后再读取文件。local handler 默认返回 `inline` 供浏览器在线预览；追加 `download=1` 时返回 `attachment` 强制下载。
+对象存储 driver 使用各自 SDK 的 GET 签名 URL。local driver 生成带 `path`、`expires`、`signature` 的链接，需要应用把 `SourceHandler` 挂载到 local `endpoint` 对应路由上，由 handler 校验签名和过期时间后再读取文件。local handler 默认返回 `inline` 供浏览器在线预览；追加 `download=1` 时返回 `attachment` 强制下载。
 
 本次操作 hook：
 
@@ -210,12 +210,15 @@ storage.AfterTokenFailed(hook)
 - 非默认 named store 懒加载，未使用的 minio、cos、oss 不在启动阶段初始化
 - `Use("")` 等同于默认 store
 - store 不存在时返回 `ErrStoreNotFound`
+- `AccessPath("", path)` 和 `AccessPath(defaultName, path)` 固定返回原始 `path`
+- `AccessPath(nonDefaultName, path)` 仅在该 store 配置了 `cdn_url` 时返回完整访问 URL
+- `Delete` 会把匹配当前 store `cdn_url` 的访问 URL 还原为对象路径后再传给 driver
 - `Close()` 只关闭已经初始化过的 store
 - 通过操作参数传入的 hook 只对本次存储操作生效
 - driver 返回上传凭证时必须显式填写 `UploadCredential.Mode`，应用和前端只消费该字段，不根据 `gateway`、`upload_urls`、`complete_url` 反推上传方式
-- `Source(path, ttl)` 中 `ttl > 0` 表示临时私有访问；配置了 `public_url` / `cdn_url` 时也不会返回静态公开 URL
+- `Source(path, ttl)` 中 `ttl > 0` 表示临时私有访问；配置了 `cdn_url` 时也不会返回静态公开 URL
 - `Source(path, ttl)` 中 `ttl <= 0` 保持历史公开访问行为；对象存储没有公开 URL 时默认生成 7 天有效期签名 URL
-- local 临时私有访问必须配置 `source_secret` 或 `secret_key`，并挂载 `SourceHandler`
+- local 临时私有访问必须配置 `secret_key`，并挂载 `SourceHandler`
 - 当前上传模式包括：
   - `local_chunk`：客户端把分片上传到应用服务接口
   - `direct_put`：客户端使用单个预签名 URL 直传对象存储
