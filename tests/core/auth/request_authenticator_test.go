@@ -51,6 +51,31 @@ func TestJWTAuthenticatorExtractsBearerAndQueryToken(t *testing.T) {
 	}
 }
 
+func TestJWTAuthenticatorPreservesStringSubject(t *testing.T) {
+	cfg := coreauth.JWTConfig{Secret: "secret", Issuer: "test", Expire: 3600}
+	authenticator := coreauth.NewJWTAuthenticator(&cfg,
+		coreauth.WithJWTExtractor(coreauth.BearerTokenExtractor()),
+	)
+	login, err := authenticator.Login(context.Background(), &coreauth.Identity{
+		Subject:     "550e8400-e29b-41d4-a716-446655440000",
+		SubjectType: "user",
+		Username:    "uuid-user",
+	})
+	if err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/profile", nil)
+	req.Header.Set("Authorization", "Bearer "+login.Token)
+	identity, err := authenticator.AuthenticateRequest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("AuthenticateRequest: %v", err)
+	}
+	if identity.SubjectKey() != "550e8400-e29b-41d4-a716-446655440000" || identity.SubjectID != 0 {
+		t.Fatalf("identity: %+v", identity)
+	}
+}
+
 func TestGinSessionAuthenticatorReadsSessionIdentity(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	session.Register(sessionUser{})

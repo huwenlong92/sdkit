@@ -37,10 +37,11 @@ type Identity struct {
 }
 ```
 
-- `SubjectID` / `Subject` 表达认证主体。
+- `SubjectID` / `Subject` 表达认证主体。`SubjectID` 保留数字 ID 兼容；`Subject` 用于 UUID、外部账号 ID、设备 ID 等字符串主体。
 - `SubjectType` 表达主体类型，例如 `user`、`admin`、`merchant`、`service`。
 - `Provider` 表达认证来源，例如 `api_jwt`、`web_session`。
 - app 层负责把主体解释为 `UserID`、`AdminID` 或其他业务 ID。
+- `SubjectKey()` 优先返回 `Subject`，为空时回退到 `SubjectID`。
 
 ## 认证器
 
@@ -76,6 +77,8 @@ type Identity struct {
 
 `core/auth/adapter/realtime` 把 `auth.RequestAuthenticator` 转为 `core/realtime.Authenticator`。`core/realtime` 不再内置 JWT 解析逻辑。
 
+适配器输出的 realtime `UserID` 使用带类型 subject key：`<subject_type>:<subject_key>`，避免 admin、web user、OpenAPI client 等不同主体使用相同数字 ID 时互相串线。没有 `SubjectType` 时保留原始 `SubjectKey()`，兼容旧调用。
+
 ## 配置
 
 JWT 配置归属在 auth 模块：
@@ -99,6 +102,7 @@ type Config struct {
 
 ## 更新记录
 
+- 2026-05-24：JWT claims 新增字符串 `Subject`，Realtime 适配器统一输出带 `SubjectType` 的 subject key。
 - 2026-05-23：SessionAuthenticator 新增生命周期 hooks，支持接入方实现业务态校验、滑动续期和失败清理。
 - 2026-05-23：移除旧 `Auth` manager / `Guard` / Gin middleware 入口，统一改为 request authenticator；新增 JWT、Session、Chain、Realtime 适配能力。
 - 2026-05-15：新增 `CurrentIdentity(c)`、`UserID(c)`、`RoleID(c)` 和 `Claims(c)`，API handler 可直接读取认证主体信息；JWT claims 类型改名为 `JWTClaims`。

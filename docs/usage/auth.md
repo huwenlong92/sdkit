@@ -41,7 +41,7 @@ type Identity struct {
 }
 ```
 
-`SubjectID` 是认证主体 ID，不表达业务语义。API 用户、后台管理员、商户、OpenAPI Client 都使用该字段。
+`SubjectID` 是兼容数字 ID 的认证主体 ID；`Subject` 是字符串主体 ID，适合 UUID、外部账号 ID、设备 ID 等非数字标识。`SubjectKey()` 优先返回 `Subject`，为空时再回退到 `SubjectID`。
 
 `SubjectType` 用于区分主体类型。`Provider` 用于区分认证来源，例如 `api_jwt`、`web_session`、`admin_session`。
 
@@ -75,6 +75,16 @@ authorized.Use(authgin.Required(apiAuth))
 ```go
 login, err := apiAuth.Login(ctx, &auth.Identity{
     SubjectID:   user.ID,
+    SubjectType: "user",
+    Username:    user.Username,
+})
+```
+
+如果业务用户 ID 是 UUID 或其他字符串，写入 `Subject`：
+
+```go
+login, err := apiAuth.Login(ctx, &auth.Identity{
+    Subject:     user.UUID,
     SubjectType: "user",
     Username:    user.Username,
 })
@@ -159,6 +169,8 @@ authenticator := authrealtime.From(rtAuth)
 ```
 
 Realtime 如果不挂 Gin session middleware，也可以由接入方实现自己的 `SessionReader`，直接从 request cookie 和 session store 中读取 payload。
+
+Realtime 适配器会把认证身份转换成带类型的 subject key：`<subject_type>:<subject_key>`。例如后台管理员 `admin:1`、UUID 用户 `user:550e8400-e29b-41d4-a716-446655440000`。没有 `SubjectType` 时保留原始 `SubjectKey()`，用于兼容旧调用。
 
 ## Handler 取身份
 

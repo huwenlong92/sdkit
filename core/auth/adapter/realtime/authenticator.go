@@ -3,6 +3,7 @@ package realtime
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	coreauth "github.com/huwenlong92/sdkit/core/auth"
 	corerealtime "github.com/huwenlong92/sdkit/core/realtime"
@@ -28,7 +29,22 @@ func (a Authenticator) Authenticate(ctx context.Context, r *http.Request) (*core
 		return &corerealtime.AuthResult{}, nil
 	}
 	return &corerealtime.AuthResult{
-		UserID:   identity.SubjectKey(),
+		UserID:   realtimeSubjectKey(identity),
 		TenantID: identity.TenantID,
 	}, nil
+}
+
+func realtimeSubjectKey(identity *coreauth.Identity) string {
+	if identity == nil {
+		return ""
+	}
+	subject := strings.TrimSpace(identity.SubjectKey())
+	subjectType := strings.TrimSpace(identity.SubjectType)
+	if subject == "" {
+		return ""
+	}
+	if subjectType == "" {
+		return subject
+	}
+	return subjectType + ":" + subject
 }

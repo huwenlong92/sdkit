@@ -21,6 +21,7 @@ func identityFromClaims(claims *JWTClaims) *Identity {
 	}
 	return &Identity{
 		SubjectID:   claims.SubjectID,
+		Subject:     claims.Subject,
 		SubjectType: claims.SubjectType,
 		Username:    claims.Username,
 		RoleID:      claims.RoleID,
@@ -33,6 +34,7 @@ func identityFromClaims(claims *JWTClaims) *Identity {
 func generateToken(sec, iss string, exp int, identity *Identity) (string, error) {
 	return jwtx.SignSubject(sec, iss, exp, jwtx.Subject{
 		ID:          identity.SubjectID,
+		Subject:     identity.Subject,
 		Type:        identity.SubjectType,
 		Username:    identity.Username,
 		RoleID:      identity.RoleID,

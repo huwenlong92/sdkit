@@ -8,6 +8,7 @@ import (
 
 type Subject struct {
 	ID          int64
+	Subject     string
 	Type        string
 	Username    string
 	RoleID      int64
@@ -32,6 +33,7 @@ func SignSubject(secret, issuer string, expireSeconds int, subject Subject) (str
 		Permissions: subject.Permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    issuer,
+			Subject:   subject.Subject,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expireSeconds) * time.Second)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},

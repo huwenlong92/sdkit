@@ -485,7 +485,7 @@ func logRuntimeResult(ctx context.Context, runCtx *RunContext, entry Entry, tpl 
 	log = logger.WithContext(ctx, log)
 	switch result.Status {
 	case StatusSuccess:
-		log.Info("crontab execute success", fields...)
+		log.Debug("crontab execute success", fields...)
 	case StatusLocked:
 		log.Warn("crontab overlap skipped", fields...)
 	case StatusDisabled, StatusSkipped, StatusTemplateDisabled, StatusTemplateMissing:
