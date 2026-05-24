@@ -72,6 +72,7 @@ go test ./...
 - `core/ratelimit`：限流策略、store、Gin middleware
 - `core/realtime`：实时通信抽象、网关、presence、publisher
 - `core/security`：验证码、密码、签名、风控、黑名单、安全中间件
+- `core/sandbox`：Docker 隔离代码执行 runtime、语言 profile、资源限制和观测接入
 - `core/tracing`：OpenTelemetry 初始化、传播、span 工具
 - `core/tracking`：业务追踪 ID 生成与透传
 - `core/ginresponder`：Gin middleware 响应注入点

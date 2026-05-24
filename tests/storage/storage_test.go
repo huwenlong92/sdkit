@@ -43,7 +43,6 @@ func TestManagerDefaultAndNamedStores(t *testing.T) {
 				Endpoint:  "http://127.0.0.1:9000",
 				AccessKey: "minio",
 				SecretKey: "minio-secret",
-				UseSSL:    false,
 			},
 		},
 	})
@@ -194,10 +193,10 @@ func TestFacadeUsesDefaultLocalConfig(t *testing.T) {
 func TestLocalSourceBuildsSignedPrivateURL(t *testing.T) {
 	dir := t.TempDir()
 	fs, err := corestorage.New(corestorage.Policy{
-		Driver:       "local",
-		LocalDir:     dir,
-		SourceURL:    "https://files.example.com/private/source",
-		SourceSecret: "test-source-secret",
+		Driver:    "local",
+		LocalDir:  dir,
+		Endpoint:  "https://files.example.com/private/source",
+		SecretKey: "test-source-secret",
 	})
 	if err != nil {
 		t.Fatalf("new storage: %v", err)
@@ -263,9 +262,9 @@ func TestLocalSourceBuildsSignedPrivateURL(t *testing.T) {
 
 func TestLocalSourceRejectsInvalidSignature(t *testing.T) {
 	fs, err := corestorage.New(corestorage.Policy{
-		Driver:       "local",
-		LocalDir:     t.TempDir(),
-		SourceSecret: "test-source-secret",
+		Driver:    "local",
+		LocalDir:  t.TempDir(),
+		SecretKey: "test-source-secret",
 	})
 	if err != nil {
 		t.Fatalf("new storage: %v", err)
