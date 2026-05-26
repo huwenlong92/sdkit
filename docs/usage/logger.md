@@ -26,6 +26,8 @@ bootstrap 会在主 Runtime 中先加载配置，再通过 `core/logger/facade` 
 logger.Init("admin", "info", "dev")
 ```
 
+`logger.Use()` 默认是内部底座能力。只有需要把 logger capability 展示给外部启动信息或 CLI 时，才传入 `logger.WithExternal()`。未传配置或 logger 实例时，facade 会复用已有 `logger.L`；如果还没有默认 logger，则使用 `core/logger` 的默认配置初始化。
+
 ## 文件结构
 
 `core/logger` 按实现和 Runtime facade 分层：

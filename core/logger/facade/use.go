@@ -20,6 +20,15 @@ type useOptions struct {
 	internal     bool
 }
 
+func defaultUseOptions() useOptions {
+	return useOptions{
+		dependencies: []runtime.Dependency{
+			runtime.Optional("bootstrap"),
+		},
+		internal: true,
+	}
+}
+
 func WithConfig(cfg Config) UseOption {
 	return func(o *useOptions) {
 		o.config = cfg
@@ -51,16 +60,19 @@ func WithInternal() UseOption {
 	}
 }
 
+func WithExternal() UseOption {
+	return func(o *useOptions) {
+		o.internal = false
+	}
+}
+
 func Use(opts ...UseOption) runtime.Capability {
-	o := useOptions{}
+	o := defaultUseOptions()
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&o)
 		}
 	}
-
-	dependencies := []runtime.Dependency{runtime.Optional("bootstrap")}
-	dependencies = append(dependencies, o.dependencies...)
 
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
 		Name:        string(KeyLogger),
@@ -68,7 +80,7 @@ func Use(opts ...UseOption) runtime.Capability {
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,
 		Internal:    o.internal,
-	}, dependencies, func(app *runtime.App) error {
+	}, o.dependencies, func(app *runtime.App) error {
 		log := o.logger
 		if log == nil {
 			cfg := o.config

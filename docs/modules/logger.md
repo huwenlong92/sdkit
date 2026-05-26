@@ -43,6 +43,8 @@ loggercap.Use(loggercap.WithConfigLoader(func(app *runtime.App) (loggercap.Confi
 logger.Init("queue", "info", "dev")
 ```
 
+`loggercap.Use()` 默认按框架底座能力处理，metadata `Internal=true`。需要在启动信息或 CLI 中对外展示 logger capability 时，调用方必须显式传入 `loggercap.WithExternal()`。未传 `WithConfig` / `WithConfigLoader` / `WithLogger` 时，facade 会复用已存在的 `logger.L`；如果还没有默认 logger，则使用零值配置初始化，底层 `logger.Configure` 会补齐默认日志配置。
+
 ## 配置项
 
 | 字段 | 说明 |
@@ -98,6 +100,7 @@ loggercap.Use(opts...)
 loggercap.WithConfig(cfg)
 loggercap.WithConfigLoader(loader)
 loggercap.WithLogger(log)
+loggercap.WithExternal()
 ```
 
 ## 中间件
@@ -188,6 +191,7 @@ if err != nil {
 
 ## 更新记录
 
+- 2026-05-26：Logger runtime facade 默认作为 internal 底座能力，新增 `WithExternal()` 显式对外展示；默认依赖收敛到 `defaultUseOptions()`。
 - 2026-05-10：确认 Zap 为统一实现；补充 context 字段工具、pgx context 字段透传、accesslog trace/request 字段和 JSON body 脱敏说明。
 - 2026-05-12：`ContextFields` 增加 `track_id`，HTTP tracking 模块切换为 `core/tracking` / `X-Track-ID`。
 - 2026-05-12：`ContextFields` 支持从 OpenTelemetry span context 自动追加 `trace_id/span_id`。
