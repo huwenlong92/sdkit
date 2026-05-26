@@ -40,13 +40,15 @@ type ServiceSelection struct {
 }
 
 type ServiceSelectionItem struct {
-	ConfigFile string
-	Name       string
-	Type       string
-	ConfigKey  string
-	Kind       ServiceKind
-	Spec       ServiceSpec
-	Explicit   bool
+	ConfigFile   string
+	Name         string
+	Type         string
+	ConfigKey    string
+	Kind         ServiceKind
+	Group        string
+	Dependencies []Dependency
+	Spec         ServiceSpec
+	Explicit     bool
 }
 
 type ServiceRegistered[T any] struct {
@@ -165,6 +167,8 @@ func (r *ServiceRunner[T]) SelectServices(options ServiceRunOptions) (ServiceSel
 			return ServiceSelection{}, errors.New("runtime: unsupported service type " + serviceType)
 		}
 		item.Kind = kind
+		item.Group = bootstrap.ServiceGroupForType(serviceType)
+		item.Dependencies = bootstrap.ServiceDependenciesForType(serviceType)
 		items = append(items, item)
 	}
 	return ServiceSelection{
@@ -238,7 +242,10 @@ func (p *managedServiceProvider[T]) Name() string {
 }
 
 func (p *managedServiceProvider[T]) Metadata() ProviderMetadata {
-	group := p.selection.Type
+	group := p.selection.Group
+	if group == "" {
+		group = p.selection.Type
+	}
 	if p.runner != nil && p.runner.options.Group != nil {
 		if resolved := p.runner.options.Group(p.selection); resolved != "" {
 			group = resolved
@@ -256,6 +263,7 @@ func (p *managedServiceProvider[T]) Dependencies() []Dependency {
 	if p.runner != nil && p.runner.options.Dependencies != nil {
 		deps = append(deps, p.runner.options.Dependencies(p.selection)...)
 	}
+	deps = append(deps, p.selection.Dependencies...)
 	for _, capability := range p.RuntimeCapabilities() {
 		name := capabilityName(capability)
 		if name == "" {

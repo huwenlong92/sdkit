@@ -54,6 +54,26 @@ func (b *ServiceBuilder[T]) Kind(kind ServiceKind) *ServiceBuilder[T] {
 	return b
 }
 
+func (b *ServiceBuilder[T]) Group(group string) *ServiceBuilder[T] {
+	b.def.Group = group
+	return b
+}
+
+func (b *ServiceBuilder[T]) Dependencies(dependencies ...Dependency) *ServiceBuilder[T] {
+	b.def.Dependencies = append([]Dependency(nil), dependencies...)
+	return b
+}
+
+func (b *ServiceBuilder[T]) RequireCapabilities(names ...string) *ServiceBuilder[T] {
+	b.def.Dependencies = append(b.def.Dependencies, RequireCapabilities(names...)...)
+	return b
+}
+
+func (b *ServiceBuilder[T]) OptionalCapabilities(names ...string) *ServiceBuilder[T] {
+	b.def.Dependencies = append(b.def.Dependencies, OptionalCapabilities(names...)...)
+	return b
+}
+
 func (b *ServiceBuilder[T]) RuntimeCapabilities(factory ServiceRuntimeCapabilityFactory[T]) *ServiceBuilder[T] {
 	b.def.RuntimeCapabilityFactory = factory
 	return b

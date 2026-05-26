@@ -140,6 +140,8 @@ services := runtime.NewServiceBootstrapWithResolver[*Config](
 services.RegisterServiceDefinition(runtime.ServiceDefinition[*Config]{
 	Type: "api",
 	Kind: runtime.ServiceKindHTTP,
+	Group: runtime.GroupAPI,
+	Dependencies: runtime.RequireCapabilities("database"),
 	ContextFactory: func(ctx runtime.ServiceContext[*Config]) (runtime.Service, error) {
 		ctx.Capabilities.Set(ctx.Name+".queue.producer", producer)
 		return runtime.HTTPService{
@@ -165,7 +167,7 @@ svc, err := services.BuildService(
 )
 ```
 
-`ServiceBootstrap[T]` 只接管 service skeleton 的重复规则：注册 provider、读取 `services` map、解析单服务 `config_key`、构建服务、声明 service-local runtime capability 和查询 service kind。业务项目仍然持有自己的 `Config` 和配置读取函数。构建后的 `ServiceInfo()` 会带上注册时的 `Type`、`Kind` 和本地能力名。能力名如果带服务名前缀，例如 `api.queue.producer`，展示时会压缩为 `queue.producer`。上层启动器可以通过 `services.ServiceKindForType(serviceType)` 按 `http` / `queue` / `cli` 类型声明公共 capability 依赖，例如只让 HTTP 服务依赖 `validator`。
+`ServiceBootstrap[T]` 只接管 service skeleton 的重复规则：注册 provider、读取 `services` map、解析单服务 `config_key`、构建服务、声明 service-local runtime capability，以及查询 service kind、group 和 dependencies。业务项目仍然持有自己的 `Config` 和配置读取函数。构建后的 `ServiceInfo()` 会带上注册时的 `Type`、`Kind` 和本地能力名。能力名如果带服务名前缀，例如 `api.queue.producer`，展示时会压缩为 `queue.producer`。服务类型需要的公共依赖优先写在 provider/`ServiceDefinition` 上，例如 API 声明 `database`，Worker 声明 `eventbus`、`redis`；启动器只根据 selection 装配公共 capability，不按服务名称写死规则。
 
 如果项目希望完全显式装配，不在 bootstrap 包里保存全局 registry，可以使用 `ServiceRunner[T]`：
 
@@ -190,7 +192,7 @@ app, err := runner.NewApp(runtime.ServiceRunOptions{
 })
 ```
 
-`Services` 为空时按配置里的 enabled 服务启动；传入服务名时只启动指定服务。全局能力由 `Capabilities` 返回，服务私有能力仍由各 provider 的 `RuntimeCapabilities` 返回。
+`Services` 为空时按配置里的 enabled 服务启动；传入服务名时只启动指定服务。全局能力由 `Capabilities` 返回，服务私有能力仍由各 provider 的 `RuntimeCapabilities` 返回。`ServiceRunner` 会把服务定义上的 group 和 dependencies 写入最终 runtime provider，业务入口不需要维护一份服务名称白名单或依赖 switch。
 
 如果服务需要运行时私有 capability，用 `RuntimeCapabilityFactory`：
 
@@ -235,8 +237,8 @@ capabilities := app.CapabilityStatuses()
 
 ```go
 err := app.RegisterCommand(
-	run.NewRuntimeCommand(),
-	serve.NewRuntimeCommand(),
+	runtime.NewRunCommand(),
+	runtime.NewServeCommand(),
 )
 ```
 
@@ -249,9 +251,9 @@ err := runtime.Execute(app, os.Args)
 当前执行器只做最小 args 分发：
 
 ```text
-sdkitgo run api
-sdkitgo run worker
-sdkitgo serve
+run api
+run worker
+serve
 ```
 
 不提供复杂 flags、help、子命令树或自动发现。
@@ -914,8 +916,8 @@ if err := app.Register(
 }
 
 if err := app.RegisterCommand(
-	run.NewRuntimeCommand(),
-	serve.NewRuntimeCommand(),
+	runtime.NewRunCommand(),
+	runtime.NewServeCommand(),
 ); err != nil {
 	return err
 }

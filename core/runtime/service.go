@@ -49,6 +49,8 @@ type ServiceRuntimeCapabilityFactory[T any] func(ctx RuntimeCapabilityContext[T]
 type ServiceDefinition[T any] struct {
 	Type                     string
 	Kind                     ServiceKind
+	Group                    string
+	Dependencies             []Dependency
 	Factory                  ServiceFactory[T]
 	ContextFactory           ServiceContextFactory[T]
 	RuntimeCapabilityFactory ServiceRuntimeCapabilityFactory[T]
@@ -56,6 +58,8 @@ type ServiceDefinition[T any] struct {
 
 type serviceRegistration[T any] struct {
 	Kind                     ServiceKind
+	Group                    string
+	Dependencies             []Dependency
 	Factory                  ServiceFactory[T]
 	ContextFactory           ServiceContextFactory[T]
 	RuntimeCapabilityFactory ServiceRuntimeCapabilityFactory[T]
@@ -80,6 +84,8 @@ func (r *ServiceRegistry[T]) RegisterServiceDefinition(def ServiceDefinition[T])
 	}
 	r.factories[def.Type] = serviceRegistration[T]{
 		Kind:                     def.Kind,
+		Group:                    def.Group,
+		Dependencies:             append([]Dependency(nil), def.Dependencies...),
 		Factory:                  def.Factory,
 		ContextFactory:           def.ContextFactory,
 		RuntimeCapabilityFactory: def.RuntimeCapabilityFactory,
@@ -180,6 +186,28 @@ func (r *ServiceRegistry[T]) ServiceKind(serviceType string) (ServiceKind, bool)
 		return "", false
 	}
 	return reg.Kind, true
+}
+
+func (r *ServiceRegistry[T]) ServiceGroup(serviceType string) string {
+	if r == nil || serviceType == "" {
+		return ""
+	}
+	reg, ok := r.factories[serviceType]
+	if !ok {
+		return ""
+	}
+	return reg.Group
+}
+
+func (r *ServiceRegistry[T]) ServiceDependencies(serviceType string) []Dependency {
+	if r == nil || serviceType == "" {
+		return nil
+	}
+	reg, ok := r.factories[serviceType]
+	if !ok || len(reg.Dependencies) == 0 {
+		return nil
+	}
+	return append([]Dependency(nil), reg.Dependencies...)
 }
 
 func (r *ServiceRegistry[T]) buildService(configFile string, name string, serviceType string, configKey string, base T, capabilities *LocalCapabilityRegistry) (Service, serviceRegistration[T], error) {

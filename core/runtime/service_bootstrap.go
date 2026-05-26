@@ -129,3 +129,19 @@ func (b *ServiceBootstrap[T]) ServiceKindForType(serviceType string) (ServiceKin
 	}
 	return registry.ServiceKind(serviceType)
 }
+
+func (b *ServiceBootstrap[T]) ServiceGroupForType(serviceType string) string {
+	registry := b.Registry()
+	if registry == nil {
+		return ""
+	}
+	return registry.ServiceGroup(serviceType)
+}
+
+func (b *ServiceBootstrap[T]) ServiceDependenciesForType(serviceType string) []Dependency {
+	registry := b.Registry()
+	if registry == nil {
+		return nil
+	}
+	return registry.ServiceDependencies(serviceType)
+}
