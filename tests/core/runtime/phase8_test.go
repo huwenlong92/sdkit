@@ -6,67 +6,67 @@ import (
 	"reflect"
 	"testing"
 
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
 func TestPhase8DependencyValidation(t *testing.T) {
 	t.Run("missing dependency", func(t *testing.T) {
-		app := coreruntime.New()
+		app := runtime.New()
 		if err := app.Use(testCapability{
 			name:         "queue",
-			dependencies: []coreruntime.Dependency{coreruntime.Require("redis")},
+			dependencies: []runtime.Dependency{runtime.Require("redis")},
 		}); err != nil {
 			t.Fatalf("Use() error = %v", err)
 		}
 
-		if err := app.ValidateDependencies(); !errors.Is(err, coreruntime.ErrDependencyMissing) {
+		if err := app.ValidateDependencies(); !errors.Is(err, runtime.ErrDependencyMissing) {
 			t.Fatalf("ValidateDependencies() error = %v, want ErrDependencyMissing", err)
 		}
 	})
 
 	t.Run("duplicate dependency", func(t *testing.T) {
-		app := coreruntime.New()
+		app := runtime.New()
 		if err := app.Use(
 			testCapability{name: "redis"},
 			testCapability{
 				name: "queue",
-				dependencies: []coreruntime.Dependency{
-					coreruntime.Require("redis"),
-					coreruntime.Optional("redis"),
+				dependencies: []runtime.Dependency{
+					runtime.Require("redis"),
+					runtime.Optional("redis"),
 				},
 			},
 		); err != nil {
 			t.Fatalf("Use() error = %v", err)
 		}
 
-		if err := app.ValidateDependencies(); !errors.Is(err, coreruntime.ErrDependencyDuplicate) {
+		if err := app.ValidateDependencies(); !errors.Is(err, runtime.ErrDependencyDuplicate) {
 			t.Fatalf("ValidateDependencies() error = %v, want ErrDependencyDuplicate", err)
 		}
 	})
 
 	t.Run("cycle dependency", func(t *testing.T) {
-		app := coreruntime.New()
+		app := runtime.New()
 		if err := app.Use(
-			testCapability{name: "redis", dependencies: []coreruntime.Dependency{coreruntime.Require("queue")}},
-			testCapability{name: "queue", dependencies: []coreruntime.Dependency{coreruntime.Require("redis")}},
+			testCapability{name: "redis", dependencies: []runtime.Dependency{runtime.Require("queue")}},
+			testCapability{name: "queue", dependencies: []runtime.Dependency{runtime.Require("redis")}},
 		); err != nil {
 			t.Fatalf("Use() error = %v", err)
 		}
 
-		if err := app.ValidateDependencies(); !errors.Is(err, coreruntime.ErrDependencyCycle) {
+		if err := app.ValidateDependencies(); !errors.Is(err, runtime.ErrDependencyCycle) {
 			t.Fatalf("ValidateDependencies() error = %v, want ErrDependencyCycle", err)
 		}
 	})
 }
 
 func TestPhase8BootOrderAndShutdownOrder(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
 	if err := app.Use(
 		testCapability{
 			name:         "queue",
-			dependencies: []coreruntime.Dependency{coreruntime.Require("redis")},
-			register: func(*coreruntime.App) error {
+			dependencies: []runtime.Dependency{runtime.Require("redis")},
+			register: func(*runtime.App) error {
 				calls = append(calls, "queue.register")
 				return nil
 			},
@@ -77,7 +77,7 @@ func TestPhase8BootOrderAndShutdownOrder(t *testing.T) {
 		},
 		testCapability{
 			name: "redis",
-			register: func(*coreruntime.App) error {
+			register: func(*runtime.App) error {
 				calls = append(calls, "redis.register")
 				return nil
 			},
@@ -92,8 +92,8 @@ func TestPhase8BootOrderAndShutdownOrder(t *testing.T) {
 	if err := app.Register(
 		testProvider{
 			name:         "worker",
-			dependencies: []coreruntime.Dependency{coreruntime.Require("queue")},
-			register: func(*coreruntime.App) error {
+			dependencies: []runtime.Dependency{runtime.Require("queue")},
+			register: func(*runtime.App) error {
 				calls = append(calls, "worker.register")
 				return nil
 			},
@@ -132,24 +132,24 @@ func TestPhase8BootOrderAndShutdownOrder(t *testing.T) {
 }
 
 func TestPhase8ProviderBootOrder(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
 	if err := app.Use(testCapability{
 		name:     "redis",
-		register: func(*coreruntime.App) error { calls = append(calls, "redis.register"); return nil },
+		register: func(*runtime.App) error { calls = append(calls, "redis.register"); return nil },
 	}); err != nil {
 		t.Fatalf("Use() error = %v", err)
 	}
 	if err := app.Register(
 		testProvider{
 			name:         "worker",
-			dependencies: []coreruntime.Dependency{coreruntime.Require("queue")},
+			dependencies: []runtime.Dependency{runtime.Require("queue")},
 			start:        func(context.Context) error { calls = append(calls, "worker.start"); return nil },
 			stop:         func(context.Context) error { calls = append(calls, "worker.stop"); return nil },
 		},
 		testProvider{
 			name:         "queue",
-			dependencies: []coreruntime.Dependency{coreruntime.Require("redis")},
+			dependencies: []runtime.Dependency{runtime.Require("redis")},
 			start:        func(context.Context) error { calls = append(calls, "queue.start"); return nil },
 			stop:         func(context.Context) error { calls = append(calls, "queue.stop"); return nil },
 		},
@@ -177,12 +177,12 @@ func TestPhase8ProviderBootOrder(t *testing.T) {
 }
 
 func TestPhase8RunProviderStartsProviderDependencies(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
 	if err := app.Register(
 		testProvider{
 			name:         "worker",
-			dependencies: []coreruntime.Dependency{coreruntime.Require("queue")},
+			dependencies: []runtime.Dependency{runtime.Require("queue")},
 			start:        func(context.Context) error { calls = append(calls, "worker.start"); return nil },
 			stop:         func(context.Context) error { calls = append(calls, "worker.stop"); return nil },
 		},
@@ -200,7 +200,7 @@ func TestPhase8RunProviderStartsProviderDependencies(t *testing.T) {
 		t.Fatalf("Register() error = %v", err)
 	}
 
-	if err := coreruntime.RunProvider(context.Background(), app, "worker"); err != nil {
+	if err := runtime.RunProvider(context.Background(), app, "worker"); err != nil {
 		t.Fatalf("RunProvider(worker) error = %v", err)
 	}
 
@@ -211,12 +211,12 @@ func TestPhase8RunProviderStartsProviderDependencies(t *testing.T) {
 }
 
 func TestPhase8OptionalDependencyAndLookup(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
 	if err := app.Use(testCapability{
 		name:         "cache",
-		dependencies: []coreruntime.Dependency{coreruntime.Optional("redis")},
-		register: func(*coreruntime.App) error {
+		dependencies: []runtime.Dependency{runtime.Optional("redis")},
+		register: func(*runtime.App) error {
 			calls = append(calls, "cache.register")
 			return nil
 		},
@@ -225,13 +225,13 @@ func TestPhase8OptionalDependencyAndLookup(t *testing.T) {
 	}
 	if err := app.Register(testProvider{
 		name:         "api",
-		dependencies: []coreruntime.Dependency{coreruntime.Require("cache")},
+		dependencies: []runtime.Dependency{runtime.Require("cache")},
 		start:        func(context.Context) error { calls = append(calls, "api.start"); return nil },
 	}); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
 
-	if got := app.Dependencies(); !reflect.DeepEqual(got, []coreruntime.DependencyMetadata{
+	if got := app.Dependencies(); !reflect.DeepEqual(got, []runtime.DependencyMetadata{
 		{Source: "cache", Target: "redis", Required: false},
 		{Source: "api", Target: "cache", Required: true},
 	}) {

@@ -5,15 +5,15 @@ import (
 	"reflect"
 	"testing"
 
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
 func TestPhase6RunAllProvidersOwnsShutdown(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
 	if err := app.Use(testCapability{
 		name:     "logger",
-		register: func(*coreruntime.App) error { calls = append(calls, "logger.register"); return nil },
+		register: func(*runtime.App) error { calls = append(calls, "logger.register"); return nil },
 		shutdown: func(context.Context) error {
 			calls = append(calls, "logger.shutdown")
 			return nil
@@ -36,7 +36,7 @@ func TestPhase6RunAllProvidersOwnsShutdown(t *testing.T) {
 		t.Fatalf("Register() error = %v", err)
 	}
 
-	if err := coreruntime.RunAllProviders(context.Background(), app); err != nil {
+	if err := runtime.RunAllProviders(context.Background(), app); err != nil {
 		t.Fatalf("RunAllProviders() error = %v", err)
 	}
 
@@ -54,7 +54,7 @@ func TestPhase6RunAllProvidersOwnsShutdown(t *testing.T) {
 }
 
 func TestPhase6RunProviderOwnsShutdownForTargetOnly(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
 	if err := app.Register(
 		testProvider{
@@ -71,7 +71,7 @@ func TestPhase6RunProviderOwnsShutdownForTargetOnly(t *testing.T) {
 		t.Fatalf("Register() error = %v", err)
 	}
 
-	if err := coreruntime.RunProvider(context.Background(), app, "api"); err != nil {
+	if err := runtime.RunProvider(context.Background(), app, "api"); err != nil {
 		t.Fatalf("RunProvider(api) error = %v", err)
 	}
 

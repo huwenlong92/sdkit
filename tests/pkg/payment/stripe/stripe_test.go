@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/huwenlong92/sdkit/core/payment"
-	paymentstripe "github.com/huwenlong92/sdkit/pkg/payment/stripe"
+	"github.com/huwenlong92/sdkit/pkg/payment/stripe"
 )
 
 type client struct {
@@ -45,7 +45,7 @@ func (c *client) QueryRefund(context.Context, payment.QueryRefundRequest) (*paym
 }
 
 func TestStripeAdapterCapabilities(t *testing.T) {
-	adapter, err := paymentstripe.NewAdapter(paymentstripe.Config{ClientMode: paymentstripe.ClientModeStatic, Client: &client{}})
+	adapter, err := stripe.NewAdapter(stripe.Config{ClientMode: stripe.ClientModeStatic, Client: &client{}})
 	if err != nil {
 		t.Fatalf("new adapter: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestStripeAdapterCreatePaymentChannels(t *testing.T) {
 		{name: "intent", channel: payment.ChannelStripeIntent, actionType: payment.ActionClientToken},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			adapter, err := paymentstripe.NewAdapter(paymentstripe.Config{ClientMode: paymentstripe.ClientModeStatic, Client: &client{}})
+			adapter, err := stripe.NewAdapter(stripe.Config{ClientMode: stripe.ClientModeStatic, Client: &client{}})
 			if err != nil {
 				t.Fatalf("new adapter: %v", err)
 			}
@@ -115,8 +115,8 @@ func TestStripeAdapterCreatePaymentChannels(t *testing.T) {
 }
 
 func TestStripeAdapterRejectsChannelActionMismatch(t *testing.T) {
-	adapter, err := paymentstripe.NewAdapter(paymentstripe.Config{
-		ClientMode: paymentstripe.ClientModeStatic,
+	adapter, err := stripe.NewAdapter(stripe.Config{
+		ClientMode: stripe.ClientModeStatic,
 		Client:     &client{action: payment.PaymentAction{Type: payment.ActionQRCode, URL: "https://qr.example.test"}},
 	})
 	if err != nil {
@@ -137,8 +137,8 @@ func TestStripeAdapterRejectsChannelActionMismatch(t *testing.T) {
 func TestStripeAdapterDynamicClientLoaderCleansUp(t *testing.T) {
 	calls := 0
 	cleanups := 0
-	adapter, err := paymentstripe.NewAdapter(paymentstripe.Config{
-		ClientLoader: paymentstripe.ClientLoaderFunc(func(ctx context.Context, merchantKey string) (paymentstripe.Client, paymentstripe.ClientCleanup, error) {
+	adapter, err := stripe.NewAdapter(stripe.Config{
+		ClientLoader: stripe.ClientLoaderFunc(func(ctx context.Context, merchantKey string) (stripe.Client, stripe.ClientCleanup, error) {
 			calls++
 			if merchantKey != "school_a" {
 				t.Fatalf("merchant key = %q", merchantKey)

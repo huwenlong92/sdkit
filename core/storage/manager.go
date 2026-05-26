@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	pkgfs "github.com/huwenlong92/sdkit/pkg/storage"
-	fscore "github.com/huwenlong92/sdkit/pkg/storage/core"
+	"github.com/huwenlong92/sdkit/pkg/storage/core"
 )
 
 type Manager struct {
@@ -148,7 +148,7 @@ func (m *Manager) AccessPath(name string, objectPath string) string {
 	if baseURL == "" {
 		return objectPath
 	}
-	if accessURL := fscore.JoinObjectURL(baseURL, objectPath); accessURL != "" {
+	if accessURL := core.JoinObjectURL(baseURL, objectPath); accessURL != "" {
 		return accessURL
 	}
 	return objectPath
@@ -189,7 +189,7 @@ func NewFileSystem(policy Policy, opts ...Option) (*FileSystem, error) {
 	return pkgfs.NewFileSystem(policy, opts...)
 }
 
-func NewFromPolicy(policy fscore.StoragePolicy, opts ...pkgfs.Option) (*FileSystem, error) {
+func NewFromPolicy(policy core.StoragePolicy, opts ...pkgfs.Option) (*FileSystem, error) {
 	return pkgfs.NewFromPolicy(policy, opts...)
 }
 

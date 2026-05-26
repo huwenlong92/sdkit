@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/huwenlong92/sdkit/core/payment"
-	paymentwechat "github.com/huwenlong92/sdkit/pkg/payment/wechat"
+	"github.com/huwenlong92/sdkit/pkg/payment/wechat"
 )
 
 type client struct {
@@ -31,7 +31,7 @@ func (c *client) CreatePayment(_ context.Context, req payment.CreatePaymentReque
 }
 
 func TestWechatAdapterCapabilities(t *testing.T) {
-	adapter, err := paymentwechat.NewAdapter(paymentwechat.Config{ClientMode: paymentwechat.ClientModeStatic, Client: &client{}})
+	adapter, err := wechat.NewAdapter(wechat.Config{ClientMode: wechat.ClientModeStatic, Client: &client{}})
 	if err != nil {
 		t.Fatalf("new adapter: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestWechatAdapterCreatePaymentChannels(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &client{}
-			adapter, err := paymentwechat.NewAdapter(paymentwechat.Config{ClientMode: paymentwechat.ClientModeStatic, Client: client})
+			adapter, err := wechat.NewAdapter(wechat.Config{ClientMode: wechat.ClientModeStatic, Client: client})
 			if err != nil {
 				t.Fatalf("new adapter: %v", err)
 			}
@@ -107,8 +107,8 @@ func TestWechatAdapterCreatePaymentChannels(t *testing.T) {
 }
 
 func TestWechatAdapterRejectsChannelActionMismatch(t *testing.T) {
-	adapter, err := paymentwechat.NewAdapter(paymentwechat.Config{
-		ClientMode: paymentwechat.ClientModeStatic,
+	adapter, err := wechat.NewAdapter(wechat.Config{
+		ClientMode: wechat.ClientModeStatic,
 		Client: &client{action: payment.PaymentAction{
 			Type: payment.ActionRedirectURL,
 			URL:  "https://pay.example.test/h5",
@@ -132,8 +132,8 @@ func TestWechatAdapterRejectsChannelActionMismatch(t *testing.T) {
 func TestWechatAdapterDynamicClientLoaderCleansUp(t *testing.T) {
 	calls := 0
 	cleanups := 0
-	adapter, err := paymentwechat.NewAdapter(paymentwechat.Config{
-		ClientLoader: paymentwechat.ClientLoaderFunc(func(ctx context.Context, merchantKey string) (paymentwechat.Client, paymentwechat.ClientCleanup, error) {
+	adapter, err := wechat.NewAdapter(wechat.Config{
+		ClientLoader: wechat.ClientLoaderFunc(func(ctx context.Context, merchantKey string) (wechat.Client, wechat.ClientCleanup, error) {
 			calls++
 			if merchantKey != "school_a" {
 				t.Fatalf("merchant key = %q", merchantKey)

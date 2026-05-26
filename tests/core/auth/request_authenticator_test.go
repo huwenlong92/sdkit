@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	coreauth "github.com/huwenlong92/sdkit/core/auth"
+	"github.com/huwenlong92/sdkit/core/auth"
 	authgin "github.com/huwenlong92/sdkit/core/auth/adapter/gin"
 	"github.com/huwenlong92/sdkit/core/session"
 
@@ -14,15 +14,15 @@ import (
 )
 
 func TestJWTAuthenticatorExtractsBearerAndQueryToken(t *testing.T) {
-	cfg := coreauth.JWTConfig{Secret: "secret", Issuer: "test", Expire: 3600}
-	authenticator := coreauth.NewJWTAuthenticator(&cfg,
-		coreauth.WithJWTProvider("api_jwt"),
-		coreauth.WithJWTExtractor(coreauth.FirstExtractor(
-			coreauth.QueryTokenExtractor("token"),
-			coreauth.BearerTokenExtractor(),
+	cfg := auth.JWTConfig{Secret: "secret", Issuer: "test", Expire: 3600}
+	authenticator := auth.NewJWTAuthenticator(&cfg,
+		auth.WithJWTProvider("api_jwt"),
+		auth.WithJWTExtractor(auth.FirstExtractor(
+			auth.QueryTokenExtractor("token"),
+			auth.BearerTokenExtractor(),
 		)),
 	)
-	login, err := authenticator.Login(context.Background(), &coreauth.Identity{
+	login, err := authenticator.Login(context.Background(), &auth.Identity{
 		SubjectID:   1001,
 		SubjectType: "user",
 		Username:    "demo",
@@ -36,7 +36,7 @@ func TestJWTAuthenticatorExtractsBearerAndQueryToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AuthenticateRequest query: %v", err)
 	}
-	if identity.SubjectID != 1001 || identity.Method != coreauth.MethodJWT || identity.Provider != "api_jwt" {
+	if identity.SubjectID != 1001 || identity.Method != auth.MethodJWT || identity.Provider != "api_jwt" {
 		t.Fatalf("unexpected identity: %+v", identity)
 	}
 
@@ -52,11 +52,11 @@ func TestJWTAuthenticatorExtractsBearerAndQueryToken(t *testing.T) {
 }
 
 func TestJWTAuthenticatorPreservesStringSubject(t *testing.T) {
-	cfg := coreauth.JWTConfig{Secret: "secret", Issuer: "test", Expire: 3600}
-	authenticator := coreauth.NewJWTAuthenticator(&cfg,
-		coreauth.WithJWTExtractor(coreauth.BearerTokenExtractor()),
+	cfg := auth.JWTConfig{Secret: "secret", Issuer: "test", Expire: 3600}
+	authenticator := auth.NewJWTAuthenticator(&cfg,
+		auth.WithJWTExtractor(auth.BearerTokenExtractor()),
 	)
-	login, err := authenticator.Login(context.Background(), &coreauth.Identity{
+	login, err := authenticator.Login(context.Background(), &auth.Identity{
 		Subject:     "550e8400-e29b-41d4-a716-446655440000",
 		SubjectType: "user",
 		Username:    "uuid-user",
@@ -87,16 +87,16 @@ func TestGinSessionAuthenticatorReadsSessionIdentity(t *testing.T) {
 	}
 	router.Use(middleware)
 
-	authenticator := coreauth.NewSessionAuthenticator(coreauth.SessionAuthenticator{
+	authenticator := auth.NewSessionAuthenticator(auth.SessionAuthenticator{
 		Provider: "web_session",
 		Key:      "web_login",
 		Reader:   authgin.SessionReader{},
-		Mapper: func(_ context.Context, raw any) (*coreauth.Identity, error) {
+		Mapper: func(_ context.Context, raw any) (*auth.Identity, error) {
 			user, ok := raw.(sessionUser)
 			if !ok {
-				return nil, coreauth.ErrUnauthorized
+				return nil, auth.ErrUnauthorized
 			}
-			return &coreauth.Identity{SubjectID: user.ID, SubjectType: "user", Username: user.Username}, nil
+			return &auth.Identity{SubjectID: user.ID, SubjectType: "user", Username: user.Username}, nil
 		},
 	})
 
@@ -151,28 +151,28 @@ func TestGinSessionAuthenticatorRunsLifecycleHooks(t *testing.T) {
 	var validated bool
 	var refreshed bool
 	var failed bool
-	authenticator := coreauth.NewSessionAuthenticator(coreauth.SessionAuthenticator{
+	authenticator := auth.NewSessionAuthenticator(auth.SessionAuthenticator{
 		Provider: "web_session",
 		Key:      "web_login",
 		Reader:   authgin.SessionReader{},
-		Mapper: func(_ context.Context, raw any) (*coreauth.Identity, error) {
+		Mapper: func(_ context.Context, raw any) (*auth.Identity, error) {
 			user, ok := raw.(sessionUser)
 			if !ok {
-				return nil, coreauth.ErrUnauthorized
+				return nil, auth.ErrUnauthorized
 			}
-			return &coreauth.Identity{SubjectID: user.ID, SubjectType: "user", Username: user.Username}, nil
+			return &auth.Identity{SubjectID: user.ID, SubjectType: "user", Username: user.Username}, nil
 		},
-		Validators: []coreauth.IdentityHook{
-			func(_ context.Context, identity *coreauth.Identity, _ any) error {
+		Validators: []auth.IdentityHook{
+			func(_ context.Context, identity *auth.Identity, _ any) error {
 				validated = identity.SubjectID == 7
 				return nil
 			},
 		},
-		Refreshers: []coreauth.IdentityHook{
-			func(ctx context.Context, _ *coreauth.Identity, raw any) error {
+		Refreshers: []auth.IdentityHook{
+			func(ctx context.Context, _ *auth.Identity, raw any) error {
 				c, ok := authgin.ContextFrom(ctx)
 				if !ok {
-					return coreauth.ErrUnauthorized
+					return auth.ErrUnauthorized
 				}
 				user := raw.(sessionUser)
 				user.Username = "refreshed"
@@ -180,7 +180,7 @@ func TestGinSessionAuthenticatorRunsLifecycleHooks(t *testing.T) {
 				return session.Set(c, "web_login", user)
 			},
 		},
-		Failures: []coreauth.IdentityFailureHook{
+		Failures: []auth.IdentityFailureHook{
 			func(context.Context, *http.Request, error) error {
 				failed = true
 				return nil

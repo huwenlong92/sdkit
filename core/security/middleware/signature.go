@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	apperrors "github.com/huwenlong92/sdkit/core/errors"
+	"github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/core/security"
 	"github.com/huwenlong92/sdkit/core/security/risk"
@@ -24,7 +24,7 @@ func Signature(store state.Store, secret []byte, opts ...MiddlewareOption) gin.H
 	return func(c *gin.Context) {
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusBadRequest, apperrors.NewCodeWithData(http.StatusBadRequest, "read body failed", nil))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusBadRequest, errors.NewCodeWithData(http.StatusBadRequest, "read body failed", nil))
 			return
 		}
 		c.Request.Body = io.NopCloser(bytesReader(body))
@@ -40,11 +40,11 @@ func Signature(store state.Store, secret []byte, opts ...MiddlewareOption) gin.H
 			Headers:  requestHeaders(c),
 		})
 		if err != nil {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, apperrors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, errors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
 			return
 		}
 		if !result.Passed {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeInvalidSign, security.MsgInvalidSign, result))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, errors.NewCodeWithData(security.ErrCodeInvalidSign, security.MsgInvalidSign, result))
 			return
 		}
 		c.Next()
@@ -56,16 +56,16 @@ func Replay(store state.Store, opts ...MiddlewareOption) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		nonce := c.GetHeader("U-Nonce")
 		if nonce == "" {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeNonceRequired, security.MsgNonceRequired, nil))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, errors.NewCodeWithData(security.ErrCodeNonceRequired, security.MsgNonceRequired, nil))
 			return
 		}
 		ok, err := store.SetNX(c.Request.Context(), "security:nonce:"+nonce, "1", 5*time.Minute)
 		if err != nil {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, apperrors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, errors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
 			return
 		}
 		if !ok {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeNonceReplay, security.MsgNonceReplay, nil))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, errors.NewCodeWithData(security.ErrCodeNonceReplay, security.MsgNonceReplay, nil))
 			return
 		}
 		c.Next()

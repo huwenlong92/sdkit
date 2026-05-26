@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	apperrors "github.com/huwenlong92/sdkit/core/errors"
+	"github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/core/ratelimit/keyer"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
@@ -26,7 +26,7 @@ func LimiterPerUserWithOptions(r float64, burst int, opts ...MiddlewareOption) g
 			return
 		}
 		if !tb.Allow(key) {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusTooManyRequests, apperrors.NewCodeWithData(http.StatusTooManyRequests, "请求太频繁，请稍后再试", nil))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusTooManyRequests, errors.NewCodeWithData(http.StatusTooManyRequests, "请求太频繁，请稍后再试", nil))
 			return
 		}
 		c.Next()
@@ -57,7 +57,7 @@ func LimiterPerUserRouteWithOptions(r float64, burst int, opts ...MiddlewareOpti
 			return
 		}
 		if !tb.Allow(key) {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusTooManyRequests, apperrors.NewCodeWithData(http.StatusTooManyRequests, "请求太频繁，请稍后再试", nil))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusTooManyRequests, errors.NewCodeWithData(http.StatusTooManyRequests, "请求太频繁，请稍后再试", nil))
 			return
 		}
 		c.Next()

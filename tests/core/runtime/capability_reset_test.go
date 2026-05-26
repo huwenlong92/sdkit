@@ -5,34 +5,34 @@ import (
 	"reflect"
 	"testing"
 
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
 func TestCapabilityResetRegisterCapabilitiesAndScope(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.RegisterCapabilities(
 		testCapability{name: "database"},
 		testCapability{
 			name: "openai",
-			metadata: coreruntime.CapabilityMetadata{
+			metadata: runtime.CapabilityMetadata{
 				Name:  "openai",
-				Scope: coreruntime.ScopeServiceLocal,
+				Scope: runtime.ScopeServiceLocal,
 			},
 		},
 	); err != nil {
 		t.Fatalf("RegisterCapabilities() error = %v", err)
 	}
 
-	if names := capabilityNames(app.CapabilitiesByScope(coreruntime.ScopeGlobal)); !reflect.DeepEqual(names, []string{"database"}) {
+	if names := capabilityNames(app.CapabilitiesByScope(runtime.ScopeGlobal)); !reflect.DeepEqual(names, []string{"database"}) {
 		t.Fatalf("global capabilities = %v, want [database]", names)
 	}
-	if names := capabilityNames(app.CapabilitiesByScope(coreruntime.ScopeServiceLocal)); !reflect.DeepEqual(names, []string{"openai"}) {
+	if names := capabilityNames(app.CapabilitiesByScope(runtime.ScopeServiceLocal)); !reflect.DeepEqual(names, []string{"openai"}) {
 		t.Fatalf("service local capabilities = %v, want [openai]", names)
 	}
 }
 
 func TestCapabilityResetRequireCapabilities(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.RegisterCapabilities(
 		testCapability{name: "database"},
 		testCapability{name: "queue"},
@@ -41,7 +41,7 @@ func TestCapabilityResetRequireCapabilities(t *testing.T) {
 	}
 	if err := app.Register(testProvider{
 		name:         "worker",
-		dependencies: coreruntime.RequireCapabilities("database", "queue"),
+		dependencies: runtime.RequireCapabilities("database", "queue"),
 	}); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
@@ -49,7 +49,7 @@ func TestCapabilityResetRequireCapabilities(t *testing.T) {
 	if err := app.ValidateDependencies(); err != nil {
 		t.Fatalf("ValidateDependencies() error = %v", err)
 	}
-	want := []coreruntime.DependencyMetadata{
+	want := []runtime.DependencyMetadata{
 		{Source: "worker", Target: "database", Required: true},
 		{Source: "worker", Target: "queue", Required: true},
 	}
@@ -59,12 +59,12 @@ func TestCapabilityResetRequireCapabilities(t *testing.T) {
 }
 
 func TestCapabilityResetServiceLocalLifecycle(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
 	if err := app.RegisterCapabilities(
 		testCapability{
 			name:     "logger",
-			register: func(*coreruntime.App) error { calls = append(calls, "logger.register"); return nil },
+			register: func(*runtime.App) error { calls = append(calls, "logger.register"); return nil },
 			shutdown: func(context.Context) error {
 				calls = append(calls, "logger.shutdown")
 				return nil
@@ -72,12 +72,12 @@ func TestCapabilityResetServiceLocalLifecycle(t *testing.T) {
 		},
 		testCapability{
 			name: "openai",
-			metadata: coreruntime.CapabilityMetadata{
+			metadata: runtime.CapabilityMetadata{
 				Name:  "openai",
-				Scope: coreruntime.ScopeServiceLocal,
+				Scope: runtime.ScopeServiceLocal,
 			},
-			dependencies: coreruntime.RequireCapabilities("logger"),
-			register:     func(*coreruntime.App) error { calls = append(calls, "openai.register"); return nil },
+			dependencies: runtime.RequireCapabilities("logger"),
+			register:     func(*runtime.App) error { calls = append(calls, "openai.register"); return nil },
 			shutdown: func(context.Context) error {
 				calls = append(calls, "openai.shutdown")
 				return nil
@@ -88,7 +88,7 @@ func TestCapabilityResetServiceLocalLifecycle(t *testing.T) {
 	}
 	if err := app.Register(testProvider{
 		name:         "api",
-		dependencies: coreruntime.RequireCapabilities("openai"),
+		dependencies: runtime.RequireCapabilities("openai"),
 		start:        func(context.Context) error { calls = append(calls, "api.start"); return nil },
 	}); err != nil {
 		t.Fatalf("Register() error = %v", err)
@@ -114,18 +114,18 @@ func TestCapabilityResetServiceLocalLifecycle(t *testing.T) {
 }
 
 func TestCapabilityResetProviderRuntimeCapabilities(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
-	openaiKey := coreruntime.Key("api.openai")
+	openaiKey := runtime.Key("api.openai")
 	openaiCapability := testCapability{
 		name: "api.openai",
-		metadata: coreruntime.CapabilityMetadata{
+		metadata: runtime.CapabilityMetadata{
 			Name:  "api.openai",
-			Group: coreruntime.GroupAPI,
-			Scope: coreruntime.ScopeServiceLocal,
+			Group: runtime.GroupAPI,
+			Scope: runtime.ScopeServiceLocal,
 		},
-		dependencies: coreruntime.RequireCapabilities("logger"),
-		register: func(app *coreruntime.App) error {
+		dependencies: runtime.RequireCapabilities("logger"),
+		register: func(app *runtime.App) error {
 			calls = append(calls, "openai.register")
 			return app.Container().Bind(openaiKey, "client")
 		},
@@ -137,7 +137,7 @@ func TestCapabilityResetProviderRuntimeCapabilities(t *testing.T) {
 
 	if err := app.RegisterCapabilities(testCapability{
 		name:     "logger",
-		register: func(*coreruntime.App) error { calls = append(calls, "logger.register"); return nil },
+		register: func(*runtime.App) error { calls = append(calls, "logger.register"); return nil },
 		shutdown: func(context.Context) error {
 			calls = append(calls, "logger.shutdown")
 			return nil
@@ -147,9 +147,9 @@ func TestCapabilityResetProviderRuntimeCapabilities(t *testing.T) {
 	}
 	if err := app.Register(testProvider{
 		name:                "api",
-		dependencies:        coreruntime.RequireCapabilities("api.openai"),
-		runtimeCapabilities: []coreruntime.CapabilityContract{openaiCapability},
-		register: func(app *coreruntime.App) error {
+		dependencies:        runtime.RequireCapabilities("api.openai"),
+		runtimeCapabilities: []runtime.CapabilityContract{openaiCapability},
+		register: func(app *runtime.App) error {
 			if got := app.Container().MustGet(openaiKey); got != "client" {
 				t.Fatalf("openai client = %v, want client", got)
 			}
@@ -170,7 +170,7 @@ func TestCapabilityResetProviderRuntimeCapabilities(t *testing.T) {
 	if err := app.Run(context.Background()); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
-	if names := capabilityNames(app.CapabilitiesByScope(coreruntime.ScopeServiceLocal)); !reflect.DeepEqual(names, []string{"api.openai"}) {
+	if names := capabilityNames(app.CapabilitiesByScope(runtime.ScopeServiceLocal)); !reflect.DeepEqual(names, []string{"api.openai"}) {
 		t.Fatalf("service local capabilities = %v, want [api.openai]", names)
 	}
 	if err := app.Stop(context.Background()); err != nil {
@@ -191,21 +191,21 @@ func TestCapabilityResetProviderRuntimeCapabilities(t *testing.T) {
 }
 
 func TestCapabilityResetRunProviderCollectsOnlySelectedProviderCapabilities(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
 	if err := app.Register(
 		testProvider{
 			name:         "api",
-			dependencies: coreruntime.RequireCapabilities("api.openai"),
-			runtimeCapabilities: []coreruntime.CapabilityContract{
+			dependencies: runtime.RequireCapabilities("api.openai"),
+			runtimeCapabilities: []runtime.CapabilityContract{
 				testCapability{
 					name: "api.openai",
-					metadata: coreruntime.CapabilityMetadata{
+					metadata: runtime.CapabilityMetadata{
 						Name:  "api.openai",
-						Group: coreruntime.GroupAPI,
-						Scope: coreruntime.ScopeServiceLocal,
+						Group: runtime.GroupAPI,
+						Scope: runtime.ScopeServiceLocal,
 					},
-					register: func(*coreruntime.App) error {
+					register: func(*runtime.App) error {
 						calls = append(calls, "openai.register")
 						return nil
 					},
@@ -218,16 +218,16 @@ func TestCapabilityResetRunProviderCollectsOnlySelectedProviderCapabilities(t *t
 		},
 		testProvider{
 			name:         "worker",
-			dependencies: coreruntime.RequireCapabilities("worker.sms"),
-			runtimeCapabilities: []coreruntime.CapabilityContract{
+			dependencies: runtime.RequireCapabilities("worker.sms"),
+			runtimeCapabilities: []runtime.CapabilityContract{
 				testCapability{
 					name: "worker.sms",
-					metadata: coreruntime.CapabilityMetadata{
+					metadata: runtime.CapabilityMetadata{
 						Name:  "worker.sms",
-						Group: coreruntime.GroupWorker,
-						Scope: coreruntime.ScopeServiceLocal,
+						Group: runtime.GroupWorker,
+						Scope: runtime.ScopeServiceLocal,
 					},
-					register: func(*coreruntime.App) error {
+					register: func(*runtime.App) error {
 						calls = append(calls, "sms.register")
 						return nil
 					},
@@ -241,7 +241,7 @@ func TestCapabilityResetRunProviderCollectsOnlySelectedProviderCapabilities(t *t
 	); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
-	capabilityProvider, ok := app.Providers()[0].(coreruntime.RuntimeCapabilityProvider)
+	capabilityProvider, ok := app.Providers()[0].(runtime.RuntimeCapabilityProvider)
 	if !ok || len(capabilityProvider.RuntimeCapabilities()) != 1 {
 		t.Fatalf("api provider runtime capabilities = %v, want one", capabilityProvider)
 	}
@@ -261,15 +261,15 @@ func TestCapabilityResetRunProviderCollectsOnlySelectedProviderCapabilities(t *t
 }
 
 func TestCapabilityResetProviderRuntimeCapabilitiesAreIdempotentAcrossRuns(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var registerCount int
 	if err := app.Register(testProvider{
 		name:         "api",
-		dependencies: coreruntime.RequireCapabilities("api.openai"),
-		runtimeCapabilities: []coreruntime.CapabilityContract{
+		dependencies: runtime.RequireCapabilities("api.openai"),
+		runtimeCapabilities: []runtime.CapabilityContract{
 			testCapability{
 				name: "api.openai",
-				register: func(*coreruntime.App) error {
+				register: func(*runtime.App) error {
 					registerCount++
 					return nil
 				},

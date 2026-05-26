@@ -6,10 +6,10 @@ import (
 	"reflect"
 	"testing"
 
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
-const keyPhase3Shared coreruntime.Key = "phase3-shared"
+const keyPhase3Shared runtime.Key = "phase3-shared"
 
 type phase3SharedResource struct {
 	name string
@@ -17,8 +17,8 @@ type phase3SharedResource struct {
 
 type phase3Provider struct {
 	name              string
-	metadata          coreruntime.ProviderMetadata
-	app               *coreruntime.App
+	metadata          runtime.ProviderMetadata
+	app               *runtime.App
 	registerResources *[]*phase3SharedResource
 	startResources    *[]*phase3SharedResource
 }
@@ -27,7 +27,7 @@ func (p *phase3Provider) Name() string {
 	return p.name
 }
 
-func (p *phase3Provider) Metadata() coreruntime.ProviderMetadata {
+func (p *phase3Provider) Metadata() runtime.ProviderMetadata {
 	metadata := p.metadata
 	if metadata.Name == "" {
 		metadata.Name = p.name
@@ -35,11 +35,11 @@ func (p *phase3Provider) Metadata() coreruntime.ProviderMetadata {
 	return metadata
 }
 
-func (p *phase3Provider) Dependencies() []coreruntime.Dependency {
+func (p *phase3Provider) Dependencies() []runtime.Dependency {
 	return nil
 }
 
-func (p *phase3Provider) Register(app *coreruntime.App) error {
+func (p *phase3Provider) Register(app *runtime.App) error {
 	p.app = app
 	resource, _ := app.Container().MustGet(keyPhase3Shared).(*phase3SharedResource)
 	*p.registerResources = append(*p.registerResources, resource)
@@ -58,27 +58,27 @@ func (p *phase3Provider) Stop(context.Context) error {
 
 func TestPhase3RegisterValidatesProviderNames(t *testing.T) {
 	t.Run("name required", func(t *testing.T) {
-		app := coreruntime.New()
-		if err := app.Register(testProvider{}); !errors.Is(err, coreruntime.ErrProviderNameRequired) {
+		app := runtime.New()
+		if err := app.Register(testProvider{}); !errors.Is(err, runtime.ErrProviderNameRequired) {
 			t.Fatalf("Register(empty name) error = %v, want ErrProviderNameRequired", err)
 		}
 	})
 
 	for _, name := range []string{"provider", "default", "main"} {
 		t.Run("reserved "+name, func(t *testing.T) {
-			app := coreruntime.New()
-			if err := app.Register(testProvider{name: name}); !errors.Is(err, coreruntime.ErrProviderNameReserved) {
+			app := runtime.New()
+			if err := app.Register(testProvider{name: name}); !errors.Is(err, runtime.ErrProviderNameReserved) {
 				t.Fatalf("Register(%q) error = %v, want ErrProviderNameReserved", name, err)
 			}
 		})
 	}
 
 	t.Run("duplicate existing", func(t *testing.T) {
-		app := coreruntime.New()
+		app := runtime.New()
 		if err := app.Register(testProvider{name: "api"}); err != nil {
 			t.Fatalf("Register(api) error = %v", err)
 		}
-		if err := app.Register(testProvider{name: "api"}); !errors.Is(err, coreruntime.ErrProviderNameDuplicate) {
+		if err := app.Register(testProvider{name: "api"}); !errors.Is(err, runtime.ErrProviderNameDuplicate) {
 			t.Fatalf("Register(duplicate api) error = %v, want ErrProviderNameDuplicate", err)
 		}
 		if got := len(app.Providers()); got != 1 {
@@ -87,12 +87,12 @@ func TestPhase3RegisterValidatesProviderNames(t *testing.T) {
 	})
 
 	t.Run("duplicate in batch does not partially register", func(t *testing.T) {
-		app := coreruntime.New()
+		app := runtime.New()
 		err := app.Register(
 			testProvider{name: "api"},
 			testProvider{name: "api"},
 		)
-		if !errors.Is(err, coreruntime.ErrProviderNameDuplicate) {
+		if !errors.Is(err, runtime.ErrProviderNameDuplicate) {
 			t.Fatalf("Register(duplicate batch) error = %v, want ErrProviderNameDuplicate", err)
 		}
 		if got := len(app.Providers()); got != 0 {
@@ -102,11 +102,11 @@ func TestPhase3RegisterValidatesProviderNames(t *testing.T) {
 }
 
 func TestPhase3AppRegisterOnlyStoresProviders(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
 	provider := testProvider{
 		name: "api",
-		register: func(*coreruntime.App) error {
+		register: func(*runtime.App) error {
 			calls = append(calls, "register")
 			return nil
 		},
@@ -128,14 +128,14 @@ func TestPhase3AppRegisterOnlyStoresProviders(t *testing.T) {
 }
 
 func TestPhase3RunRegistersAllProvidersBeforeStart(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	registered := map[string]bool{}
 	var calls []string
 
 	if err := app.Register(
 		testProvider{
 			name: "api",
-			register: func(*coreruntime.App) error {
+			register: func(*runtime.App) error {
 				registered["api"] = true
 				calls = append(calls, "api.register")
 				return nil
@@ -150,7 +150,7 @@ func TestPhase3RunRegistersAllProvidersBeforeStart(t *testing.T) {
 		},
 		testProvider{
 			name: "worker",
-			register: func(*coreruntime.App) error {
+			register: func(*runtime.App) error {
 				registered["worker"] = true
 				calls = append(calls, "worker.register")
 				return nil
@@ -174,14 +174,14 @@ func TestPhase3RunRegistersAllProvidersBeforeStart(t *testing.T) {
 }
 
 func TestPhase3StartRollbackStopsStartedProvidersInReverseOrder(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	startErr := errors.New("worker failed")
 	var calls []string
 
 	if err := app.Register(
 		testProvider{
 			name: "api",
-			register: func(*coreruntime.App) error {
+			register: func(*runtime.App) error {
 				calls = append(calls, "api.register")
 				return nil
 			},
@@ -196,7 +196,7 @@ func TestPhase3StartRollbackStopsStartedProvidersInReverseOrder(t *testing.T) {
 		},
 		testProvider{
 			name: "admin",
-			register: func(*coreruntime.App) error {
+			register: func(*runtime.App) error {
 				calls = append(calls, "admin.register")
 				return nil
 			},
@@ -211,7 +211,7 @@ func TestPhase3StartRollbackStopsStartedProvidersInReverseOrder(t *testing.T) {
 		},
 		testProvider{
 			name: "worker",
-			register: func(*coreruntime.App) error {
+			register: func(*runtime.App) error {
 				calls = append(calls, "worker.register")
 				return nil
 			},
@@ -248,12 +248,12 @@ func TestPhase3StartRollbackStopsStartedProvidersInReverseOrder(t *testing.T) {
 }
 
 func TestPhase3ServeModeProvidersShareCapability(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	resource := &phase3SharedResource{name: "shared"}
 	var registerResources []*phase3SharedResource
 	var startResources []*phase3SharedResource
 
-	if err := app.Use(coreruntime.NewCapability("shared", func(app *coreruntime.App) error {
+	if err := app.Use(runtime.NewCapability("shared", func(app *runtime.App) error {
 		return app.Container().Bind(keyPhase3Shared, resource)
 	})); err != nil {
 		t.Fatalf("Use() error = %v", err)
@@ -281,7 +281,7 @@ func TestPhase3ServeModeProvidersShareCapability(t *testing.T) {
 	}
 }
 
-func providerNames(providers []coreruntime.Provider) []string {
+func providerNames(providers []runtime.Provider) []string {
 	names := make([]string, 0, len(providers))
 	for _, provider := range providers {
 		names = append(names, provider.Name())

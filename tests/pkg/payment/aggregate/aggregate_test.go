@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/huwenlong92/sdkit/core/payment"
-	paymentaggregate "github.com/huwenlong92/sdkit/pkg/payment/aggregate"
+	"github.com/huwenlong92/sdkit/pkg/payment/aggregate"
 )
 
 type gateway struct {
@@ -98,8 +98,8 @@ func (g *fullGateway) QueryRefund(_ context.Context, req payment.QueryRefundRequ
 
 func TestAggregateAdapterRoutesCreatePaymentByMerchantKey(t *testing.T) {
 	cqu := &gateway{}
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
-		Gateways: map[string]paymentaggregate.Gateway{
+	adapter, err := aggregate.New(aggregate.Config{
+		Gateways: map[string]aggregate.Gateway{
 			"cqu_gateway": cqu,
 		},
 	})
@@ -134,8 +134,8 @@ func TestAggregateAdapterRoutesCreatePaymentByMerchantKey(t *testing.T) {
 }
 
 func TestAggregateAdapterDefaultCapabilities(t *testing.T) {
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
-		Gateways: map[string]paymentaggregate.Gateway{
+	adapter, err := aggregate.New(aggregate.Config{
+		Gateways: map[string]aggregate.Gateway{
 			"cqu": &gateway{},
 		},
 	})
@@ -166,9 +166,9 @@ func TestAggregateAdapterDefaultCapabilities(t *testing.T) {
 
 func TestAggregateAdapterUsesDefaultGateway(t *testing.T) {
 	defaultGateway := &gateway{}
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
+	adapter, err := aggregate.New(aggregate.Config{
 		DefaultGateway: "default",
-		Gateways: map[string]paymentaggregate.Gateway{
+		Gateways: map[string]aggregate.Gateway{
 			"default": defaultGateway,
 			"cqu":     &gateway{},
 		},
@@ -194,8 +194,8 @@ func TestAggregateAdapterUsesDefaultGateway(t *testing.T) {
 func TestAggregateAdapterMerchantKeyWinsOverExtraGateway(t *testing.T) {
 	merchantGateway := &gateway{}
 	extraGateway := &gateway{}
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
-		Gateways: map[string]paymentaggregate.Gateway{
+	adapter, err := aggregate.New(aggregate.Config{
+		Gateways: map[string]aggregate.Gateway{
 			"merchant": merchantGateway,
 			"extra":    extraGateway,
 		},
@@ -211,7 +211,7 @@ func TestAggregateAdapterMerchantKeyWinsOverExtraGateway(t *testing.T) {
 		OutTradeNo:  "pay_1001",
 		Pricing:     payment.CNY(100),
 		Extra: map[string]any{
-			paymentaggregate.ExtraGatewayKey: "extra",
+			aggregate.ExtraGatewayKey: "extra",
 		},
 	})
 	if err != nil {
@@ -227,9 +227,9 @@ func TestAggregateAdapterMerchantKeyWinsOverExtraGateway(t *testing.T) {
 
 func TestAggregateAdapterRoutesByExtraGatewayWhenMerchantKeyDoesNotMatch(t *testing.T) {
 	cqu := &gateway{}
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
+	adapter, err := aggregate.New(aggregate.Config{
 		DefaultGateway: "default",
-		Gateways: map[string]paymentaggregate.Gateway{
+		Gateways: map[string]aggregate.Gateway{
 			"default": &gateway{},
 			"cqu":     cqu,
 		},
@@ -245,7 +245,7 @@ func TestAggregateAdapterRoutesByExtraGatewayWhenMerchantKeyDoesNotMatch(t *test
 		OutTradeNo:  "pay_1001",
 		Pricing:     payment.CNY(100),
 		Extra: map[string]any{
-			paymentaggregate.ExtraGatewayKey: "cqu",
+			aggregate.ExtraGatewayKey: "cqu",
 		},
 	})
 	if err != nil {
@@ -258,8 +258,8 @@ func TestAggregateAdapterRoutesByExtraGatewayWhenMerchantKeyDoesNotMatch(t *test
 
 func TestAggregateAdapterNotifyRoutesByQueryGateway(t *testing.T) {
 	cqu := &gateway{}
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
-		Gateways: map[string]paymentaggregate.Gateway{
+	adapter, err := aggregate.New(aggregate.Config{
+		Gateways: map[string]aggregate.Gateway{
 			"cqu": cqu,
 		},
 		Capabilities: payment.Capabilities{
@@ -282,7 +282,7 @@ func TestAggregateAdapterNotifyRoutesByQueryGateway(t *testing.T) {
 		Provider: payment.ProviderAggregate,
 		Channel:  payment.ChannelAggregateForm,
 		Query: map[string][]string{
-			paymentaggregate.ExtraGatewayKey: {"cqu"},
+			aggregate.ExtraGatewayKey: {"cqu"},
 		},
 		Body: []byte(`{"id":"evt_1"}`),
 	})
@@ -299,8 +299,8 @@ func TestAggregateAdapterNotifyRoutesByQueryGateway(t *testing.T) {
 
 func TestAggregateAdapterNotifyRoutesByFormGateway(t *testing.T) {
 	cqu := &gateway{}
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
-		Gateways: map[string]paymentaggregate.Gateway{
+	adapter, err := aggregate.New(aggregate.Config{
+		Gateways: map[string]aggregate.Gateway{
 			"cqu": cqu,
 		},
 		Capabilities: payment.Capabilities{
@@ -315,7 +315,7 @@ func TestAggregateAdapterNotifyRoutesByFormGateway(t *testing.T) {
 		Provider: payment.ProviderAggregate,
 		Channel:  payment.ChannelAggregateForm,
 		Form: map[string][]string{
-			paymentaggregate.ExtraGatewayKey: {"cqu"},
+			aggregate.ExtraGatewayKey: {"cqu"},
 		},
 		Body: []byte(`{"id":"evt_1"}`),
 	})
@@ -329,8 +329,8 @@ func TestAggregateAdapterNotifyRoutesByFormGateway(t *testing.T) {
 
 func TestAggregateAdapterOptionalCapabilitySuccessPaths(t *testing.T) {
 	cqu := &fullGateway{}
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
-		Gateways: map[string]paymentaggregate.Gateway{
+	adapter, err := aggregate.New(aggregate.Config{
+		Gateways: map[string]aggregate.Gateway{
 			"cqu": cqu,
 		},
 		Capabilities: payment.Capabilities{
@@ -410,8 +410,8 @@ func TestAggregateAdapterOptionalCapabilitySuccessPaths(t *testing.T) {
 }
 
 func TestAggregateAdapterServiceRejectsUnsupportedAction(t *testing.T) {
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
-		Gateways: map[string]paymentaggregate.Gateway{
+	adapter, err := aggregate.New(aggregate.Config{
+		Gateways: map[string]aggregate.Gateway{
 			"cqu": &gateway{action: payment.PaymentAction{
 				Type: payment.ActionQRCode,
 				URL:  "weixin://qr",
@@ -445,8 +445,8 @@ func TestAggregateAdapterServiceRejectsUnsupportedAction(t *testing.T) {
 }
 
 func TestAggregateAdapterServiceRejectsUnsupportedChannelAndCurrency(t *testing.T) {
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
-		Gateways: map[string]paymentaggregate.Gateway{
+	adapter, err := aggregate.New(aggregate.Config{
+		Gateways: map[string]aggregate.Gateway{
 			"cqu": &gateway{},
 		},
 		Capabilities: payment.Capabilities{
@@ -496,8 +496,8 @@ func TestAggregateAdapterServiceRejectsUnsupportedChannelAndCurrency(t *testing.
 }
 
 func TestAggregateAdapterReturnsUnsupportedCapability(t *testing.T) {
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
-		Gateways: map[string]paymentaggregate.Gateway{
+	adapter, err := aggregate.New(aggregate.Config{
+		Gateways: map[string]aggregate.Gateway{
 			"cqu": &gateway{},
 		},
 	})
@@ -516,8 +516,8 @@ func TestAggregateAdapterReturnsUnsupportedCapability(t *testing.T) {
 }
 
 func TestAggregateAdapterRejectsUnknownGateway(t *testing.T) {
-	adapter, err := paymentaggregate.New(paymentaggregate.Config{
-		Gateways: map[string]paymentaggregate.Gateway{
+	adapter, err := aggregate.New(aggregate.Config{
+		Gateways: map[string]aggregate.Gateway{
 			"cqu": &gateway{},
 		},
 	})
@@ -531,7 +531,7 @@ func TestAggregateAdapterRejectsUnknownGateway(t *testing.T) {
 		OutTradeNo: "pay_1001",
 		Pricing:    payment.CNY(100),
 		Extra: map[string]any{
-			paymentaggregate.ExtraGatewayKey: "unknown",
+			aggregate.ExtraGatewayKey: "unknown",
 		},
 	})
 	if !errors.Is(err, payment.ErrAdapterNotFound) {

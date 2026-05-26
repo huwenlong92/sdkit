@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -24,7 +24,7 @@ func NewLocker(client redis.Cmdable, prefix string) *Locker {
 
 func (l *Locker) Lock(ctx context.Context, key string, ttl time.Duration) (func(context.Context) error, bool, error) {
 	if l == nil || l.client == nil {
-		return nil, false, corequeue.ErrNotInitialized
+		return nil, false, queue.ErrNotInitialized
 	}
 	if ttl <= 0 {
 		return nil, false, fmt.Errorf("queue lock ttl must be positive")
@@ -36,7 +36,7 @@ func (l *Locker) Lock(ctx context.Context, key string, ttl time.Duration) (func(
 		return nil, false, err
 	}
 	if !ok {
-		return nil, false, corequeue.ErrLockNotAcquired
+		return nil, false, queue.ErrLockNotAcquired
 	}
 	unlock := func(unlockCtx context.Context) error {
 		const script = `
@@ -63,7 +63,7 @@ func NewIdempotency(client redis.Cmdable, prefix string) *Idempotency {
 
 func (i *Idempotency) Done(ctx context.Context, key string) (bool, error) {
 	if i == nil || i.client == nil {
-		return false, corequeue.ErrNotInitialized
+		return false, queue.ErrNotInitialized
 	}
 	n, err := i.client.Exists(ctx, i.prefix+key).Result()
 	return n > 0, err
@@ -71,7 +71,7 @@ func (i *Idempotency) Done(ctx context.Context, key string) (bool, error) {
 
 func (i *Idempotency) MarkDone(ctx context.Context, key string, ttl time.Duration) error {
 	if i == nil || i.client == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	if ttl <= 0 {
 		return fmt.Errorf("queue idempotency ttl must be positive")
@@ -93,7 +93,7 @@ func NewRateLimiter(client redis.Cmdable, prefix string) *RateLimiter {
 
 func (l *RateLimiter) Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, time.Duration, error) {
 	if l == nil || l.client == nil {
-		return false, 0, corequeue.ErrNotInitialized
+		return false, 0, queue.ErrNotInitialized
 	}
 	if limit <= 0 || window <= 0 {
 		return false, 0, fmt.Errorf("queue rate limit and window must be positive")
@@ -118,5 +118,5 @@ func (l *RateLimiter) Allow(ctx context.Context, key string, limit int, window t
 	if ttl < 0 {
 		ttl = window
 	}
-	return false, ttl, corequeue.RateLimited(ttl, corequeue.ErrRateLimited)
+	return false, ttl, queue.RateLimited(ttl, queue.ErrRateLimited)
 }

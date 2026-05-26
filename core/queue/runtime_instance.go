@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
 const RuntimeCapabilityName = "queue.runtime"
@@ -162,11 +162,11 @@ func From(source any) *RuntimeInstance {
 		return nil
 	case *RuntimeInstance:
 		return v
-	case interface{ Container() *coreruntime.Container }:
+	case interface{ Container() *runtime.Container }:
 		if v.Container() == nil {
 			return nil
 		}
-		value, ok := v.Container().Get(coreruntime.Key(RuntimeCapabilityName))
+		value, ok := v.Container().Get(runtime.Key(RuntimeCapabilityName))
 		if !ok {
 			return nil
 		}

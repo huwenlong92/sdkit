@@ -13,7 +13,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
-	queueasynq "github.com/huwenlong92/sdkit/pkg/queue/asynq"
+	"github.com/huwenlong92/sdkit/pkg/queue/asynq"
 
 	goredis "github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
@@ -37,7 +37,7 @@ func TestIntegrationManagerRetryArchiveRequeuePreserveHeaders(t *testing.T) {
 		_ = provider.Shutdown(context.Background())
 	})
 
-	driver := queueasynq.New(cfg)
+	driver := asynq.New(cfg)
 	t.Cleanup(func() { _ = driver.Close() })
 	taskType := "headers:retry"
 	driver.Handle(taskType, func(context.Context, *queue.Message) error {
@@ -149,7 +149,7 @@ func integrationQueueName() string {
 	return fmt.Sprintf("headers_%d", time.Now().UnixNano())
 }
 
-func waitTaskState(t *testing.T, ctx context.Context, driver *queueasynq.Queue, queueName, taskID string, state queue.TaskState) *queue.TaskInfo {
+func waitTaskState(t *testing.T, ctx context.Context, driver *asynq.Queue, queueName, taskID string, state queue.TaskState) *queue.TaskInfo {
 	t.Helper()
 	for {
 		tasks, err := driver.ListTasks(ctx, queue.TaskQuery{

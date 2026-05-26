@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
 type testLocalCapability struct {
@@ -26,10 +26,10 @@ func (c testLocalCapability) Close() error {
 }
 
 type testRuntimeService struct {
-	info coreruntime.ServiceInfo
+	info runtime.ServiceInfo
 }
 
-func (s testRuntimeService) ServiceInfo() coreruntime.ServiceInfo {
+func (s testRuntimeService) ServiceInfo() runtime.ServiceInfo {
 	return s.info
 }
 
@@ -42,7 +42,7 @@ func (s testRuntimeService) Shutdown(context.Context) error {
 }
 
 func TestLocalCapabilityRegistryStoresInstancesAndClosesReverseOrder(t *testing.T) {
-	registry := coreruntime.NewLocalCapabilityRegistry()
+	registry := runtime.NewLocalCapabilityRegistry()
 	var closed []string
 	registry.Set("api.first", testLocalCapability{name: "api.first", close: func() error {
 		closed = append(closed, "first")
@@ -53,7 +53,7 @@ func TestLocalCapabilityRegistryStoresInstancesAndClosesReverseOrder(t *testing.
 		return nil
 	}})
 
-	if got, ok := coreruntime.LocalCapabilityAs[testLocalCapability](registry, "api.first"); !ok || got.name != "api.first" {
+	if got, ok := runtime.LocalCapabilityAs[testLocalCapability](registry, "api.first"); !ok || got.name != "api.first" {
 		t.Fatalf("LocalCapabilityAs() = %#v, %t, want api.first, true", got, ok)
 	}
 	if names := registry.Names(); !reflect.DeepEqual(names, []string{"api.first", "api.second"}) {
@@ -69,11 +69,11 @@ func TestLocalCapabilityRegistryStoresInstancesAndClosesReverseOrder(t *testing.
 
 func TestServiceRegistryBuildServicesAndPassesContext(t *testing.T) {
 	base := map[string]string{"app": "demo"}
-	registry := coreruntime.NewServiceRegistry[map[string]string]()
-	registry.RegisterServiceDefinition(coreruntime.ServiceDefinition[map[string]string]{
+	registry := runtime.NewServiceRegistry[map[string]string]()
+	registry.RegisterServiceDefinition(runtime.ServiceDefinition[map[string]string]{
 		Type: "api",
-		Kind: coreruntime.ServiceKindHTTP,
-		ContextFactory: func(ctx coreruntime.ServiceContext[map[string]string]) (coreruntime.Service, error) {
+		Kind: runtime.ServiceKindHTTP,
+		ContextFactory: func(ctx runtime.ServiceContext[map[string]string]) (runtime.Service, error) {
 			if ctx.ConfigFile != "config.yaml" || ctx.Name != "public" || ctx.Type != "api" || ctx.ConfigKey != "api_public" {
 				t.Fatalf("ServiceContext = %+v", ctx)
 			}
@@ -81,11 +81,11 @@ func TestServiceRegistryBuildServicesAndPassesContext(t *testing.T) {
 				t.Fatalf("ServiceContext.Base = %v, want demo", ctx.Base)
 			}
 			ctx.Capabilities.Set("public.local", "local")
-			return testRuntimeService{info: coreruntime.ServiceInfo{Name: "public", Enabled: true}}, nil
+			return testRuntimeService{info: runtime.ServiceInfo{Name: "public", Enabled: true}}, nil
 		},
 	})
 
-	services, err := registry.BuildServices("config.yaml", map[string]coreruntime.ServiceSpec{
+	services, err := registry.BuildServices("config.yaml", map[string]runtime.ServiceSpec{
 		"public": {
 			Type:      "api",
 			ConfigKey: "api_public",
@@ -98,7 +98,7 @@ func TestServiceRegistryBuildServicesAndPassesContext(t *testing.T) {
 		t.Fatalf("len(services) = %d, want 1", len(services))
 	}
 	info := services[0].ServiceInfo()
-	if info.Type != "api" || info.Kind != coreruntime.ServiceKindHTTP {
+	if info.Type != "api" || info.Kind != runtime.ServiceKindHTTP {
 		t.Fatalf("ServiceInfo() = %+v, want type api kind http", info)
 	}
 	if !reflect.DeepEqual(info.Capabilities, []string{"local"}) {
@@ -108,28 +108,28 @@ func TestServiceRegistryBuildServicesAndPassesContext(t *testing.T) {
 
 func TestServiceRegistryRuntimeCapabilitiesUseServiceLocalScope(t *testing.T) {
 	base := map[string]string{"app": "demo"}
-	registry := coreruntime.NewServiceRegistry[map[string]string]()
-	registry.RegisterServiceDefinition(coreruntime.ServiceDefinition[map[string]string]{
+	registry := runtime.NewServiceRegistry[map[string]string]()
+	registry.RegisterServiceDefinition(runtime.ServiceDefinition[map[string]string]{
 		Type: "api",
-		RuntimeCapabilityFactory: func(ctx coreruntime.RuntimeCapabilityContext[map[string]string]) []coreruntime.CapabilityContract {
+		RuntimeCapabilityFactory: func(ctx runtime.RuntimeCapabilityContext[map[string]string]) []runtime.CapabilityContract {
 			if ctx.BaseConfig()["app"] != "demo" {
 				t.Fatalf("BaseConfig() = %v, want demo", ctx.BaseConfig())
 			}
-			return []coreruntime.CapabilityContract{
-				coreruntime.NewCapability(ctx.LocalName("openai"), func(*coreruntime.App) error { return nil }),
+			return []runtime.CapabilityContract{
+				runtime.NewCapability(ctx.LocalName("openai"), func(*runtime.App) error { return nil }),
 			}
 		},
-		ContextFactory: func(coreruntime.ServiceContext[map[string]string]) (coreruntime.Service, error) {
-			return testRuntimeService{info: coreruntime.ServiceInfo{Name: "api", Enabled: true}}, nil
+		ContextFactory: func(runtime.ServiceContext[map[string]string]) (runtime.Service, error) {
+			return testRuntimeService{info: runtime.ServiceInfo{Name: "api", Enabled: true}}, nil
 		},
 	})
 
-	capabilities := registry.RuntimeCapabilitiesForService(coreruntime.NewRuntimeCapabilityContext("config.yaml", "api", "api", "", base))
+	capabilities := registry.RuntimeCapabilitiesForService(runtime.NewRuntimeCapabilityContext("config.yaml", "api", "api", "", base))
 	if len(capabilities) != 1 {
 		t.Fatalf("len(capabilities) = %d, want 1", len(capabilities))
 	}
 	metadata := capabilities[0].Metadata()
-	if metadata.Name != "api.openai" || metadata.Group != "api" || metadata.Scope != coreruntime.ScopeServiceLocal {
+	if metadata.Name != "api.openai" || metadata.Group != "api" || metadata.Scope != runtime.ScopeServiceLocal {
 		t.Fatalf("Metadata() = %+v", metadata)
 	}
 }
@@ -137,7 +137,7 @@ func TestServiceRegistryRuntimeCapabilitiesUseServiceLocalScope(t *testing.T) {
 func TestLocalCapabilityRegistryCloseJoinsErrors(t *testing.T) {
 	firstErr := errors.New("first")
 	secondErr := errors.New("second")
-	registry := coreruntime.NewLocalCapabilityRegistry()
+	registry := runtime.NewLocalCapabilityRegistry()
 	registry.Set("first", testLocalCapability{name: "first", close: func() error { return firstErr }})
 	registry.Set("second", testLocalCapability{name: "second", close: func() error { return secondErr }})
 

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 )
 
 type Locker struct {
@@ -25,7 +25,7 @@ func NewLocker() *Locker {
 
 func (l *Locker) Lock(ctx context.Context, key string, ttl time.Duration) (func(context.Context) error, bool, error) {
 	if l == nil {
-		return nil, false, corequeue.ErrNotInitialized
+		return nil, false, queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
@@ -38,7 +38,7 @@ func (l *Locker) Lock(ctx context.Context, key string, ttl time.Duration) (func(
 	l.mu.Lock()
 	if current, ok := l.locks[key]; ok && now.Before(current.expiresAt) {
 		l.mu.Unlock()
-		return nil, false, corequeue.ErrLockNotAcquired
+		return nil, false, queue.ErrLockNotAcquired
 	}
 	l.locks[key] = memoryLock{token: token, expiresAt: now.Add(ttl)}
 	l.mu.Unlock()
@@ -69,7 +69,7 @@ func NewIdempotency() *Idempotency {
 
 func (i *Idempotency) Done(ctx context.Context, key string) (bool, error) {
 	if i == nil {
-		return false, corequeue.ErrNotInitialized
+		return false, queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return false, err
@@ -89,7 +89,7 @@ func (i *Idempotency) Done(ctx context.Context, key string) (bool, error) {
 
 func (i *Idempotency) MarkDone(ctx context.Context, key string, ttl time.Duration) error {
 	if i == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -119,7 +119,7 @@ func NewRateLimiter() *RateLimiter {
 
 func (l *RateLimiter) Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, time.Duration, error) {
 	if l == nil {
-		return false, 0, corequeue.ErrNotInitialized
+		return false, 0, queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return false, 0, err
@@ -143,5 +143,5 @@ func (l *RateLimiter) Allow(ctx context.Context, key string, limit int, window t
 	if retryIn < 0 {
 		retryIn = 0
 	}
-	return false, retryIn, corequeue.RateLimited(retryIn, corequeue.ErrRateLimited)
+	return false, retryIn, queue.RateLimited(retryIn, queue.ErrRateLimited)
 }

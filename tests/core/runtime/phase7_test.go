@@ -5,49 +5,49 @@ import (
 	"reflect"
 	"testing"
 
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
 func TestPhase7MetadataReturnsStableValues(t *testing.T) {
-	capability := coreruntime.NewCapabilityWithMetadata(coreruntime.CapabilityMetadata{
+	capability := runtime.NewCapabilityWithMetadata(runtime.CapabilityMetadata{
 		Name:        "database",
 		Description: "Database connection capability",
-		Group:       coreruntime.GroupSystem,
+		Group:       runtime.GroupSystem,
 		Internal:    true,
-	}, func(*coreruntime.App) error { return nil }, nil)
+	}, func(*runtime.App) error { return nil }, nil)
 
-	if got := capability.Metadata(); got.Name != "database" || got.Description == "" || got.Group != coreruntime.GroupSystem || !got.Internal {
+	if got := capability.Metadata(); got.Name != "database" || got.Description == "" || got.Group != runtime.GroupSystem || !got.Internal {
 		t.Fatalf("capability metadata = %+v, want database/system/internal", got)
 	}
 
 	provider := testProvider{
 		name: "api",
-		metadata: coreruntime.ProviderMetadata{
+		metadata: runtime.ProviderMetadata{
 			Name:        "api",
 			Description: "API server",
-			Group:       coreruntime.GroupAPI,
+			Group:       runtime.GroupAPI,
 		},
 	}
-	if got := provider.Metadata(); got.Name != "api" || got.Description == "" || got.Group != coreruntime.GroupAPI || got.Internal {
+	if got := provider.Metadata(); got.Name != "api" || got.Description == "" || got.Group != runtime.GroupAPI || got.Internal {
 		t.Fatalf("provider metadata = %+v, want api group", got)
 	}
 
 	command := testCommand{
 		name: "serve",
-		metadata: coreruntime.CommandMetadata{
+		metadata: runtime.CommandMetadata{
 			Name:        "serve",
 			Description: "Serve all providers",
-			Group:       coreruntime.GroupSystem,
+			Group:       runtime.GroupSystem,
 		},
 	}
-	if got := command.Metadata(); got.Name != "serve" || got.Description == "" || got.Group != coreruntime.GroupSystem || got.Internal {
+	if got := command.Metadata(); got.Name != "serve" || got.Description == "" || got.Group != runtime.GroupSystem || got.Internal {
 		t.Fatalf("command metadata = %+v, want serve system", got)
 	}
 }
 
 func TestPhase7RegistryLookup(t *testing.T) {
-	app := coreruntime.New()
-	capability := coreruntime.NewCapability("database", func(*coreruntime.App) error { return nil })
+	app := runtime.New()
+	capability := runtime.NewCapability("database", func(*runtime.App) error { return nil })
 	provider := testProvider{name: "api"}
 	command := testCommand{name: "serve"}
 
@@ -73,10 +73,10 @@ func TestPhase7RegistryLookup(t *testing.T) {
 }
 
 func TestPhase7RegistryList(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.Use(
-		coreruntime.NewCapability("logger", func(*coreruntime.App) error { return nil }),
-		coreruntime.NewCapability("database", func(*coreruntime.App) error { return nil }),
+		runtime.NewCapability("logger", func(*runtime.App) error { return nil }),
+		runtime.NewCapability("database", func(*runtime.App) error { return nil }),
 	); err != nil {
 		t.Fatalf("Use() error = %v", err)
 	}
@@ -99,44 +99,44 @@ func TestPhase7RegistryList(t *testing.T) {
 }
 
 func TestPhase7RegistryGroup(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.Use(
-		testCapability{name: "logger", metadata: coreruntime.CapabilityMetadata{Name: "logger", Group: coreruntime.GroupSystem}},
-		testCapability{name: "database", metadata: coreruntime.CapabilityMetadata{Name: "database", Group: coreruntime.GroupSystem}},
+		testCapability{name: "logger", metadata: runtime.CapabilityMetadata{Name: "logger", Group: runtime.GroupSystem}},
+		testCapability{name: "database", metadata: runtime.CapabilityMetadata{Name: "database", Group: runtime.GroupSystem}},
 	); err != nil {
 		t.Fatalf("Use() error = %v", err)
 	}
 	if err := app.Register(
-		testProvider{name: "api", metadata: coreruntime.ProviderMetadata{Name: "api", Group: coreruntime.GroupAPI}},
-		testProvider{name: "worker", metadata: coreruntime.ProviderMetadata{Name: "worker", Group: coreruntime.GroupWorker}},
+		testProvider{name: "api", metadata: runtime.ProviderMetadata{Name: "api", Group: runtime.GroupAPI}},
+		testProvider{name: "worker", metadata: runtime.ProviderMetadata{Name: "worker", Group: runtime.GroupWorker}},
 	); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
 	if err := app.RegisterCommand(
-		testCommand{name: "run", metadata: coreruntime.CommandMetadata{Name: "run", Group: coreruntime.GroupSystem}},
-		testCommand{name: "serve", metadata: coreruntime.CommandMetadata{Name: "serve", Group: coreruntime.GroupSystem}},
+		testCommand{name: "run", metadata: runtime.CommandMetadata{Name: "run", Group: runtime.GroupSystem}},
+		testCommand{name: "serve", metadata: runtime.CommandMetadata{Name: "serve", Group: runtime.GroupSystem}},
 	); err != nil {
 		t.Fatalf("RegisterCommand() error = %v", err)
 	}
 
-	if names := capabilityNames(app.CapabilitiesByGroup(coreruntime.GroupSystem)); !reflect.DeepEqual(names, []string{"logger", "database"}) {
+	if names := capabilityNames(app.CapabilitiesByGroup(runtime.GroupSystem)); !reflect.DeepEqual(names, []string{"logger", "database"}) {
 		t.Fatalf("CapabilitiesByGroup(system) = %v, want [logger database]", names)
 	}
-	if names := providerNames(app.ProvidersByGroup(coreruntime.GroupAPI)); !reflect.DeepEqual(names, []string{"api"}) {
+	if names := providerNames(app.ProvidersByGroup(runtime.GroupAPI)); !reflect.DeepEqual(names, []string{"api"}) {
 		t.Fatalf("ProvidersByGroup(api) = %v, want [api]", names)
 	}
-	if names := commandNames(app.CommandsByGroup(coreruntime.GroupSystem)); !reflect.DeepEqual(names, []string{"run", "serve"}) {
+	if names := commandNames(app.CommandsByGroup(runtime.GroupSystem)); !reflect.DeepEqual(names, []string{"run", "serve"}) {
 		t.Fatalf("CommandsByGroup(system) = %v, want [run serve]", names)
 	}
 }
 
 func TestPhase7InternalObjectMetadata(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.Register(testProvider{
 		name: "runtime.internal",
-		metadata: coreruntime.ProviderMetadata{
+		metadata: runtime.ProviderMetadata{
 			Name:     "runtime.internal",
-			Group:    coreruntime.GroupInternal,
+			Group:    runtime.GroupInternal,
 			Internal: true,
 		},
 	}); err != nil {
@@ -148,24 +148,24 @@ func TestPhase7InternalObjectMetadata(t *testing.T) {
 		t.Fatal("Provider(runtime.internal) not found")
 	}
 	metadata := provider.Metadata()
-	if !metadata.Internal || metadata.Group != coreruntime.GroupInternal {
+	if !metadata.Internal || metadata.Group != runtime.GroupInternal {
 		t.Fatalf("provider metadata = %+v, want internal group", metadata)
 	}
 }
 
 func TestPhase7RegistryRejectsInvalidNames(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 
-	if err := app.Use(coreruntime.NewCapability("", func(*coreruntime.App) error { return nil })); !errors.Is(err, coreruntime.ErrCapabilityNameRequired) {
+	if err := app.Use(runtime.NewCapability("", func(*runtime.App) error { return nil })); !errors.Is(err, runtime.ErrCapabilityNameRequired) {
 		t.Fatalf("Use(empty name) error = %v, want ErrCapabilityNameRequired", err)
 	}
-	if err := app.Use(coreruntime.NewCapability("capability", func(*coreruntime.App) error { return nil })); !errors.Is(err, coreruntime.ErrCapabilityNameReserved) {
+	if err := app.Use(runtime.NewCapability("capability", func(*runtime.App) error { return nil })); !errors.Is(err, runtime.ErrCapabilityNameReserved) {
 		t.Fatalf("Use(reserved name) error = %v, want ErrCapabilityNameReserved", err)
 	}
 	if err := app.Use(
-		coreruntime.NewCapability("database", func(*coreruntime.App) error { return nil }),
-		coreruntime.NewCapability("database", func(*coreruntime.App) error { return nil }),
-	); !errors.Is(err, coreruntime.ErrCapabilityNameDuplicate) {
+		runtime.NewCapability("database", func(*runtime.App) error { return nil }),
+		runtime.NewCapability("database", func(*runtime.App) error { return nil }),
+	); !errors.Is(err, runtime.ErrCapabilityNameDuplicate) {
 		t.Fatalf("Use(duplicate capability) error = %v, want ErrCapabilityNameDuplicate", err)
 	}
 	if got := len(app.Capabilities()); got != 0 {

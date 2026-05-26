@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	coreeventbus "github.com/huwenlong92/sdkit/core/eventbus"
+	"github.com/huwenlong92/sdkit/core/eventbus"
 	corerealtime "github.com/huwenlong92/sdkit/core/realtime"
 	realtimecap "github.com/huwenlong92/sdkit/core/realtime/facade"
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
-	eventbusmemory "github.com/huwenlong92/sdkit/pkg/eventbus/memory"
+	"github.com/huwenlong92/sdkit/pkg/eventbus/memory"
 
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -22,8 +22,8 @@ import (
 func TestNewSetsDefaultAndPackagePushPublishes(t *testing.T) {
 	resetDefaults(t)
 
-	bus := eventbusmemory.New()
-	coreeventbus.SetDefaultWithDriver(bus, "memory")
+	bus := memory.New()
+	eventbus.SetDefaultWithDriver(bus, "memory")
 	received := subscribeRealtime(t, bus, corerealtime.DefaultTopic)
 
 	capability, err := realtimecap.New(realtimecap.Config{})
@@ -71,7 +71,7 @@ func TestCapabilityPropagatesTraceHeaders(t *testing.T) {
 	restore := installTracing(t)
 	defer restore()
 
-	bus := eventbusmemory.New()
+	bus := memory.New()
 	received := subscribeRealtime(t, bus, "rt:test")
 	capability, err := realtimecap.New(realtimecap.Config{Topic: "rt:test"}, realtimecap.WithEventBus(bus), realtimecap.WithoutDefault())
 	if err != nil {
@@ -127,7 +127,7 @@ func TestNewErrorsWhenEventBusDefaultMissing(t *testing.T) {
 	if !errors.Is(err, realtimecap.ErrEventBusNotConfigured) {
 		t.Fatalf("New: want ErrEventBusNotConfigured, got %v", err)
 	}
-	if !errors.Is(err, coreeventbus.ErrDefaultNotInitialized) {
+	if !errors.Is(err, eventbus.ErrDefaultNotInitialized) {
 		t.Fatalf("New: want ErrDefaultNotInitialized, got %v", err)
 	}
 	if realtimecap.Default() != nil {
@@ -138,7 +138,7 @@ func TestNewErrorsWhenEventBusDefaultMissing(t *testing.T) {
 func TestCloseClearsDefaultAndRejectsPush(t *testing.T) {
 	resetDefaults(t)
 
-	bus := eventbusmemory.New()
+	bus := memory.New()
 	capability, err := realtimecap.New(realtimecap.Config{}, realtimecap.WithEventBus(bus))
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -170,10 +170,10 @@ func TestCloseClearsDefaultAndRejectsPush(t *testing.T) {
 	}
 }
 
-func subscribeRealtime(t *testing.T, bus coreeventbus.Bus, topic string) <-chan *coreeventbus.Event {
+func subscribeRealtime(t *testing.T, bus eventbus.Bus, topic string) <-chan *eventbus.Event {
 	t.Helper()
-	received := make(chan *coreeventbus.Event, 1)
-	subscription, err := bus.Subscribe(context.Background(), topic, func(_ context.Context, event *coreeventbus.Event) error {
+	received := make(chan *eventbus.Event, 1)
+	subscription, err := bus.Subscribe(context.Background(), topic, func(_ context.Context, event *eventbus.Event) error {
 		received <- event
 		return nil
 	})
@@ -184,7 +184,7 @@ func subscribeRealtime(t *testing.T, bus coreeventbus.Bus, topic string) <-chan 
 	return received
 }
 
-func receiveEvent(t *testing.T, received <-chan *coreeventbus.Event) *coreeventbus.Event {
+func receiveEvent(t *testing.T, received <-chan *eventbus.Event) *eventbus.Event {
 	t.Helper()
 	select {
 	case event := <-received:
@@ -195,7 +195,7 @@ func receiveEvent(t *testing.T, received <-chan *coreeventbus.Event) *coreeventb
 	}
 }
 
-func decodeRealtimeEvent(t *testing.T, event *coreeventbus.Event) corerealtime.Event {
+func decodeRealtimeEvent(t *testing.T, event *eventbus.Event) corerealtime.Event {
 	t.Helper()
 	var msg corerealtime.Event
 	if event == nil {
@@ -207,9 +207,9 @@ func decodeRealtimeEvent(t *testing.T, event *coreeventbus.Event) corerealtime.E
 	return msg
 }
 
-func testEvent(t *testing.T, topic string) *coreeventbus.Event {
+func testEvent(t *testing.T, topic string) *eventbus.Event {
 	t.Helper()
-	event, err := coreeventbus.NewEvent(context.Background(), topic, nil, nil)
+	event, err := eventbus.NewEvent(context.Background(), topic, nil, nil)
 	if err != nil {
 		t.Fatalf("NewEvent: %v", err)
 	}
@@ -221,12 +221,12 @@ func resetDefaults(t *testing.T) {
 	if err := realtimecap.CloseDefault(); err != nil {
 		t.Fatalf("CloseDefault realtime: %v", err)
 	}
-	if err := coreeventbus.CloseDefault(); err != nil {
+	if err := eventbus.CloseDefault(); err != nil {
 		t.Fatalf("CloseDefault eventbus: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = realtimecap.CloseDefault()
-		_ = coreeventbus.CloseDefault()
+		_ = eventbus.CloseDefault()
 	})
 }
 

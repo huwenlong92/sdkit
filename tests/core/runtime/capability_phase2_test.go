@@ -13,24 +13,24 @@ import (
 	loggerfacade "github.com/huwenlong92/sdkit/core/logger/facade"
 	coreredis "github.com/huwenlong92/sdkit/core/redis"
 	redisfacade "github.com/huwenlong92/sdkit/core/redis/facade"
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 
 	"go.uber.org/zap"
 )
 
 func TestPhase2CapabilityOrderIsStable(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
 	if err := app.Use(
-		coreruntime.NewCapability("logger", func(*coreruntime.App) error {
+		runtime.NewCapability("logger", func(*runtime.App) error {
 			calls = append(calls, "logger")
 			return nil
 		}),
-		coreruntime.NewCapability("database", func(*coreruntime.App) error {
+		runtime.NewCapability("database", func(*runtime.App) error {
 			calls = append(calls, "database")
 			return nil
 		}),
-		coreruntime.NewCapability("redis", func(*coreruntime.App) error {
+		runtime.NewCapability("redis", func(*runtime.App) error {
 			calls = append(calls, "redis")
 			return nil
 		}),
@@ -48,7 +48,7 @@ func TestPhase2CapabilityOrderIsStable(t *testing.T) {
 }
 
 func TestPhase2PlatformCapabilitiesBindResources(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	log := zap.NewNop()
 	db := &database.Database{}
 	redisClient := &coreredis.RuntimeClient{}
@@ -85,7 +85,7 @@ func TestPhase2PlatformCapabilitiesBindResources(t *testing.T) {
 }
 
 func TestPhase2ProvidersShareRuntimeCapabilityInstance(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	db := &database.Database{}
 	t.Cleanup(database.Close)
 
@@ -97,14 +97,14 @@ func TestPhase2ProvidersShareRuntimeCapabilityInstance(t *testing.T) {
 	if err := app.Register(
 		testProvider{
 			name: "api",
-			register: func(app *coreruntime.App) error {
+			register: func(app *runtime.App) error {
 				providers = append(providers, database.From(app))
 				return nil
 			},
 		},
 		testProvider{
 			name: "worker",
-			register: func(app *coreruntime.App) error {
+			register: func(app *runtime.App) error {
 				providers = append(providers, database.From(app))
 				return nil
 			},

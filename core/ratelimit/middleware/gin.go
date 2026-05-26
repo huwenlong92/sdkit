@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	apperrors "github.com/huwenlong92/sdkit/core/errors"
+	"github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/core/ratelimit/keyer"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit"
@@ -36,7 +36,7 @@ func MiddlewareWithKeyOptions(l ratelimit.Limiter, keyFn func(*gin.Context) stri
 			allowed = l.Allow(key)
 		}
 		if !allowed {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusTooManyRequests, apperrors.NewCodeWithData(http.StatusTooManyRequests, "请求太频繁，请稍后再试", nil))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusTooManyRequests, errors.NewCodeWithData(http.StatusTooManyRequests, "请求太频繁，请稍后再试", nil))
 			return
 		}
 		c.Next()

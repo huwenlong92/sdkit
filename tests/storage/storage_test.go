@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	coreconfig "github.com/huwenlong92/sdkit/core/config"
+	"github.com/huwenlong92/sdkit/core/config"
 	"github.com/huwenlong92/sdkit/core/runtime"
 	corestorage "github.com/huwenlong92/sdkit/core/storage"
 	storagecap "github.com/huwenlong92/sdkit/core/storage/facade"
@@ -106,7 +106,7 @@ func TestManagerRequiresDefaultStore(t *testing.T) {
 func TestFacadeLoadsStorageConfigFromCoreConfig(t *testing.T) {
 	t.Cleanup(func() {
 		_ = corestorage.Close()
-		coreconfig.V = nil
+		config.V = nil
 	})
 
 	defaultDir := t.TempDir()
@@ -122,7 +122,7 @@ storage:
       driver: local
       local_dir: `+archiveDir+`
 `)
-	if _, err := coreconfig.New(configPath); err != nil {
+	if _, err := config.New(configPath); err != nil {
 		t.Fatalf("load config: %v", err)
 	}
 
@@ -159,9 +159,9 @@ storage:
 func TestFacadeUsesDefaultLocalConfig(t *testing.T) {
 	t.Cleanup(func() {
 		_ = corestorage.Close()
-		coreconfig.V = nil
+		config.V = nil
 	})
-	coreconfig.V = nil
+	config.V = nil
 
 	app := runtime.New()
 	capability := storagecap.Use()

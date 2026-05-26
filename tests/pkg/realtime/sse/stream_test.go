@@ -11,14 +11,14 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/realtime"
-	realtimesse "github.com/huwenlong92/sdkit/pkg/realtime/sse"
+	"github.com/huwenlong92/sdkit/pkg/realtime/sse"
 )
 
 func TestStreamerWritesEventsAndFlushes(t *testing.T) {
 	events := make(chan realtime.Event, 1)
 	var buf bytes.Buffer
 	flusher := &countFlusher{}
-	streamer := realtimesse.NewStreamer(context.Background(), &buf, events, realtimesse.StreamOptions{}).WithFlusher(flusher)
+	streamer := sse.NewStreamer(context.Background(), &buf, events, sse.StreamOptions{}).WithFlusher(flusher)
 	done := make(chan error, 1)
 	go func() {
 		done <- streamer.Run()
@@ -43,7 +43,7 @@ func TestStreamerWritesHeartbeatAndStopsOnContextCancel(t *testing.T) {
 	defer cancel()
 	var buf bytes.Buffer
 	flusher := &countFlusher{}
-	streamer := realtimesse.NewStreamer(ctx, &buf, nil, realtimesse.StreamOptions{
+	streamer := sse.NewStreamer(ctx, &buf, nil, sse.StreamOptions{
 		HeartbeatInterval: time.Millisecond,
 	}).WithFlusher(flusher)
 	done := make(chan error, 1)
@@ -62,7 +62,7 @@ func TestStreamerWritesHeartbeatAndStopsOnContextCancel(t *testing.T) {
 func TestStreamerLogsWriteErrorsWithCommonFields(t *testing.T) {
 	events := make(chan realtime.Event, 1)
 	log := &captureLogger{}
-	streamer := realtimesse.NewStreamer(context.Background(), failingWriter{}, events, realtimesse.StreamOptions{
+	streamer := sse.NewStreamer(context.Background(), failingWriter{}, events, sse.StreamOptions{
 		Logger: log,
 	})
 	done := make(chan error, 1)

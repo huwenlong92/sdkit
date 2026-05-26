@@ -5,70 +5,70 @@ import (
 	"errors"
 	"testing"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 )
 
 type runtimeRunner struct {
-	handlers   map[string]corequeue.HandlerFunc
+	handlers   map[string]queue.HandlerFunc
 	listQueues int
 	ran        bool
 	shutdown   bool
 }
 
-func (r *runtimeRunner) Enqueue(context.Context, corequeue.Task, ...corequeue.Option) (*corequeue.TaskInfo, error) {
-	return &corequeue.TaskInfo{ID: "task-1"}, nil
+func (r *runtimeRunner) Enqueue(context.Context, queue.Task, ...queue.Option) (*queue.TaskInfo, error) {
+	return &queue.TaskInfo{ID: "task-1"}, nil
 }
 
-func (r *runtimeRunner) BatchEnqueue(context.Context, []corequeue.Task, ...corequeue.Option) ([]*corequeue.TaskInfo, error) {
-	return []*corequeue.TaskInfo{{ID: "task-1"}}, nil
+func (r *runtimeRunner) BatchEnqueue(context.Context, []queue.Task, ...queue.Option) ([]*queue.TaskInfo, error) {
+	return []*queue.TaskInfo{{ID: "task-1"}}, nil
 }
 
 func (r *runtimeRunner) Close() error { return nil }
 
-func (r *runtimeRunner) Handle(pattern string, handler corequeue.HandlerFunc) {
+func (r *runtimeRunner) Handle(pattern string, handler queue.HandlerFunc) {
 	if r.handlers == nil {
-		r.handlers = map[string]corequeue.HandlerFunc{}
+		r.handlers = map[string]queue.HandlerFunc{}
 	}
 	r.handlers[pattern] = handler
 }
 
-func (r *runtimeRunner) Use(...corequeue.Middleware) {}
+func (r *runtimeRunner) Use(...queue.Middleware) {}
 
 func (r *runtimeRunner) Run(ctx context.Context) error {
 	r.ran = true
-	if corequeue.Runtime(ctx) == nil {
+	if queue.Runtime(ctx) == nil {
 		return errors.New("runtime missing from context")
 	}
 	return nil
 }
 
 func (r *runtimeRunner) Shutdown(ctx context.Context) error {
-	r.shutdown = corequeue.Runtime(ctx) != nil
+	r.shutdown = queue.Runtime(ctx) != nil
 	return nil
 }
 
-func (r *runtimeRunner) Supports(cap corequeue.Capability) bool {
+func (r *runtimeRunner) Supports(cap queue.Capability) bool {
 	return r.Capabilities()[cap]
 }
 
-func (r *runtimeRunner) Capabilities() map[corequeue.Capability]bool {
-	return map[corequeue.Capability]bool{corequeue.CapInspector: true}
+func (r *runtimeRunner) Capabilities() map[queue.Capability]bool {
+	return map[queue.Capability]bool{queue.CapInspector: true}
 }
 
-func (r *runtimeRunner) ListQueues(context.Context) ([]*corequeue.QueueInfo, error) {
+func (r *runtimeRunner) ListQueues(context.Context) ([]*queue.QueueInfo, error) {
 	r.listQueues++
-	return []*corequeue.QueueInfo{{Name: corequeue.DefaultQueueName}}, nil
+	return []*queue.QueueInfo{{Name: queue.DefaultQueueName}}, nil
 }
 
-func (r *runtimeRunner) GetQueue(context.Context, string) (*corequeue.QueueInfo, error) {
-	return &corequeue.QueueInfo{Name: corequeue.DefaultQueueName}, nil
+func (r *runtimeRunner) GetQueue(context.Context, string) (*queue.QueueInfo, error) {
+	return &queue.QueueInfo{Name: queue.DefaultQueueName}, nil
 }
 
-func (r *runtimeRunner) ListTasks(context.Context, corequeue.TaskQuery) ([]*corequeue.TaskInfo, error) {
+func (r *runtimeRunner) ListTasks(context.Context, queue.TaskQuery) ([]*queue.TaskInfo, error) {
 	return nil, nil
 }
 
-func (r *runtimeRunner) GetTask(context.Context, string, string) (*corequeue.TaskInfo, error) {
+func (r *runtimeRunner) GetTask(context.Context, string, string) (*queue.TaskInfo, error) {
 	return nil, nil
 }
 
@@ -83,24 +83,24 @@ func (r *runtimeRunner) ResumeQueue(context.Context, string) error        { retu
 
 func TestRuntimeInstanceExposesRuntimeAndOperations(t *testing.T) {
 	runner := &runtimeRunner{}
-	runtime := corequeue.NewRuntimeInstance(
+	runtime := queue.NewRuntimeInstance(
 		runner,
-		corequeue.WithRuntimeMetadata(corequeue.RuntimeMetadata{
+		queue.WithRuntimeMetadata(queue.RuntimeMetadata{
 			Name:   "worker-1",
 			Driver: "memory",
-			Queues: map[string]int{corequeue.DefaultQueueName: 1},
+			Queues: map[string]int{queue.DefaultQueueName: 1},
 		}),
 	)
 
-	if corequeue.From(runtime) != runtime {
+	if queue.From(runtime) != runtime {
 		t.Fatal("From(runtime) did not return runtime instance")
 	}
-	if corequeue.Runtime(corequeue.ContextWithRuntime(context.Background(), runtime)) != runtime {
+	if queue.Runtime(queue.ContextWithRuntime(context.Background(), runtime)) != runtime {
 		t.Fatal("Runtime(ctx) did not return runtime instance")
 	}
 	metadata := runtime.Metadata()
-	metadata.Queues[corequeue.DefaultQueueName] = 9
-	if runtime.Metadata().Queues[corequeue.DefaultQueueName] != 1 {
+	metadata.Queues[queue.DefaultQueueName] = 9
+	if runtime.Metadata().Queues[queue.DefaultQueueName] != 1 {
 		t.Fatal("runtime metadata was not cloned")
 	}
 
@@ -108,7 +108,7 @@ func TestRuntimeInstanceExposesRuntimeAndOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("operations status: %v", err)
 	}
-	if len(queues) != 1 || queues[0].Name != corequeue.DefaultQueueName || runner.listQueues != 1 {
+	if len(queues) != 1 || queues[0].Name != queue.DefaultQueueName || runner.listQueues != 1 {
 		t.Fatalf("operations status = %#v, list calls=%d", queues, runner.listQueues)
 	}
 	if err := runtime.Run(context.Background()); err != nil {
@@ -124,19 +124,19 @@ func TestRuntimeInstanceExposesRuntimeAndOperations(t *testing.T) {
 
 func TestRegistryRuntimeRegistersAndDispatches(t *testing.T) {
 	runner := &runtimeRunner{}
-	runtime := corequeue.NewRuntimeInstance(runner)
+	runtime := queue.NewRuntimeInstance(runner)
 	registry := runtime.NewRegistry()
 	calls := 0
 
-	registry.Use(func(next corequeue.HandlerFunc) corequeue.HandlerFunc {
-		return func(ctx context.Context, msg *corequeue.Message) error {
+	registry.Use(func(next queue.HandlerFunc) queue.HandlerFunc {
+		return func(ctx context.Context, msg *queue.Message) error {
 			calls++
 			return next(ctx, msg)
 		}
 	})
-	if err := registry.Register("user.sync", func(ctx context.Context, msg *corequeue.Message) error {
+	if err := registry.Register("user.sync", func(ctx context.Context, msg *queue.Message) error {
 		calls++
-		if _, ok := corequeue.MessageFromContext(ctx); !ok {
+		if _, ok := queue.MessageFromContext(ctx); !ok {
 			t.Fatal("message missing from context")
 		}
 		return nil
@@ -148,7 +148,7 @@ func TestRegistryRuntimeRegistersAndDispatches(t *testing.T) {
 	if handler == nil {
 		t.Fatal("worker handler was not bound")
 	}
-	if err := handler(context.Background(), &corequeue.Message{ID: "1", Type: "user.sync"}); err != nil {
+	if err := handler(context.Background(), &queue.Message{ID: "1", Type: "user.sync"}); err != nil {
 		t.Fatalf("handler dispatch: %v", err)
 	}
 	if calls != 2 {

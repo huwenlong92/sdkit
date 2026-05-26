@@ -7,19 +7,19 @@ import (
 	"testing"
 
 	"github.com/huwenlong92/sdkit/core/logger"
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
 const (
-	keyDatabase coreruntime.Key = "database"
-	keyLogger   coreruntime.Key = "logger"
+	keyDatabase runtime.Key = "database"
+	keyLogger   runtime.Key = "logger"
 )
 
 type testCapability struct {
 	name         string
-	metadata     coreruntime.CapabilityMetadata
-	dependencies []coreruntime.Dependency
-	register     func(app *coreruntime.App) error
+	metadata     runtime.CapabilityMetadata
+	dependencies []runtime.Dependency
+	register     func(app *runtime.App) error
 	shutdown     func(ctx context.Context) error
 }
 
@@ -27,7 +27,7 @@ func (c testCapability) Name() string {
 	return c.name
 }
 
-func (c testCapability) Metadata() coreruntime.CapabilityMetadata {
+func (c testCapability) Metadata() runtime.CapabilityMetadata {
 	metadata := c.metadata
 	if metadata.Name == "" {
 		metadata.Name = c.name
@@ -35,11 +35,11 @@ func (c testCapability) Metadata() coreruntime.CapabilityMetadata {
 	return metadata
 }
 
-func (c testCapability) Dependencies() []coreruntime.Dependency {
+func (c testCapability) Dependencies() []runtime.Dependency {
 	return c.dependencies
 }
 
-func (c testCapability) Register(app *coreruntime.App) error {
+func (c testCapability) Register(app *runtime.App) error {
 	return c.register(app)
 }
 
@@ -52,10 +52,10 @@ func (c testCapability) Shutdown(ctx context.Context) error {
 
 type testProvider struct {
 	name                string
-	metadata            coreruntime.ProviderMetadata
-	dependencies        []coreruntime.Dependency
-	runtimeCapabilities []coreruntime.CapabilityContract
-	register            func(app *coreruntime.App) error
+	metadata            runtime.ProviderMetadata
+	dependencies        []runtime.Dependency
+	runtimeCapabilities []runtime.CapabilityContract
+	register            func(app *runtime.App) error
 	start               func(ctx context.Context) error
 	stop                func(ctx context.Context) error
 }
@@ -64,7 +64,7 @@ func (p testProvider) Name() string {
 	return p.name
 }
 
-func (p testProvider) Metadata() coreruntime.ProviderMetadata {
+func (p testProvider) Metadata() runtime.ProviderMetadata {
 	metadata := p.metadata
 	if metadata.Name == "" {
 		metadata.Name = p.name
@@ -72,15 +72,15 @@ func (p testProvider) Metadata() coreruntime.ProviderMetadata {
 	return metadata
 }
 
-func (p testProvider) Dependencies() []coreruntime.Dependency {
+func (p testProvider) Dependencies() []runtime.Dependency {
 	return p.dependencies
 }
 
-func (p testProvider) RuntimeCapabilities() []coreruntime.CapabilityContract {
+func (p testProvider) RuntimeCapabilities() []runtime.CapabilityContract {
 	return p.runtimeCapabilities
 }
 
-func (p testProvider) Register(app *coreruntime.App) error {
+func (p testProvider) Register(app *runtime.App) error {
 	if p.register == nil {
 		return nil
 	}
@@ -103,14 +103,14 @@ func (p testProvider) Stop(ctx context.Context) error {
 
 type testCommand struct {
 	name     string
-	metadata coreruntime.CommandMetadata
+	metadata runtime.CommandMetadata
 }
 
 func (c testCommand) Name() string {
 	return c.name
 }
 
-func (c testCommand) Metadata() coreruntime.CommandMetadata {
+func (c testCommand) Metadata() runtime.CommandMetadata {
 	metadata := c.metadata
 	if metadata.Name == "" {
 		metadata.Name = c.name
@@ -118,12 +118,12 @@ func (c testCommand) Metadata() coreruntime.CommandMetadata {
 	return metadata
 }
 
-func (c testCommand) Run(context.Context, *coreruntime.App, []string) error {
+func (c testCommand) Run(context.Context, *runtime.App, []string) error {
 	return nil
 }
 
 func TestContainerBindGetMustGet(t *testing.T) {
-	container := coreruntime.NewContainer()
+	container := runtime.NewContainer()
 	if err := container.Bind(keyLogger, "default"); err != nil {
 		t.Fatalf("Bind() error = %v", err)
 	}
@@ -133,30 +133,30 @@ func TestContainerBindGetMustGet(t *testing.T) {
 	if got := container.MustGet(keyLogger); got != "default" {
 		t.Fatalf("MustGet() = %v, want default", got)
 	}
-	if got := container.MustGet(coreruntime.Key("missing")); got != nil {
+	if got := container.MustGet(runtime.Key("missing")); got != nil {
 		t.Fatalf("MustGet(missing) = %v, want nil", got)
 	}
 }
 
 func TestContainerBindValidation(t *testing.T) {
-	container := coreruntime.NewContainer()
-	var nilContainer *coreruntime.Container
-	if !errors.Is(nilContainer.Bind(coreruntime.Key("key"), "value"), coreruntime.ErrContainerNil) {
+	container := runtime.NewContainer()
+	var nilContainer *runtime.Container
+	if !errors.Is(nilContainer.Bind(runtime.Key("key"), "value"), runtime.ErrContainerNil) {
 		t.Fatalf("Bind(nil container) must return ErrContainerNil")
 	}
-	if !errors.Is(container.Bind(coreruntime.Key(""), "value"), coreruntime.ErrContainerKeyRequired) {
+	if !errors.Is(container.Bind(runtime.Key(""), "value"), runtime.ErrContainerKeyRequired) {
 		t.Fatalf("Bind(empty key) must return ErrContainerKeyRequired")
 	}
-	if !errors.Is(container.Bind(coreruntime.Key("nil"), nil), coreruntime.ErrContainerValueNil) {
+	if !errors.Is(container.Bind(runtime.Key("nil"), nil), runtime.ErrContainerValueNil) {
 		t.Fatalf("Bind(nil value) must return ErrContainerValueNil")
 	}
 }
 
 func TestUseOnlyStoresCapabilityAndRunRegistersIt(t *testing.T) {
-	app := &coreruntime.App{}
+	app := &runtime.App{}
 	capability := testCapability{
 		name: "logger",
-		register: func(app *coreruntime.App) error {
+		register: func(app *runtime.App) error {
 			return app.Container().Bind(keyLogger, "default")
 		},
 	}
@@ -179,8 +179,8 @@ func TestUseOnlyStoresCapabilityAndRunRegistersIt(t *testing.T) {
 }
 
 func TestNewCapability(t *testing.T) {
-	app := coreruntime.New()
-	capability := coreruntime.NewCapability("database", func(app *coreruntime.App) error {
+	app := runtime.New()
+	capability := runtime.NewCapability("database", func(app *runtime.App) error {
 		return app.Container().Bind(keyDatabase, "primary")
 	})
 
@@ -199,7 +199,7 @@ func TestNewCapability(t *testing.T) {
 }
 
 func TestRegisterCommandOnlyStoresCommand(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.RegisterCommand(testCommand{name: "serve"}); err != nil {
 		t.Fatalf("RegisterCommand() error = %v", err)
 	}
@@ -209,8 +209,8 @@ func TestRegisterCommandOnlyStoresCommand(t *testing.T) {
 }
 
 func TestRunRegistersAndStartsProviders(t *testing.T) {
-	app := coreruntime.New()
-	if err := app.Use(coreruntime.NewCapability("database", func(app *coreruntime.App) error {
+	app := runtime.New()
+	if err := app.Use(runtime.NewCapability("database", func(app *runtime.App) error {
 		return app.Container().Bind(keyDatabase, "primary")
 	})); err != nil {
 		t.Fatalf("Use() error = %v", err)
@@ -219,7 +219,7 @@ func TestRunRegistersAndStartsProviders(t *testing.T) {
 	var calls []string
 	provider := testProvider{
 		name: "api",
-		register: func(app *coreruntime.App) error {
+		register: func(app *runtime.App) error {
 			if got := app.Container().MustGet(keyDatabase); got != "primary" {
 				t.Fatalf("provider register database = %v, want primary", got)
 			}
@@ -251,7 +251,7 @@ func TestRunRegistersAndStartsProviders(t *testing.T) {
 }
 
 func TestRunRollsBackStartedProviders(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	startErr := errors.New("start failed")
 	var calls []string
 	if err := app.Register(
@@ -309,29 +309,29 @@ func TestRunRollsBackStartedProviders(t *testing.T) {
 }
 
 func TestAppContextDefaultsToBackground(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if app.Context() == nil {
 		t.Fatalf("Context() must not return nil")
 	}
 }
 
 func TestNilContractsReturnErrors(t *testing.T) {
-	app := coreruntime.New()
-	if !errors.Is(app.Use(nil), coreruntime.ErrCapabilityNil) {
+	app := runtime.New()
+	if !errors.Is(app.Use(nil), runtime.ErrCapabilityNil) {
 		t.Fatalf("Use(nil) must return ErrCapabilityNil")
 	}
-	if !errors.Is(app.Register(nil), coreruntime.ErrProviderNil) {
+	if !errors.Is(app.Register(nil), runtime.ErrProviderNil) {
 		t.Fatalf("Register(nil) must return ErrProviderNil")
 	}
-	if !errors.Is(app.RegisterCommand(nil), coreruntime.ErrCommandNil) {
+	if !errors.Is(app.RegisterCommand(nil), runtime.ErrCommandNil) {
 		t.Fatalf("RegisterCommand(nil) must return ErrCommandNil")
 	}
-	if !errors.Is(app.Use(coreruntime.CapabilityFunc(func(*coreruntime.App) error { return nil })), coreruntime.ErrCapabilityNameRequired) {
+	if !errors.Is(app.Use(runtime.CapabilityFunc(func(*runtime.App) error { return nil })), runtime.ErrCapabilityNameRequired) {
 		t.Fatalf("Use(unnamed capability) must return ErrCapabilityNameRequired")
 	}
 }
 
-func capabilityNames(capabilities []coreruntime.Capability) []string {
+func capabilityNames(capabilities []runtime.Capability) []string {
 	names := make([]string, 0, len(capabilities))
 	for _, capability := range capabilities {
 		names = append(names, capability.Name())
@@ -339,7 +339,7 @@ func capabilityNames(capabilities []coreruntime.Capability) []string {
 	return names
 }
 
-func commandNames(commands []coreruntime.Command) []string {
+func commandNames(commands []runtime.Command) []string {
 	names := make([]string, 0, len(commands))
 	for _, command := range commands {
 		names = append(names, command.Name())

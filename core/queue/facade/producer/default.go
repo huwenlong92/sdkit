@@ -1,7 +1,7 @@
 package producer
 
 import (
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
@@ -17,7 +17,7 @@ func From(app *runtime.App) Client {
 	if !ok {
 		return nil
 	}
-	client, _ := value.(corequeue.Client)
+	client, _ := value.(queue.Client)
 	return client
 }
 
@@ -33,17 +33,17 @@ func FromServiceContext(ctx ServiceContext) (Client, bool) {
 	if !ok {
 		return nil, false
 	}
-	client, ok := value.(corequeue.Client)
+	client, ok := value.(queue.Client)
 	if !ok || client == nil {
 		return nil, false
 	}
 	return client, true
 }
 
-func RuntimeFromServiceContext(ctx ServiceContext) *corequeue.RuntimeInstance {
+func RuntimeFromServiceContext(ctx ServiceContext) *queue.RuntimeInstance {
 	client, ok := FromServiceContext(ctx)
 	if !ok {
 		return nil
 	}
-	return corequeue.NewRuntimeInstanceFromParts(corequeue.RuntimeParts{Client: client})
+	return queue.NewRuntimeInstanceFromParts(queue.RuntimeParts{Client: client})
 }

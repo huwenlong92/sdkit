@@ -3,7 +3,7 @@ package storage
 import (
 	"context"
 
-	coreconfig "github.com/huwenlong92/sdkit/core/config"
+	"github.com/huwenlong92/sdkit/core/config"
 	"github.com/huwenlong92/sdkit/core/runtime"
 	corestorage "github.com/huwenlong92/sdkit/core/storage"
 )
@@ -117,12 +117,12 @@ func Use(opts ...UseOption) runtime.Capability {
 }
 
 func loadConfigFromCore(*runtime.App) (Config, error) {
-	if coreconfig.V == nil {
+	if config.V == nil {
 		return DefaultConfig(), nil
 	}
-	if coreconfig.V.IsSet("storage") {
+	if config.V.IsSet("storage") {
 		var cfg Config
-		if err := coreconfig.V.UnmarshalKey("storage", &cfg); err != nil {
+		if err := config.V.UnmarshalKey("storage", &cfg); err != nil {
 			return Config{}, err
 		}
 		return cfg, nil

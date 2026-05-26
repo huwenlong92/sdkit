@@ -4,7 +4,7 @@ import (
 	"context"
 
 	coreconfig "github.com/huwenlong92/sdkit/core/config"
-	eventbusfacade "github.com/huwenlong92/sdkit/core/eventbus/facade"
+	eventbus "github.com/huwenlong92/sdkit/core/eventbus/facade"
 	corerealtime "github.com/huwenlong92/sdkit/core/realtime"
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
@@ -63,7 +63,7 @@ func Use(opts ...UseOption) runtime.Capability {
 
 	dependencies := []runtime.Dependency{
 		runtime.OptionalBootstrap(),
-		runtime.Require(eventbusfacade.Name),
+		runtime.Require(eventbus.Name),
 	}
 	dependencies = append(dependencies, o.dependencies...)
 
@@ -102,7 +102,7 @@ func Use(opts ...UseOption) runtime.Capability {
 
 		service := o.service
 		if service == nil {
-			eventbusService := eventbusfacade.From(app)
+			eventbusService := eventbus.From(app)
 			if eventbusService == nil || eventbusService.Bus() == nil {
 				return ErrEventBusNotConfigured
 			}

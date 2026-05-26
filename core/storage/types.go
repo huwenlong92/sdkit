@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	pkgfs "github.com/huwenlong92/sdkit/pkg/storage"
-	fscore "github.com/huwenlong92/sdkit/pkg/storage/core"
+	"github.com/huwenlong92/sdkit/pkg/storage/core"
 )
 
 const (
@@ -18,9 +18,9 @@ const (
 	OperationSource   = pkgfs.OperationSource
 	OperationToken    = pkgfs.OperationToken
 
-	UploadModeLocalChunk   = fscore.UploadModeLocalChunk
-	UploadModeDirectPut    = fscore.UploadModeDirectPut
-	UploadModeMultipartPut = fscore.UploadModeMultipartPut
+	UploadModeLocalChunk   = core.UploadModeLocalChunk
+	UploadModeDirectPut    = core.UploadModeDirectPut
+	UploadModeMultipartPut = core.UploadModeMultipartPut
 
 	HookBeforeUpload        = pkgfs.HookBeforeUpload
 	HookAfterUpload         = pkgfs.HookAfterUpload
@@ -46,23 +46,23 @@ const (
 )
 
 var (
-	ErrFileTooBig             = fscore.ErrFileTooBig
-	ErrFileExists             = fscore.ErrFileExists
-	ErrFileNotFound           = fscore.ErrFileNotFound
-	ErrNameInvalid            = fscore.ErrNameInvalid
-	ErrUnknownDriver          = fscore.ErrUnknownDriver
-	ErrSourceExpired          = fscore.ErrSourceExpired
-	ErrSourceSignatureInvalid = fscore.ErrSourceSignatureInvalid
-	ErrSourceSecretRequired   = fscore.ErrSourceSecretRequired
+	ErrFileTooBig             = core.ErrFileTooBig
+	ErrFileExists             = core.ErrFileExists
+	ErrFileNotFound           = core.ErrFileNotFound
+	ErrNameInvalid            = core.ErrNameInvalid
+	ErrUnknownDriver          = core.ErrUnknownDriver
+	ErrSourceExpired          = core.ErrSourceExpired
+	ErrSourceSignatureInvalid = core.ErrSourceSignatureInvalid
+	ErrSourceSecretRequired   = core.ErrSourceSecretRequired
 )
 
 type (
-	FileHeader       = fscore.FileHeader
-	FileInfo         = fscore.FileInfo
-	FileStream       = fscore.FileStream
-	Handler          = fscore.Handler
-	Object           = fscore.Object
-	UploadCredential = fscore.UploadCredential
+	FileHeader       = core.FileHeader
+	FileInfo         = core.FileInfo
+	FileStream       = core.FileStream
+	Handler          = core.Handler
+	Object           = core.Object
+	UploadCredential = core.UploadCredential
 
 	Event             = pkgfs.Event
 	Hook              = pkgfs.Hook
@@ -84,7 +84,7 @@ type (
 )
 
 func NewFileStream(reader io.Reader, info FileInfo) *FileStream {
-	return fscore.NewFileStream(reader, info)
+	return core.NewFileStream(reader, info)
 }
 
 func SourceHandler(fs *FileSystem, secret string) http.Handler {

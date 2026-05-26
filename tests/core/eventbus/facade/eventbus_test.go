@@ -9,8 +9,8 @@ import (
 
 	coreeventbus "github.com/huwenlong92/sdkit/core/eventbus"
 	eventbuscap "github.com/huwenlong92/sdkit/core/eventbus/facade"
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
-	eventbusmemory "github.com/huwenlong92/sdkit/pkg/eventbus/memory"
+	"github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/pkg/eventbus/memory"
 
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -90,7 +90,7 @@ func TestWithoutDefaultStillClosesOwnedBus(t *testing.T) {
 
 func TestReusesExistingDefaultWithoutOwning(t *testing.T) {
 	resetDefault(t)
-	bus := eventbusmemory.New()
+	bus := memory.New()
 	coreeventbus.SetDefaultWithDriver(bus, eventbuscap.DriverMemory)
 
 	capability, err := eventbuscap.New(eventbuscap.Config{Driver: eventbuscap.DriverMemory})
@@ -114,7 +114,7 @@ func TestReusesExistingDefaultWithoutOwning(t *testing.T) {
 func TestInjectedBusCloseOwnership(t *testing.T) {
 	t.Run("unowned clears default but keeps bus open", func(t *testing.T) {
 		resetDefault(t)
-		bus := eventbusmemory.New()
+		bus := memory.New()
 		capability, err := eventbuscap.New(eventbuscap.Config{Driver: eventbuscap.DriverMemory}, eventbuscap.WithBus(bus, eventbuscap.DriverMemory))
 		if err != nil {
 			t.Fatalf("New: %v", err)
@@ -136,7 +136,7 @@ func TestInjectedBusCloseOwnership(t *testing.T) {
 
 	t.Run("owned closes bus and clears default", func(t *testing.T) {
 		resetDefault(t)
-		bus := eventbusmemory.New()
+		bus := memory.New()
 		capability, err := eventbuscap.New(eventbuscap.Config{Driver: eventbuscap.DriverMemory}, eventbuscap.WithOwnedBus(bus, eventbuscap.DriverMemory))
 		if err != nil {
 			t.Fatalf("New: %v", err)
@@ -217,7 +217,7 @@ func TestDriverErrors(t *testing.T) {
 
 	t.Run("default mismatch", func(t *testing.T) {
 		resetDefault(t)
-		coreeventbus.SetDefaultWithDriver(eventbusmemory.New(), eventbuscap.DriverMemory)
+		coreeventbus.SetDefaultWithDriver(memory.New(), eventbuscap.DriverMemory)
 		client := goredis.NewClient(&goredis.Options{Addr: "127.0.0.1:0"})
 		t.Cleanup(func() { _ = client.Close() })
 		_, err := eventbuscap.New(eventbuscap.Config{Driver: eventbuscap.DriverRedis}, eventbuscap.WithRedisClient(client))
@@ -229,7 +229,7 @@ func TestDriverErrors(t *testing.T) {
 
 func TestRuntimeUseBindsEventBusCapability(t *testing.T) {
 	resetDefault(t)
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.Use(eventbuscap.Use(eventbuscap.WithConfig(eventbuscap.Config{Driver: eventbuscap.DriverMemory}))); err != nil {
 		t.Fatalf("Use: %v", err)
 	}

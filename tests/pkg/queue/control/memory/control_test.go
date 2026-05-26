@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 	memorycontrol "github.com/huwenlong92/sdkit/pkg/queue/control/memory"
 )
 
@@ -16,7 +16,7 @@ func TestMemoryLockerTokenGuard(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("Lock() ok=%v err=%v", ok, err)
 	}
-	if _, ok, err := locker.Lock(context.Background(), "task:1", time.Minute); !errors.Is(err, corequeue.ErrLockNotAcquired) || ok {
+	if _, ok, err := locker.Lock(context.Background(), "task:1", time.Minute); !errors.Is(err, queue.ErrLockNotAcquired) || ok {
 		t.Fatalf("second Lock() ok=%v err=%v", ok, err)
 	}
 	if err := unlock(context.Background()); err != nil {
@@ -49,13 +49,13 @@ func TestMemoryRateLimiter(t *testing.T) {
 		t.Fatalf("first Allow() ok=%v err=%v", ok, err)
 	}
 	ok, retryIn, err := limiter.Allow(context.Background(), "tenant:1", 1, time.Minute)
-	if ok || !corequeue.IsRateLimitError(err) || retryIn <= 0 {
+	if ok || !queue.IsRateLimitError(err) || retryIn <= 0 {
 		t.Fatalf("second Allow() ok=%v retry=%s err=%v", ok, retryIn, err)
 	}
 }
 
 func TestMemoryControlImplementsCoreInterfaces(t *testing.T) {
-	var _ corequeue.Locker = memorycontrol.NewLocker()
-	var _ corequeue.Idempotency = memorycontrol.NewIdempotency()
-	var _ corequeue.RateLimiter = memorycontrol.NewRateLimiter()
+	var _ queue.Locker = memorycontrol.NewLocker()
+	var _ queue.Idempotency = memorycontrol.NewIdempotency()
+	var _ queue.RateLimiter = memorycontrol.NewRateLimiter()
 }

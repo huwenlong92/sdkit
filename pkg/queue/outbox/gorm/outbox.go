@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/jsonx"
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -62,14 +62,14 @@ type outboxOptions struct {
 
 type GormOutbox struct {
 	db     *gorm.DB
-	client corequeue.Client
+	client queue.Client
 }
 
-func New(db *gorm.DB, client corequeue.Client) *GormOutbox {
+func New(db *gorm.DB, client queue.Client) *GormOutbox {
 	return NewGormOutbox(db, client)
 }
 
-func NewGormOutbox(db *gorm.DB, client corequeue.Client) *GormOutbox {
+func NewGormOutbox(db *gorm.DB, client queue.Client) *GormOutbox {
 	return &GormOutbox{db: db, client: client}
 }
 
@@ -79,18 +79,18 @@ func Migrate(ctx context.Context, db *gorm.DB) error {
 
 func MigrateOutbox(ctx context.Context, db *gorm.DB) error {
 	if db == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	return db.WithContext(ctx).AutoMigrate(&OutboxRecord{})
 }
 
-func (o *GormOutbox) Save(ctx context.Context, task corequeue.Task, opts ...corequeue.Option) error {
-	return o.SaveBatch(ctx, corequeue.NewOutboxTask(task, opts...))
+func (o *GormOutbox) Save(ctx context.Context, task queue.Task, opts ...queue.Option) error {
+	return o.SaveBatch(ctx, queue.NewOutboxTask(task, opts...))
 }
 
-func (o *GormOutbox) SaveBatch(ctx context.Context, tasks ...corequeue.OutboxTask) error {
+func (o *GormOutbox) SaveBatch(ctx context.Context, tasks ...queue.OutboxTask) error {
 	if o == nil || o.db == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	if len(tasks) == 0 {
 		return nil
@@ -107,18 +107,18 @@ func (o *GormOutbox) SaveBatch(ctx context.Context, tasks ...corequeue.OutboxTas
 	return o.db.WithContext(ctx).Create(&records).Error
 }
 
-func outboxRecordFromTask(ctx context.Context, task corequeue.Task, availableAt time.Time, opts ...corequeue.Option) (OutboxRecord, error) {
+func outboxRecordFromTask(ctx context.Context, task queue.Task, availableAt time.Time, opts ...queue.Option) (OutboxRecord, error) {
 	if task.Type == "" {
 		return OutboxRecord{}, fmt.Errorf("queue outbox task type is required")
 	}
-	payload, err := corequeue.MarshalPayload(task.Payload)
+	payload, err := queue.MarshalPayload(task.Payload)
 	if err != nil {
 		return OutboxRecord{}, err
 	}
 	if len(payload) == 0 {
 		payload = []byte("{}")
 	}
-	applied := corequeue.ApplyOptions(opts)
+	applied := queue.ApplyOptions(opts)
 	if task.Queue != "" {
 		applied.Queue = task.Queue
 	}
@@ -134,11 +134,11 @@ func outboxRecordFromTask(ctx context.Context, task corequeue.Task, availableAt 
 	}
 	headers, err := jsonBytes(headersMap)
 	if err != nil {
-		return OutboxRecord{}, fmt.Errorf("%w: %v", corequeue.ErrInvalidPayload, err)
+		return OutboxRecord{}, fmt.Errorf("%w: %v", queue.ErrInvalidPayload, err)
 	}
 	options, err := jsonBytes(toOutboxOptions(applied))
 	if err != nil {
-		return OutboxRecord{}, fmt.Errorf("%w: %v", corequeue.ErrInvalidPayload, err)
+		return OutboxRecord{}, fmt.Errorf("%w: %v", queue.ErrInvalidPayload, err)
 	}
 	return OutboxRecord{
 		TaskID:      applied.TaskID,
@@ -154,7 +154,7 @@ func outboxRecordFromTask(ctx context.Context, task corequeue.Task, availableAt 
 
 func (o *GormOutbox) Flush(ctx context.Context, limit int) error {
 	if o == nil || o.db == nil || o.client == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	if limit <= 0 {
 		limit = 100
@@ -192,7 +192,7 @@ func (o *GormOutbox) flushOne(ctx context.Context, tx *gorm.DB, row OutboxRecord
 		return markOutboxFailed(tx, row, err)
 	}
 	enqueueCtx := outboxEnqueueContext(ctx, headers)
-	_, err = o.client.Enqueue(enqueueCtx, corequeue.Task{
+	_, err = o.client.Enqueue(enqueueCtx, queue.Task{
 		ID:      row.TaskID,
 		Type:    row.Type,
 		Queue:   row.Queue,
@@ -200,7 +200,7 @@ func (o *GormOutbox) flushOne(ctx context.Context, tx *gorm.DB, row OutboxRecord
 		Headers: headers,
 	}, opts...)
 	if err != nil {
-		if errors.Is(err, corequeue.ErrTaskDuplicated) {
+		if errors.Is(err, queue.ErrTaskDuplicated) {
 			return markOutboxSent(tx, row)
 		}
 		_ = markOutboxFailed(tx, row, err)
@@ -236,7 +236,7 @@ func markOutboxFailed(tx *gorm.DB, row OutboxRecord, err error) error {
 		}).Error
 }
 
-func toOutboxOptions(opts corequeue.EnqueueOptions) outboxOptions {
+func toOutboxOptions(opts queue.EnqueueOptions) outboxOptions {
 	out := outboxOptions{
 		Queue:            opts.Queue,
 		TaskID:           opts.TaskID,
@@ -262,49 +262,49 @@ func toOutboxOptions(opts corequeue.EnqueueOptions) outboxOptions {
 	return out
 }
 
-func fromOutboxOptions(opts outboxOptions) []corequeue.Option {
-	out := make([]corequeue.Option, 0, 14)
+func fromOutboxOptions(opts outboxOptions) []queue.Option {
+	out := make([]queue.Option, 0, 14)
 	if opts.Queue != "" {
-		out = append(out, corequeue.Queue(opts.Queue))
+		out = append(out, queue.Queue(opts.Queue))
 	}
 	if opts.TaskID != "" {
-		out = append(out, corequeue.TaskID(opts.TaskID))
+		out = append(out, queue.TaskID(opts.TaskID))
 	}
 	if opts.MaxRetry != nil {
-		out = append(out, corequeue.MaxRetry(*opts.MaxRetry))
+		out = append(out, queue.MaxRetry(*opts.MaxRetry))
 	}
 	if opts.Timeout > 0 {
-		out = append(out, corequeue.Timeout(time.Duration(opts.Timeout)))
+		out = append(out, queue.Timeout(time.Duration(opts.Timeout)))
 	}
 	if opts.Deadline != nil {
-		out = append(out, corequeue.Deadline(*opts.Deadline))
+		out = append(out, queue.Deadline(*opts.Deadline))
 	}
 	if opts.ProcessAt != nil {
-		out = append(out, corequeue.ProcessAt(*opts.ProcessAt))
+		out = append(out, queue.ProcessAt(*opts.ProcessAt))
 	}
 	if opts.ProcessIn > 0 {
-		out = append(out, corequeue.ProcessIn(time.Duration(opts.ProcessIn)))
+		out = append(out, queue.ProcessIn(time.Duration(opts.ProcessIn)))
 	}
 	if opts.UniqueTTL > 0 {
-		out = append(out, corequeue.Unique(time.Duration(opts.UniqueTTL)))
+		out = append(out, queue.Unique(time.Duration(opts.UniqueTTL)))
 	}
 	if opts.Retention > 0 {
-		out = append(out, corequeue.Retention(time.Duration(opts.Retention)))
+		out = append(out, queue.Retention(time.Duration(opts.Retention)))
 	}
 	if opts.Group != "" {
-		out = append(out, corequeue.Group(opts.Group))
+		out = append(out, queue.Group(opts.Group))
 	}
 	if opts.Priority != 0 {
-		out = append(out, corequeue.WithPriority(opts.Priority))
+		out = append(out, queue.WithPriority(opts.Priority))
 	}
 	if opts.RateLimitKey != "" {
-		out = append(out, corequeue.WithRateLimitKey(opts.RateLimitKey))
+		out = append(out, queue.WithRateLimitKey(opts.RateLimitKey))
 	}
 	if opts.Trace != nil {
-		out = append(out, corequeue.WithTrace(*opts.Trace))
+		out = append(out, queue.WithTrace(*opts.Trace))
 	}
 	if opts.AutoRetryEnabled {
-		out = append(out, corequeue.AutoRetry(opts.AutoRetryMax, time.Duration(opts.AutoRetryDelay)))
+		out = append(out, queue.AutoRetry(opts.AutoRetryMax, time.Duration(opts.AutoRetryDelay)))
 	}
 	return out
 }
@@ -329,26 +329,26 @@ func decodeHeaders(raw datatypes.JSON) (map[string]string, error) {
 	}
 	var headers map[string]string
 	if err := jsonx.Unmarshal(raw, &headers); err != nil {
-		return nil, fmt.Errorf("%w: %v", corequeue.ErrInvalidPayload, err)
+		return nil, fmt.Errorf("%w: %v", queue.ErrInvalidPayload, err)
 	}
 	return headers, nil
 }
 
-func decodeOutboxOptions(raw datatypes.JSON) ([]corequeue.Option, error) {
+func decodeOutboxOptions(raw datatypes.JSON) ([]queue.Option, error) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
 	var opts outboxOptions
 	if err := jsonx.Unmarshal(raw, &opts); err != nil {
-		return nil, fmt.Errorf("%w: %v", corequeue.ErrInvalidPayload, err)
+		return nil, fmt.Errorf("%w: %v", queue.ErrInvalidPayload, err)
 	}
 	return fromOutboxOptions(opts), nil
 }
 
 func outboxHeadersFromContext(ctx context.Context) map[string]string {
-	return corequeue.CorrelationHeadersFromContext(ctx)
+	return queue.CorrelationHeadersFromContext(ctx)
 }
 
 func outboxEnqueueContext(ctx context.Context, headers map[string]string) context.Context {
-	return corequeue.ContextFromCorrelationHeaders(ctx, headers)
+	return queue.ContextFromCorrelationHeaders(ctx, headers)
 }

@@ -5,13 +5,13 @@ import (
 	"time"
 
 	pkgfs "github.com/huwenlong92/sdkit/pkg/storage"
-	fscore "github.com/huwenlong92/sdkit/pkg/storage/core"
+	"github.com/huwenlong92/sdkit/pkg/storage/core"
 )
 
 type FileSystem = pkgfs.FileSystem
-type Policy = fscore.StoragePolicy
+type Policy = core.StoragePolicy
 type Option = pkgfs.Option
-type DriverConfig = fscore.DriverConfig
+type DriverConfig = core.DriverConfig
 
 const (
 	DefaultStoreName = "default"
@@ -41,8 +41,8 @@ type StoreConfig struct {
 	Dir           string `mapstructure:"dir" yaml:"dir"`
 	LocalDir      string `mapstructure:"local_dir" yaml:"local_dir"`
 
-	Policy       Policy              `mapstructure:"policy" yaml:"policy"`
-	DriverConfig fscore.DriverConfig `mapstructure:",remain" yaml:",inline"`
+	Policy       Policy            `mapstructure:"policy" yaml:"policy"`
+	DriverConfig core.DriverConfig `mapstructure:",remain" yaml:",inline"`
 }
 
 type Config struct {
@@ -67,7 +67,7 @@ func (c StoreConfig) Clone() StoreConfig {
 	return next
 }
 
-func (c StoreConfig) storageConfig() fscore.Config {
+func (c StoreConfig) storageConfig() core.Config {
 	policy := c.Policy
 	policy.Driver = firstNonEmpty(policy.Driver, c.Driver)
 	policy.Name = firstNonEmpty(policy.Name, c.Name)
@@ -80,7 +80,7 @@ func (c StoreConfig) storageConfig() fscore.Config {
 	policy.SecretKey = firstNonEmpty(policy.SecretKey, c.SecretKey, c.AccessSecret)
 	policy.LocalDir = firstNonEmpty(policy.LocalDir, c.LocalDir, c.Dir)
 
-	return fscore.Config{
+	return core.Config{
 		Driver:            firstNonEmpty(c.Driver, policy.Driver),
 		TempDir:           c.TempDir,
 		MaxSize:           c.MaxSize,
@@ -105,11 +105,11 @@ func cloneStores(stores map[string]StoreConfig) map[string]StoreConfig {
 	return clone
 }
 
-func cloneDriverConfig(cfg fscore.DriverConfig) fscore.DriverConfig {
+func cloneDriverConfig(cfg core.DriverConfig) core.DriverConfig {
 	if cfg == nil {
 		return nil
 	}
-	clone := make(fscore.DriverConfig, len(cfg))
+	clone := make(core.DriverConfig, len(cfg))
 	for driver, values := range cfg {
 		next := make(map[string]any, len(values))
 		for key, value := range values {

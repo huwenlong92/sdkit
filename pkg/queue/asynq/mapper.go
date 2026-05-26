@@ -3,35 +3,35 @@ package asynq
 import (
 	"time"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 
 	hibasynq "github.com/hibiken/asynq"
 )
 
-func mapAsynqState(s hibasynq.TaskState) corequeue.TaskState {
+func mapAsynqState(s hibasynq.TaskState) queue.TaskState {
 	switch s {
 	case hibasynq.TaskStatePending:
-		return corequeue.StatePending
+		return queue.StatePending
 	case hibasynq.TaskStateActive:
-		return corequeue.StateActive
+		return queue.StateActive
 	case hibasynq.TaskStateScheduled:
-		return corequeue.StateScheduled
+		return queue.StateScheduled
 	case hibasynq.TaskStateRetry:
-		return corequeue.StateRetry
+		return queue.StateRetry
 	case hibasynq.TaskStateArchived:
-		return corequeue.StateArchived
+		return queue.StateArchived
 	case hibasynq.TaskStateCompleted:
-		return corequeue.StateSucceeded
+		return queue.StateSucceeded
 	default:
-		return corequeue.StateUnknown
+		return queue.StateUnknown
 	}
 }
 
-func fromAsynqTaskInfo(info *hibasynq.TaskInfo) *corequeue.TaskInfo {
+func fromAsynqTaskInfo(info *hibasynq.TaskInfo) *queue.TaskInfo {
 	if info == nil {
 		return nil
 	}
-	out := &corequeue.TaskInfo{
+	out := &queue.TaskInfo{
 		ID:        info.ID,
 		Queue:     info.Queue,
 		Type:      info.Type,
@@ -69,15 +69,15 @@ func fromAsynqTaskInfo(info *hibasynq.TaskInfo) *corequeue.TaskInfo {
 	return out
 }
 
-func fromAsynqQueueInfo(info *hibasynq.QueueInfo) *corequeue.QueueInfo {
+func fromAsynqQueueInfo(info *hibasynq.QueueInfo) *queue.QueueInfo {
 	if info == nil {
 		return nil
 	}
-	state := corequeue.QueueRunning
+	state := queue.QueueRunning
 	if info.Paused {
-		state = corequeue.QueuePaused
+		state = queue.QueuePaused
 	}
-	return &corequeue.QueueInfo{
+	return &queue.QueueInfo{
 		Name:      info.Queue,
 		State:     state,
 		Pending:   int64(info.Pending),
@@ -93,14 +93,14 @@ func fromAsynqQueueInfo(info *hibasynq.QueueInfo) *corequeue.QueueInfo {
 	}
 }
 
-func taskMetaFromHeaders(headers map[string]string) corequeue.TaskMeta {
-	return corequeue.TaskMeta{
-		TrackID:   corequeue.TrackIDFromHeaders(headers),
-		RequestID: corequeue.RequestIDFromHeaders(headers),
-		TraceID:   corequeue.TraceIDFromHeaders(headers),
-		SpanID:    corequeue.SpanIDFromHeaders(headers),
-		TenantID:  corequeue.CorrelationHeaderValue(headers, "tenant_id"),
-		UserID:    corequeue.CorrelationHeaderValue(headers, "user_id"),
+func taskMetaFromHeaders(headers map[string]string) queue.TaskMeta {
+	return queue.TaskMeta{
+		TrackID:   queue.TrackIDFromHeaders(headers),
+		RequestID: queue.RequestIDFromHeaders(headers),
+		TraceID:   queue.TraceIDFromHeaders(headers),
+		SpanID:    queue.SpanIDFromHeaders(headers),
+		TenantID:  queue.CorrelationHeaderValue(headers, "tenant_id"),
+		UserID:    queue.CorrelationHeaderValue(headers, "user_id"),
 	}
 }
 

@@ -4,16 +4,16 @@ import (
 	"context"
 	"testing"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 )
 
 func TestRegistryRegisterSkipsNilMiddleware(t *testing.T) {
 	runner := &runtimeRunner{}
-	registry := corequeue.NewRegistry(runner)
-	var nilMiddleware corequeue.Middleware
+	registry := queue.NewRegistry(runner)
+	var nilMiddleware queue.Middleware
 	called := false
 
-	err := registry.Register("example:task", nilMiddleware, func(context.Context, *corequeue.Message) error {
+	err := registry.Register("example:task", nilMiddleware, func(context.Context, *queue.Message) error {
 		called = true
 		return nil
 	})
@@ -34,13 +34,13 @@ func TestRegistryRegisterSkipsNilMiddleware(t *testing.T) {
 
 func TestRegistryRegisterAllRegistersEntries(t *testing.T) {
 	runner := &runtimeRunner{}
-	registry := corequeue.NewRegistry(runner)
+	registry := queue.NewRegistry(runner)
 
 	err := registry.RegisterAll(
-		corequeue.Register("example:one", func(context.Context, *corequeue.Message) error {
+		queue.Register("example:one", func(context.Context, *queue.Message) error {
 			return nil
 		}),
-		corequeue.Register("example:two", func(context.Context, *corequeue.Message) error {
+		queue.Register("example:two", func(context.Context, *queue.Message) error {
 			return nil
 		}),
 	)

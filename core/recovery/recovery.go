@@ -6,7 +6,7 @@ import (
 	"os"
 	"runtime/debug"
 
-	apperrors "github.com/huwenlong92/sdkit/core/errors"
+	"github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/core/logger"
 
@@ -52,7 +52,7 @@ func Middleware(opts ...MiddlewareOption) gin.HandlerFunc {
 					zap.String("stack", string(debug.Stack())),
 				)
 
-				ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, apperrors.NewCodeWithData(apperrors.CodeInternal, "服务器内部错误", nil))
+				ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, errors.NewCodeWithData(errors.CodeInternal, "服务器内部错误", nil))
 			}
 		}()
 		c.Next()

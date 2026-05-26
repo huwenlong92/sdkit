@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
 func TestPhase5StopStopsProvidersThenCapabilitiesInReverseOrder(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var calls []string
 	if err := app.Use(
 		testCapability{
 			name:     "logger",
-			register: func(*coreruntime.App) error { return nil },
+			register: func(*runtime.App) error { return nil },
 			shutdown: func(context.Context) error {
 				calls = append(calls, "logger.shutdown")
 				return nil
@@ -26,7 +26,7 @@ func TestPhase5StopStopsProvidersThenCapabilitiesInReverseOrder(t *testing.T) {
 		},
 		testCapability{
 			name:     "redis",
-			register: func(*coreruntime.App) error { return nil },
+			register: func(*runtime.App) error { return nil },
 			shutdown: func(context.Context) error {
 				calls = append(calls, "redis.shutdown")
 				return nil
@@ -71,7 +71,7 @@ func TestPhase5StopStopsProvidersThenCapabilitiesInReverseOrder(t *testing.T) {
 }
 
 func TestPhase5StopCancelsRuntimeContext(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.Run(context.Background()); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
@@ -87,7 +87,7 @@ func TestPhase5StopCancelsRuntimeContext(t *testing.T) {
 }
 
 func TestPhase5StopTimeoutReturnsDeadlineExceeded(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.Register(testProvider{
 		name: "slow",
 		stop: func(ctx context.Context) error {
@@ -109,7 +109,7 @@ func TestPhase5StopTimeoutReturnsDeadlineExceeded(t *testing.T) {
 }
 
 func TestPhase5SignalStopsApp(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	var stopped bool
 	if err := app.Register(testProvider{
 		name: "api",
@@ -125,7 +125,7 @@ func TestPhase5SignalStopsApp(t *testing.T) {
 	}
 
 	signals := make(chan os.Signal, 1)
-	errCh := coreruntime.StopOnSignal(context.Background(), app, signals)
+	errCh := runtime.StopOnSignal(context.Background(), app, signals)
 	signals <- syscall.SIGINT
 
 	select {

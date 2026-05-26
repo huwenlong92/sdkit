@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/logger"
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 
 	hibasynq "github.com/hibiken/asynq"
 	"go.opentelemetry.io/otel"
@@ -17,18 +17,18 @@ import (
 )
 
 type Queue struct {
-	cfg       corequeue.Config
-	runtime   corequeue.RuntimeOptions
+	cfg       queue.Config
+	runtime   queue.RuntimeOptions
 	client    *hibasynq.Client
 	server    *hibasynq.Server
 	mux       *hibasynq.ServeMux
 	inspector *hibasynq.Inspector
-	mws       []corequeue.Middleware
+	mws       []queue.Middleware
 }
 
-func New(cfg corequeue.Config, opts ...corequeue.RuntimeOption) *Queue {
+func New(cfg queue.Config, opts ...queue.RuntimeOption) *Queue {
 	cfg = cfg.Normalize()
-	runtime := corequeue.ApplyRuntimeOptions(opts)
+	runtime := queue.ApplyRuntimeOptions(opts)
 	redis := hibasynq.RedisClientOpt{
 		Addr:     cfg.Addr,
 		Password: cfg.Password,
@@ -51,26 +51,26 @@ func New(cfg corequeue.Config, opts ...corequeue.RuntimeOption) *Queue {
 	}
 }
 
-func (q *Queue) Supports(cap corequeue.Capability) bool {
+func (q *Queue) Supports(cap queue.Capability) bool {
 	return capabilities()[cap]
 }
 
-func (q *Queue) Capabilities() map[corequeue.Capability]bool {
-	return corequeue.CloneCapabilities(capabilities())
+func (q *Queue) Capabilities() map[queue.Capability]bool {
+	return queue.CloneCapabilities(capabilities())
 }
 
-func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequeue.Option) (*corequeue.TaskInfo, error) {
+func (q *Queue) Enqueue(ctx context.Context, task queue.Task, opts ...queue.Option) (*queue.TaskInfo, error) {
 	if q == nil || q.client == nil {
-		return nil, corequeue.ErrNotInitialized
+		return nil, queue.ErrNotInitialized
 	}
 	if task.Type == "" {
 		return nil, fmt.Errorf("queue: task type is required")
 	}
-	payload, err := corequeue.MarshalPayload(task.Payload)
+	payload, err := queue.MarshalPayload(task.Payload)
 	if err != nil {
 		return nil, err
 	}
-	applied := corequeue.ApplyOptions(opts)
+	applied := queue.ApplyOptions(opts)
 	if task.Queue != "" {
 		applied.Queue = task.Queue
 	}
@@ -114,11 +114,11 @@ func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequ
 	return out, nil
 }
 
-func (q *Queue) BatchEnqueue(ctx context.Context, tasks []corequeue.Task, opts ...corequeue.Option) ([]*corequeue.TaskInfo, error) {
+func (q *Queue) BatchEnqueue(ctx context.Context, tasks []queue.Task, opts ...queue.Option) ([]*queue.TaskInfo, error) {
 	if len(tasks) == 0 {
 		return nil, nil
 	}
-	out := make([]*corequeue.TaskInfo, 0, len(tasks))
+	out := make([]*queue.TaskInfo, 0, len(tasks))
 	for _, task := range tasks {
 		info, err := q.Enqueue(ctx, task, opts...)
 		if err != nil {
@@ -129,7 +129,7 @@ func (q *Queue) BatchEnqueue(ctx context.Context, tasks []corequeue.Task, opts .
 	return out, nil
 }
 
-func (q *Queue) Handle(pattern string, handler corequeue.HandlerFunc) {
+func (q *Queue) Handle(pattern string, handler queue.HandlerFunc) {
 	if q == nil || q.mux == nil {
 		return
 	}
@@ -142,21 +142,21 @@ func (q *Queue) Handle(pattern string, handler corequeue.HandlerFunc) {
 	})
 }
 
-func (q *Queue) Use(middlewares ...corequeue.Middleware) {
+func (q *Queue) Use(middlewares ...queue.Middleware) {
 	if q == nil {
 		return
 	}
 	q.mws = append(q.mws, middlewares...)
 }
 
-func handleAsynqTask(ctx context.Context, task *hibasynq.Task, handler corequeue.HandlerFunc) (err error) {
+func handleAsynqTask(ctx context.Context, task *hibasynq.Task, handler queue.HandlerFunc) (err error) {
 	ctx = contextFromTaskHeaders(ctx, task.Headers())
 
 	id, _ := hibasynq.GetTaskID(ctx)
 	queueName, _ := hibasynq.GetQueueName(ctx)
 	retried, _ := hibasynq.GetRetryCount(ctx)
 	maxRetry, _ := hibasynq.GetMaxRetry(ctx)
-	msg := &corequeue.Message{
+	msg := &queue.Message{
 		ID:         id,
 		Type:       task.Type(),
 		Payload:    task.Payload(),
@@ -165,7 +165,7 @@ func handleAsynqTask(ctx context.Context, task *hibasynq.Task, handler corequeue
 		MaxRetry:   maxRetry,
 		Headers:    cloneHeaders(task.Headers()),
 	}
-	ctx = corequeue.ContextWithMessage(ctx, msg)
+	ctx = queue.ContextWithMessage(ctx, msg)
 	ctx = contextWithMessageFields(ctx, msg)
 
 	ctx, span := startWorkerSpan(ctx, msg)
@@ -188,11 +188,11 @@ func handleAsynqTask(ctx context.Context, task *hibasynq.Task, handler corequeue
 
 func asynqRetryDelay() hibasynq.RetryDelayFunc {
 	return func(n int, err error, task *hibasynq.Task) time.Duration {
-		var rateLimitErr *corequeue.RateLimitError
+		var rateLimitErr *queue.RateLimitError
 		if errors.As(err, &rateLimitErr) && rateLimitErr.RetryIn > 0 {
 			return rateLimitErr.RetryIn
 		}
-		if runtimeErr, ok := corequeue.RuntimeErrorFrom(err); ok && runtimeErr.RetryIn > 0 {
+		if runtimeErr, ok := queue.RuntimeErrorFrom(err); ok && runtimeErr.RetryIn > 0 {
 			return runtimeErr.RetryIn
 		}
 		return hibasynq.DefaultRetryDelayFunc(n, err, task)
@@ -200,14 +200,14 @@ func asynqRetryDelay() hibasynq.RetryDelayFunc {
 }
 
 func taskHeadersFromContext(ctx context.Context) map[string]string {
-	return corequeue.CorrelationHeadersFromContext(ctx)
+	return queue.CorrelationHeadersFromContext(ctx)
 }
 
 func contextFromTaskHeaders(ctx context.Context, headers map[string]string) context.Context {
-	return corequeue.ContextFromCorrelationHeaders(ctx, headers)
+	return queue.ContextFromCorrelationHeaders(ctx, headers)
 }
 
-func startWorkerSpan(ctx context.Context, msg *corequeue.Message) (context.Context, oteltrace.Span) {
+func startWorkerSpan(ctx context.Context, msg *queue.Message) (context.Context, oteltrace.Span) {
 	attrs := []attribute.KeyValue{
 		attribute.String("messaging.system", "asynq"),
 		attribute.String("messaging.operation", "process"),
@@ -231,7 +231,7 @@ func startWorkerSpan(ctx context.Context, msg *corequeue.Message) (context.Conte
 	return ctx, span
 }
 
-func startEnqueueSpan(ctx context.Context, taskType string, opts corequeue.EnqueueOptions) (context.Context, oteltrace.Span) {
+func startEnqueueSpan(ctx context.Context, taskType string, opts queue.EnqueueOptions) (context.Context, oteltrace.Span) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -251,10 +251,10 @@ func startEnqueueSpan(ctx context.Context, taskType string, opts corequeue.Enque
 }
 
 func setQueueCorrelationAttributes(ctx context.Context, span oteltrace.Span) {
-	corequeue.SetSpanCorrelationAttributes(ctx, span)
+	queue.SetSpanCorrelationAttributes(ctx, span)
 }
 
-func contextWithMessageFields(ctx context.Context, msg *corequeue.Message) context.Context {
+func contextWithMessageFields(ctx context.Context, msg *queue.Message) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}

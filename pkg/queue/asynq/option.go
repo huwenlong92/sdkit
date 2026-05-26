@@ -5,25 +5,25 @@ import (
 	"fmt"
 	"strings"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 
 	hibasynq "github.com/hibiken/asynq"
 )
 
-func validateOptions(opts corequeue.EnqueueOptions) error {
+func validateOptions(opts queue.EnqueueOptions) error {
 	if opts.Priority != 0 {
-		return unsupported("asynq", corequeue.CapPriority)
+		return unsupported("asynq", queue.CapPriority)
 	}
 	if opts.RateLimitKey != "" {
-		return unsupported("asynq", corequeue.CapRateLimit)
+		return unsupported("asynq", queue.CapRateLimit)
 	}
-	if opts.UniqueTTL > 0 && !capabilities()[corequeue.CapUnique] {
-		return unsupported("asynq", corequeue.CapUnique)
+	if opts.UniqueTTL > 0 && !capabilities()[queue.CapUnique] {
+		return unsupported("asynq", queue.CapUnique)
 	}
 	return nil
 }
 
-func asynqOptions(opts corequeue.EnqueueOptions) []hibasynq.Option {
+func asynqOptions(opts queue.EnqueueOptions) []hibasynq.Option {
 	out := make([]hibasynq.Option, 0, 9)
 	if opts.Queue != "" {
 		out = append(out, hibasynq.Queue(opts.Queue))
@@ -58,7 +58,7 @@ func asynqOptions(opts corequeue.EnqueueOptions) []hibasynq.Option {
 	return out
 }
 
-func listOptions(query corequeue.TaskQuery) []hibasynq.ListOption {
+func listOptions(query queue.TaskQuery) []hibasynq.ListOption {
 	limit := query.Limit
 	if limit <= 0 {
 		limit = 30
@@ -77,7 +77,7 @@ func mapEnqueueError(err error) error {
 	if errors.Is(err, hibasynq.ErrDuplicateTask) ||
 		errors.Is(err, hibasynq.ErrTaskIDConflict) ||
 		strings.Contains(err.Error(), "task already exists") {
-		return fmt.Errorf("%w: %v", corequeue.ErrTaskDuplicated, err)
+		return fmt.Errorf("%w: %v", queue.ErrTaskDuplicated, err)
 	}
 	return err
 }

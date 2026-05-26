@@ -1,7 +1,7 @@
 package ratelimit
 
 import (
-	rlMiddleware "github.com/huwenlong92/sdkit/core/ratelimit/middleware"
+	"github.com/huwenlong92/sdkit/core/ratelimit/middleware"
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
@@ -13,5 +13,5 @@ func From(app *runtime.App) Store {
 			}
 		}
 	}
-	return rlMiddleware.CustomStore
+	return middleware.CustomStore
 }

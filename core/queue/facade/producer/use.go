@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
-	redisfacade "github.com/huwenlong92/sdkit/core/redis/facade"
+	"github.com/huwenlong92/sdkit/core/queue"
+	redis "github.com/huwenlong92/sdkit/core/redis/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
@@ -20,7 +20,7 @@ type useOptions struct {
 	configLoader ConfigLoader
 	producer     Producer
 	dependencies []runtime.Dependency
-	runtimeOpts  []corequeue.RuntimeInstanceOption
+	runtimeOpts  []queue.RuntimeInstanceOption
 	internal     bool
 }
 
@@ -59,7 +59,7 @@ func WithDependencies(deps ...runtime.Dependency) UseOption {
 	}
 }
 
-func WithRuntimeOptions(opts ...corequeue.RuntimeInstanceOption) UseOption {
+func WithRuntimeOptions(opts ...queue.RuntimeInstanceOption) UseOption {
 	return func(o *useOptions) {
 		o.runtimeOpts = append(o.runtimeOpts, opts...)
 	}
@@ -84,7 +84,7 @@ func Use(opts ...UseOption) runtime.Capability {
 
 	dependencies := []runtime.Dependency{
 		runtime.OptionalBootstrap(),
-		runtime.Optional(redisfacade.Name),
+		runtime.Optional(redis.Name),
 	}
 	dependencies = append(dependencies, o.dependencies...)
 
@@ -111,14 +111,14 @@ func Use(opts ...UseOption) runtime.Capability {
 
 		producer := o.producer
 		if producer == nil && hasConfig {
-			client, err := corequeue.NewClient(config)
+			client, err := queue.NewClient(config)
 			if err != nil {
 				return err
 			}
 			if len(o.runtimeOpts) > 0 {
-				instanceOpts := []corequeue.RuntimeInstanceOption{corequeue.WithRuntimeMetadata(corequeue.RuntimeMetadataFromConfig("", "", config))}
+				instanceOpts := []queue.RuntimeInstanceOption{queue.WithRuntimeMetadata(queue.RuntimeMetadataFromConfig("", "", config))}
 				instanceOpts = append(instanceOpts, o.runtimeOpts...)
-				producer = corequeue.NewRuntimeInstanceFromParts(corequeue.RuntimeParts{Client: client}, instanceOpts...)
+				producer = queue.NewRuntimeInstanceFromParts(queue.RuntimeParts{Client: client}, instanceOpts...)
 			} else {
 				producer = client
 			}

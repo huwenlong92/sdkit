@@ -3,7 +3,7 @@ package casbin
 import (
 	"net/http"
 
-	apperrors "github.com/huwenlong92/sdkit/core/errors"
+	"github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/ginresponder"
 
 	"github.com/gin-gonic/gin"
@@ -72,7 +72,7 @@ func Middleware(opts ...MiddlewareOption) gin.HandlerFunc {
 		act := c.Request.Method
 		allowed, err := cfg.Manager.Enforce(role, obj, act)
 		if err != nil || !allowed {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusForbidden, apperrors.NewCodeWithData(apperrors.CodeForbidden, "无权访问该接口", nil))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusForbidden, errors.NewCodeWithData(errors.CodeForbidden, "无权访问该接口", nil))
 			return
 		}
 		c.Next()

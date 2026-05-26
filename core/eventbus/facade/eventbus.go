@@ -9,10 +9,10 @@ import (
 	"sync"
 
 	coreeventbus "github.com/huwenlong92/sdkit/core/eventbus"
-	eventbusmemory "github.com/huwenlong92/sdkit/pkg/eventbus/memory"
-	eventbusnats "github.com/huwenlong92/sdkit/pkg/eventbus/nats"
+	"github.com/huwenlong92/sdkit/pkg/eventbus/memory"
+	"github.com/huwenlong92/sdkit/pkg/eventbus/nats"
 	eventbusredis "github.com/huwenlong92/sdkit/pkg/eventbus/redis"
-	eventbusstream "github.com/huwenlong92/sdkit/pkg/eventbus/redisstream"
+	"github.com/huwenlong92/sdkit/pkg/eventbus/redisstream"
 
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -227,7 +227,7 @@ func attachBus(bus coreeventbus.Bus, driver string, setDefault bool, ownsBus boo
 func buildBus(cfg Config, option options) (coreeventbus.Bus, error) {
 	switch cfg.Driver {
 	case DriverMemory:
-		return eventbusmemory.New(), nil
+		return memory.New(), nil
 	case DriverRedis:
 		if option.redis == nil {
 			return nil, fmt.Errorf("%w: driver=%s", ErrRedisClientRequired, DriverRedis)
@@ -238,13 +238,13 @@ func buildBus(cfg Config, option options) (coreeventbus.Bus, error) {
 			return nil, fmt.Errorf("%w: driver=%s", ErrRedisClientRequired, DriverRedisStream)
 		}
 		nodeName := eventBusNodeName(cfg)
-		return eventbusstream.New(option.redis, cfg.TopicPrefix, nodeName, nodeName, eventbusstream.WithMaxLen(cfg.StreamMaxLen)), nil
+		return redisstream.New(option.redis, cfg.TopicPrefix, nodeName, nodeName, redisstream.WithMaxLen(cfg.StreamMaxLen)), nil
 	case DriverNATS:
 		subjectPrefix := cfg.SubjectPrefix
 		if subjectPrefix == "" {
 			subjectPrefix = strings.ReplaceAll(cfg.TopicPrefix, ":", ".")
 		}
-		return eventbusnats.New(cfg.Addr, subjectPrefix)
+		return nats.New(cfg.Addr, subjectPrefix)
 	default:
 		return nil, fmt.Errorf("eventbus driver %q is invalid, want memory, redis, redis_stream, or nats", cfg.Driver)
 	}

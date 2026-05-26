@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/huwenlong92/sdkit/core/payment"
-	paymentpaypal "github.com/huwenlong92/sdkit/pkg/payment/paypal"
+	"github.com/huwenlong92/sdkit/pkg/payment/paypal"
 )
 
 type client struct{}
@@ -34,7 +34,7 @@ func (c *client) QueryRefund(context.Context, payment.QueryRefundRequest) (*paym
 }
 
 func TestPayPalAdapterCapabilities(t *testing.T) {
-	adapter, err := paymentpaypal.NewAdapter(paymentpaypal.Config{ClientMode: paymentpaypal.ClientModeStatic, Client: &client{}})
+	adapter, err := paypal.NewAdapter(paypal.Config{ClientMode: paypal.ClientModeStatic, Client: &client{}})
 	if err != nil {
 		t.Fatalf("new adapter: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestPayPalAdapterCapabilities(t *testing.T) {
 }
 
 func TestPayPalAdapterCreatePayment(t *testing.T) {
-	adapter, err := paymentpaypal.NewAdapter(paymentpaypal.Config{ClientMode: paymentpaypal.ClientModeStatic, Client: &client{}})
+	adapter, err := paypal.NewAdapter(paypal.Config{ClientMode: paypal.ClientModeStatic, Client: &client{}})
 	if err != nil {
 		t.Fatalf("new adapter: %v", err)
 	}
@@ -83,8 +83,8 @@ func TestPayPalAdapterCreatePayment(t *testing.T) {
 func TestPayPalAdapterDynamicClientLoaderCleansUp(t *testing.T) {
 	calls := 0
 	cleanups := 0
-	adapter, err := paymentpaypal.NewAdapter(paymentpaypal.Config{
-		ClientLoader: paymentpaypal.ClientLoaderFunc(func(ctx context.Context, merchantKey string) (paymentpaypal.Client, paymentpaypal.ClientCleanup, error) {
+	adapter, err := paypal.NewAdapter(paypal.Config{
+		ClientLoader: paypal.ClientLoaderFunc(func(ctx context.Context, merchantKey string) (paypal.Client, paypal.ClientCleanup, error) {
 			calls++
 			if merchantKey != "school_a" {
 				t.Fatalf("merchant key = %q", merchantKey)

@@ -5,16 +5,16 @@ import (
 	"testing"
 
 	"github.com/huwenlong92/sdkit/core/payment"
-	paymentmock "github.com/huwenlong92/sdkit/pkg/payment/mock"
+	"github.com/huwenlong92/sdkit/pkg/payment/mock"
 )
 
 func TestMockAdapterWorksWithServiceCreatePayment(t *testing.T) {
-	adapter := paymentmock.New(
+	adapter := mock.New(
 		payment.ProviderAggregate,
-		paymentmock.WithChannels(payment.ChannelAggregateForm),
-		paymentmock.WithCurrencies("CNY"),
-		paymentmock.WithActions(payment.ActionHTMLForm),
-		paymentmock.WithAction(payment.PaymentAction{
+		mock.WithChannels(payment.ChannelAggregateForm),
+		mock.WithCurrencies("CNY"),
+		mock.WithActions(payment.ActionHTMLForm),
+		mock.WithAction(payment.PaymentAction{
 			Type:   payment.ActionHTMLForm,
 			URL:    "https://pay.example.test/form",
 			Fields: map[string]string{"token": "abc"},
@@ -51,11 +51,11 @@ func TestMockAdapterWorksWithServiceCreatePayment(t *testing.T) {
 }
 
 func TestMockAdapterNotify(t *testing.T) {
-	adapter := paymentmock.New(
+	adapter := mock.New(
 		payment.ProviderWechat,
-		paymentmock.WithChannels(payment.ChannelWechatApp),
-		paymentmock.WithAllCoreCapabilities(),
-		paymentmock.WithParseNotify(func(_ context.Context, req payment.NotifyRequest) (*payment.NotifyResult, error) {
+		mock.WithChannels(payment.ChannelWechatApp),
+		mock.WithAllCoreCapabilities(),
+		mock.WithParseNotify(func(_ context.Context, req payment.NotifyRequest) (*payment.NotifyResult, error) {
 			return &payment.NotifyResult{
 				Verified: true,
 				Event: &payment.PaymentEvent{
@@ -95,11 +95,11 @@ func TestMockAdapterNotify(t *testing.T) {
 }
 
 func TestMockAdapterRefundAndQueryRefund(t *testing.T) {
-	adapter := paymentmock.New(
+	adapter := mock.New(
 		payment.ProviderWechat,
-		paymentmock.WithChannels(payment.ChannelWechatApp),
-		paymentmock.WithCurrencies("CNY"),
-		paymentmock.WithAllCoreCapabilities(),
+		mock.WithChannels(payment.ChannelWechatApp),
+		mock.WithCurrencies("CNY"),
+		mock.WithAllCoreCapabilities(),
 	)
 	registry := payment.NewRegistry()
 	if err := registry.Register(adapter); err != nil {

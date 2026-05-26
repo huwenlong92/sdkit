@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
 type managedCommandProvider struct {
@@ -18,39 +18,39 @@ func (p managedCommandProvider) RuntimeManaged() bool {
 }
 
 func TestDefaultServeCommandMetadataAndArgs(t *testing.T) {
-	cmd := coreruntime.NewServeCommand()
+	cmd := runtime.NewServeCommand()
 	if cmd.Name() != "serve" {
 		t.Fatalf("Name() = %s, want serve", cmd.Name())
 	}
-	if metadata := cmd.Metadata(); metadata.Name != "serve" || metadata.Group != coreruntime.GroupSystem {
+	if metadata := cmd.Metadata(); metadata.Name != "serve" || metadata.Group != runtime.GroupSystem {
 		t.Fatalf("Metadata() = %+v, want serve system command", metadata)
 	}
-	if err := cmd.Run(context.Background(), coreruntime.New(), []string{"api"}); err == nil {
+	if err := cmd.Run(context.Background(), runtime.New(), []string{"api"}); err == nil {
 		t.Fatal("Run() with args must return error")
 	}
 }
 
 func TestDefaultRunCommandMetadataAndArgs(t *testing.T) {
-	cmd := coreruntime.NewRunCommand()
+	cmd := runtime.NewRunCommand()
 	if cmd.Name() != "run" {
 		t.Fatalf("Name() = %s, want run", cmd.Name())
 	}
-	if metadata := cmd.Metadata(); metadata.Name != "run" || metadata.Group != coreruntime.GroupSystem {
+	if metadata := cmd.Metadata(); metadata.Name != "run" || metadata.Group != runtime.GroupSystem {
 		t.Fatalf("Metadata() = %+v, want run system command", metadata)
 	}
-	if err := cmd.Run(context.Background(), coreruntime.New(), nil); err == nil {
+	if err := cmd.Run(context.Background(), runtime.New(), nil); err == nil {
 		t.Fatal("Run() without provider name must return error")
 	}
 }
 
 func TestDefaultServeCommandWaitsForManagedProviderStop(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	started := make(chan struct{})
 	stopped := make(chan struct{})
 	if err := app.Register(managedCommandProvider{
 		testProvider: testProvider{
 			name:     "api",
-			metadata: coreruntime.ProviderMetadata{Mode: coreruntime.ProviderModeJob},
+			metadata: runtime.ProviderMetadata{Mode: runtime.ProviderModeJob},
 			start: func(context.Context) error {
 				close(started)
 				return nil
@@ -66,7 +66,7 @@ func TestDefaultServeCommandWaitsForManagedProviderStop(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- coreruntime.NewServeCommand().Run(context.Background(), app, nil)
+		done <- runtime.NewServeCommand().Run(context.Background(), app, nil)
 	}()
 
 	select {
@@ -99,7 +99,7 @@ func TestDefaultServeCommandWaitsForManagedProviderStop(t *testing.T) {
 }
 
 func TestDefaultRunCommandFallsBackToRuntimeRunProvider(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.Register(testProvider{
 		name: "job",
 		start: func(context.Context) error {
@@ -108,7 +108,7 @@ func TestDefaultRunCommandFallsBackToRuntimeRunProvider(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
-	if err := coreruntime.NewRunCommand().Run(context.Background(), app, []string{"job"}); err == nil {
+	if err := runtime.NewRunCommand().Run(context.Background(), app, []string{"job"}); err == nil {
 		t.Fatal("Run() must return provider error")
 	}
 }

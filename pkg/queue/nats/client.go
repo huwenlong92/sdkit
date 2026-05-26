@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 
 	natsgo "github.com/nats-io/nats.go"
 	"go.opentelemetry.io/otel"
@@ -20,14 +20,14 @@ import (
 )
 
 type Queue struct {
-	cfg           corequeue.Config
+	cfg           queue.Config
 	conn          *natsgo.Conn
 	js            natsgo.JetStreamContext
 	stream        string
 	subjectPrefix string
 	durablePrefix string
-	handlers      map[string]corequeue.HandlerFunc
-	mws           []corequeue.Middleware
+	handlers      map[string]queue.HandlerFunc
+	mws           []queue.Middleware
 	subs          []*natsgo.Subscription
 	done          chan struct{}
 	closeOnce     sync.Once
@@ -47,7 +47,7 @@ type envelope struct {
 	Headers        map[string]string `json:"headers,omitempty"`
 }
 
-func New(cfg corequeue.Config) (*Queue, error) {
+func New(cfg queue.Config) (*Queue, error) {
 	cfg = cfg.Normalize()
 	addr := strings.TrimSpace(cfg.Addr)
 	if addr == "" {
@@ -72,7 +72,7 @@ func New(cfg corequeue.Config) (*Queue, error) {
 		stream:        cfg.NATS.Stream,
 		subjectPrefix: strings.TrimSuffix(cfg.NATS.SubjectPrefix, "."),
 		durablePrefix: cfg.NATS.DurablePrefix,
-		handlers:      map[string]corequeue.HandlerFunc{},
+		handlers:      map[string]queue.HandlerFunc{},
 		done:          make(chan struct{}),
 	}
 	if err := q.ensureStream(); err != nil {
@@ -82,21 +82,21 @@ func New(cfg corequeue.Config) (*Queue, error) {
 	return q, nil
 }
 
-func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequeue.Option) (*corequeue.TaskInfo, error) {
+func (q *Queue) Enqueue(ctx context.Context, task queue.Task, opts ...queue.Option) (*queue.TaskInfo, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if q == nil || q.js == nil {
-		return nil, corequeue.ErrNotInitialized
+		return nil, queue.ErrNotInitialized
 	}
 	if task.Type == "" {
 		return nil, fmt.Errorf("queue: task type is required")
 	}
-	payload, err := corequeue.MarshalPayload(task.Payload)
+	payload, err := queue.MarshalPayload(task.Payload)
 	if err != nil {
 		return nil, err
 	}
-	applied := corequeue.ApplyOptions(opts)
+	applied := queue.ApplyOptions(opts)
 	if task.Queue != "" {
 		applied.Queue = task.Queue
 	}
@@ -114,9 +114,9 @@ func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequ
 		}
 		span.End()
 	}()
-	queueName := firstNonEmpty(applied.Queue, corequeue.DefaultQueueName)
+	queueName := firstNonEmpty(applied.Queue, queue.DefaultQueueName)
 	maxRetry, maxRetrySet := q.maxRetryValue(applied.MaxRetry)
-	headers := corequeue.CorrelationHeadersFromContext(ctx)
+	headers := queue.CorrelationHeadersFromContext(ctx)
 	for k, v := range task.Headers {
 		if headers == nil {
 			headers = map[string]string{}
@@ -154,18 +154,18 @@ func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequ
 		return nil, err
 	}
 	if ack != nil && ack.Duplicate {
-		return nil, corequeue.ErrTaskDuplicated
+		return nil, queue.ErrTaskDuplicated
 	}
 	now := time.Now()
 	span.SetAttributes(
 		attribute.String("messaging.message.id", env.ID),
 		attribute.String("messaging.destination.name", env.Queue),
 	)
-	return &corequeue.TaskInfo{
+	return &queue.TaskInfo{
 		ID:        env.ID,
 		Type:      env.Type,
 		Queue:     env.Queue,
-		State:     corequeue.StatePending,
+		State:     queue.StatePending,
 		Payload:   payload,
 		Headers:   headers,
 		MaxRetry:  env.MaxRetry,
@@ -175,27 +175,27 @@ func (q *Queue) Enqueue(ctx context.Context, task corequeue.Task, opts ...corequ
 	}, nil
 }
 
-func validateOptions(opts corequeue.EnqueueOptions) error {
+func validateOptions(opts queue.EnqueueOptions) error {
 	if !opts.Deadline.IsZero() {
-		return unsupported(corequeue.CapDeadline)
+		return unsupported(queue.CapDeadline)
 	}
 	if opts.ProcessIn > 0 || !opts.ProcessAt.IsZero() {
-		return unsupported(corequeue.CapDelay)
+		return unsupported(queue.CapDelay)
 	}
 	if opts.UniqueTTL > 0 {
-		return unsupported(corequeue.CapUnique)
+		return unsupported(queue.CapUnique)
 	}
 	if opts.Priority != 0 {
-		return unsupported(corequeue.CapPriority)
+		return unsupported(queue.CapPriority)
 	}
 	if opts.RateLimitKey != "" {
-		return unsupported(corequeue.CapRateLimit)
+		return unsupported(queue.CapRateLimit)
 	}
 	return nil
 }
 
-func (q *Queue) BatchEnqueue(ctx context.Context, tasks []corequeue.Task, opts ...corequeue.Option) ([]*corequeue.TaskInfo, error) {
-	out := make([]*corequeue.TaskInfo, 0, len(tasks))
+func (q *Queue) BatchEnqueue(ctx context.Context, tasks []queue.Task, opts ...queue.Option) ([]*queue.TaskInfo, error) {
+	out := make([]*queue.TaskInfo, 0, len(tasks))
 	for _, task := range tasks {
 		info, err := q.Enqueue(ctx, task, opts...)
 		if err != nil {
@@ -206,7 +206,7 @@ func (q *Queue) BatchEnqueue(ctx context.Context, tasks []corequeue.Task, opts .
 	return out, nil
 }
 
-func (q *Queue) Handle(pattern string, handler corequeue.HandlerFunc) {
+func (q *Queue) Handle(pattern string, handler queue.HandlerFunc) {
 	if q == nil || handler == nil {
 		return
 	}
@@ -219,7 +219,7 @@ func (q *Queue) Handle(pattern string, handler corequeue.HandlerFunc) {
 	q.handlers[pattern] = wrapped
 }
 
-func (q *Queue) Use(middlewares ...corequeue.Middleware) {
+func (q *Queue) Use(middlewares ...queue.Middleware) {
 	if q == nil {
 		return
 	}
@@ -233,7 +233,7 @@ func (q *Queue) Run(ctx context.Context) error {
 		ctx = context.Background()
 	}
 	if q == nil || q.js == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	cfg := q.cfg.Normalize()
 	q.mu.Lock()
@@ -285,7 +285,7 @@ func (q *Queue) Close() error {
 	return nil
 }
 
-func (q *Queue) startPullLoop(ctx context.Context, sub *natsgo.Subscription, handler corequeue.HandlerFunc) {
+func (q *Queue) startPullLoop(ctx context.Context, sub *natsgo.Subscription, handler queue.HandlerFunc) {
 	cfg := q.cfg.Normalize()
 	batch := cfg.NATS.FetchBatch
 	if batch <= 0 {
@@ -335,7 +335,7 @@ func (q *Queue) startPullLoop(ctx context.Context, sub *natsgo.Subscription, han
 	}()
 }
 
-func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler corequeue.HandlerFunc) {
+func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler queue.HandlerFunc) {
 	var env envelope
 	if err := json.Unmarshal(msg.Data, &env); err != nil {
 		_ = msg.Term()
@@ -354,13 +354,13 @@ func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler corequeue.Handle
 	if meta, err := msg.Metadata(); err == nil && meta != nil && meta.NumDelivered > 0 {
 		retryCount = int(meta.NumDelivered) - 1
 	}
-	ctx := corequeue.ContextFromCorrelationHeaders(context.Background(), headers)
+	ctx := queue.ContextFromCorrelationHeaders(context.Background(), headers)
 	if env.TimeoutSeconds > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(env.TimeoutSeconds)*time.Second)
 		defer cancel()
 	}
-	queueMsg := &corequeue.Message{
+	queueMsg := &queue.Message{
 		ID:         env.ID,
 		Type:       env.Type,
 		Payload:    []byte(env.Payload),
@@ -369,7 +369,7 @@ func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler corequeue.Handle
 		MaxRetry:   env.MaxRetry,
 		Headers:    headers,
 	}
-	ctx = corequeue.ContextWithMessage(ctx, queueMsg)
+	ctx = queue.ContextWithMessage(ctx, queueMsg)
 	ctx, span := startWorkerSpan(ctx, queueMsg)
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -389,7 +389,7 @@ func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler corequeue.Handle
 	_ = msg.Ack()
 }
 
-func startWorkerSpan(ctx context.Context, msg *corequeue.Message) (context.Context, oteltrace.Span) {
+func startWorkerSpan(ctx context.Context, msg *queue.Message) (context.Context, oteltrace.Span) {
 	attrs := []attribute.KeyValue{
 		attribute.String("messaging.system", "nats"),
 		attribute.String("messaging.operation", "process"),
@@ -409,11 +409,11 @@ func startWorkerSpan(ctx context.Context, msg *corequeue.Message) (context.Conte
 		oteltrace.WithSpanKind(oteltrace.SpanKindConsumer),
 		oteltrace.WithAttributes(attrs...),
 	)
-	corequeue.SetSpanCorrelationAttributes(ctx, span)
+	queue.SetSpanCorrelationAttributes(ctx, span)
 	return ctx, span
 }
 
-func startEnqueueSpan(ctx context.Context, taskType string, opts corequeue.EnqueueOptions) (context.Context, oteltrace.Span) {
+func startEnqueueSpan(ctx context.Context, taskType string, opts queue.EnqueueOptions) (context.Context, oteltrace.Span) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -428,7 +428,7 @@ func startEnqueueSpan(ctx context.Context, taskType string, opts corequeue.Enque
 		oteltrace.WithSpanKind(oteltrace.SpanKindProducer),
 		oteltrace.WithAttributes(attrs...),
 	)
-	corequeue.SetSpanCorrelationAttributes(ctx, span)
+	queue.SetSpanCorrelationAttributes(ctx, span)
 	return ctx, span
 }
 
@@ -450,7 +450,7 @@ func (q *Queue) rejectMessage(msg *natsgo.Msg, retryCount int, taskMaxRetry int,
 
 func (q *Queue) ensureStream() error {
 	if q == nil || q.js == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	subj := q.subjectPrefix + ".>"
 	info, err := q.js.StreamInfo(q.stream)
@@ -478,59 +478,59 @@ func (q *Queue) ensureStream() error {
 	return err
 }
 
-func (q *Queue) Supports(cap corequeue.Capability) bool {
+func (q *Queue) Supports(cap queue.Capability) bool {
 	return q.Capabilities()[cap]
 }
 
-func (q *Queue) Capabilities() map[corequeue.Capability]bool {
-	return corequeue.CloneCapabilities(capabilities())
+func (q *Queue) Capabilities() map[queue.Capability]bool {
+	return queue.CloneCapabilities(capabilities())
 }
 
-func (q *Queue) ListQueues(context.Context) ([]*corequeue.QueueInfo, error) {
+func (q *Queue) ListQueues(context.Context) ([]*queue.QueueInfo, error) {
 	cfg := q.cfg.Normalize()
-	out := make([]*corequeue.QueueInfo, 0, len(cfg.Queues))
+	out := make([]*queue.QueueInfo, 0, len(cfg.Queues))
 	for name, priority := range cfg.Queues {
-		out = append(out, &corequeue.QueueInfo{Name: name, State: corequeue.QueueRunning, Priority: priority, UpdatedAt: time.Now()})
+		out = append(out, &queue.QueueInfo{Name: name, State: queue.QueueRunning, Priority: priority, UpdatedAt: time.Now()})
 	}
 	return out, nil
 }
 
-func (q *Queue) GetQueue(_ context.Context, queueName string) (*corequeue.QueueInfo, error) {
+func (q *Queue) GetQueue(_ context.Context, queueName string) (*queue.QueueInfo, error) {
 	cfg := q.cfg.Normalize()
 	priority := cfg.Queues[queueName]
-	return &corequeue.QueueInfo{Name: queueName, State: corequeue.QueueRunning, Priority: priority, UpdatedAt: time.Now()}, nil
+	return &queue.QueueInfo{Name: queueName, State: queue.QueueRunning, Priority: priority, UpdatedAt: time.Now()}, nil
 }
 
-func (q *Queue) ListTasks(context.Context, corequeue.TaskQuery) ([]*corequeue.TaskInfo, error) {
-	return nil, unsupported(corequeue.CapInspector)
+func (q *Queue) ListTasks(context.Context, queue.TaskQuery) ([]*queue.TaskInfo, error) {
+	return nil, unsupported(queue.CapInspector)
 }
 
-func (q *Queue) GetTask(context.Context, string, string) (*corequeue.TaskInfo, error) {
-	return nil, unsupported(corequeue.CapInspector)
+func (q *Queue) GetTask(context.Context, string, string) (*queue.TaskInfo, error) {
+	return nil, unsupported(queue.CapInspector)
 }
 
 func (q *Queue) DeleteTask(context.Context, string, string) error {
-	return unsupported(corequeue.CapCancel)
+	return unsupported(queue.CapCancel)
 }
 
 func (q *Queue) RetryTask(context.Context, string, string) error {
-	return unsupported(corequeue.CapInspector)
+	return unsupported(queue.CapInspector)
 }
 
 func (q *Queue) ArchiveTask(context.Context, string, string) error {
-	return unsupported(corequeue.CapInspector)
+	return unsupported(queue.CapInspector)
 }
 
 func (q *Queue) CancelTask(context.Context, string, string) error {
-	return unsupported(corequeue.CapCancel)
+	return unsupported(queue.CapCancel)
 }
 
 func (q *Queue) PauseQueue(context.Context, string) error {
-	return unsupported(corequeue.CapPauseResume)
+	return unsupported(queue.CapPauseResume)
 }
 
 func (q *Queue) ResumeQueue(context.Context, string) error {
-	return unsupported(corequeue.CapPauseResume)
+	return unsupported(queue.CapPauseResume)
 }
 
 func (q *Queue) subject(queueName string, taskType string) string {
@@ -601,4 +601,4 @@ func maxInt(a int, b int) int {
 	return b
 }
 
-var _ corequeue.QueueRunner = (*Queue)(nil)
+var _ queue.QueueRunner = (*Queue)(nil)

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
-	redisfacade "github.com/huwenlong92/sdkit/core/redis/facade"
+	"github.com/huwenlong92/sdkit/core/queue"
+	redis "github.com/huwenlong92/sdkit/core/redis/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
@@ -19,7 +19,7 @@ type useOptions struct {
 	hasConfig    bool
 	configLoader ConfigLoader
 	dependencies []runtime.Dependency
-	runtimeOpts  []corequeue.RuntimeInstanceOption
+	runtimeOpts  []queue.RuntimeInstanceOption
 	internal     bool
 }
 
@@ -48,7 +48,7 @@ func WithDependencies(deps ...runtime.Dependency) UseOption {
 	}
 }
 
-func WithRuntimeOptions(opts ...corequeue.RuntimeInstanceOption) UseOption {
+func WithRuntimeOptions(opts ...queue.RuntimeInstanceOption) UseOption {
 	return func(o *useOptions) {
 		o.runtimeOpts = append(o.runtimeOpts, opts...)
 	}
@@ -73,11 +73,11 @@ func Use(opts ...UseOption) runtime.Capability {
 
 	dependencies := []runtime.Dependency{
 		runtime.OptionalBootstrap(),
-		runtime.Optional(redisfacade.Name),
+		runtime.Optional(redis.Name),
 	}
 	dependencies = append(dependencies, o.dependencies...)
 
-	var registered *corequeue.RuntimeInstance
+	var registered *queue.RuntimeInstance
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
 		Name:        string(o.name),
 		Description: "Queue operations",
@@ -99,22 +99,22 @@ func Use(opts ...UseOption) runtime.Capability {
 			return ErrOperationsConfigRequired
 		}
 		queueCfg := cfg.Queue
-		client, err := corequeue.NewClient(queueCfg)
+		client, err := queue.NewClient(queueCfg)
 		if err != nil {
 			return err
 		}
-		manager, err := corequeue.NewManager(queueCfg)
+		manager, err := queue.NewManager(queueCfg)
 		if err != nil {
 			_ = client.Close()
 			return err
 		}
 		metadata := cfg.Metadata
 		if isZeroMetadata(metadata) {
-			metadata = corequeue.RuntimeMetadataFromConfig("", "", queueCfg)
+			metadata = queue.RuntimeMetadataFromConfig("", "", queueCfg)
 		}
-		instanceOpts := []corequeue.RuntimeInstanceOption{corequeue.WithRuntimeMetadata(metadata)}
+		instanceOpts := []queue.RuntimeInstanceOption{queue.WithRuntimeMetadata(metadata)}
 		instanceOpts = append(instanceOpts, o.runtimeOpts...)
-		registered = corequeue.NewRuntimeInstanceFromParts(corequeue.RuntimeParts{Client: client, Manager: manager}, instanceOpts...)
+		registered = queue.NewRuntimeInstanceFromParts(queue.RuntimeParts{Client: client, Manager: manager}, instanceOpts...)
 		return app.Container().Bind(o.name, registered)
 	}, func(context.Context) error {
 		if registered == nil {
@@ -124,7 +124,7 @@ func Use(opts ...UseOption) runtime.Capability {
 	})
 }
 
-func isZeroMetadata(metadata corequeue.RuntimeMetadata) bool {
+func isZeroMetadata(metadata queue.RuntimeMetadata) bool {
 	return metadata.Name == "" &&
 		metadata.Service == "" &&
 		metadata.Driver == "" &&

@@ -3,12 +3,12 @@ package asynq
 import (
 	"context"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 )
 
 func (q *Queue) Run(ctx context.Context) error {
 	if q == nil || q.server == nil || q.mux == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	errCh := make(chan error, 1)
 	go func() {

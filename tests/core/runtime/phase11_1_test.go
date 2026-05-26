@@ -6,18 +6,18 @@ import (
 	"testing"
 	"time"
 
-	coreruntime "github.com/huwenlong92/sdkit/core/runtime"
+	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
 func TestPhase111ServiceModeRunsUntilRuntimeStop(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	started := make(chan struct{})
 	stopped := make(chan struct{})
 	runErr := make(chan error, 1)
 
 	if err := app.Register(testProvider{
 		name:     "api",
-		metadata: coreruntime.ProviderMetadata{Mode: coreruntime.ProviderModeService},
+		metadata: runtime.ProviderMetadata{Mode: runtime.ProviderModeService},
 		start: func(ctx context.Context) error {
 			close(started)
 			<-ctx.Done()
@@ -40,7 +40,7 @@ func TestPhase111ServiceModeRunsUntilRuntimeStop(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("service provider did not start")
 	}
-	waitProviderStatus(t, app, "api", coreruntime.StatusRunning)
+	waitProviderStatus(t, app, "api", runtime.StatusRunning)
 
 	if err := app.Stop(context.Background()); err != nil {
 		t.Fatalf("Stop() error = %v", err)
@@ -61,33 +61,33 @@ func TestPhase111ServiceModeRunsUntilRuntimeStop(t *testing.T) {
 }
 
 func TestPhase111ServiceModeReturningEarlyFails(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.Register(testProvider{
 		name:     "api",
-		metadata: coreruntime.ProviderMetadata{Mode: coreruntime.ProviderModeService},
+		metadata: runtime.ProviderMetadata{Mode: runtime.ProviderModeService},
 		start:    func(context.Context) error { return nil },
 		stop:     func(context.Context) error { return nil },
 	}); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
 
-	if err := app.Run(context.Background()); !errors.Is(err, coreruntime.ErrProviderServiceExited) {
+	if err := app.Run(context.Background()); !errors.Is(err, runtime.ErrProviderServiceExited) {
 		t.Fatalf("Run() error = %v, want ErrProviderServiceExited", err)
 	}
 	health := app.ProviderStatus("api")
-	if health.Status != coreruntime.StatusFailed {
+	if health.Status != runtime.StatusFailed {
 		t.Fatalf("ProviderStatus(api) = %s, want failed", health.Status)
 	}
-	if !errors.Is(health.Error, coreruntime.ErrProviderServiceExited) {
+	if !errors.Is(health.Error, runtime.ErrProviderServiceExited) {
 		t.Fatalf("ProviderStatus(api).Error = %v, want ErrProviderServiceExited", health.Error)
 	}
 }
 
 func TestPhase111JobModeMayComplete(t *testing.T) {
-	app := coreruntime.New()
+	app := runtime.New()
 	if err := app.Register(testProvider{
 		name:     "migration",
-		metadata: coreruntime.ProviderMetadata{Mode: coreruntime.ProviderModeJob},
+		metadata: runtime.ProviderMetadata{Mode: runtime.ProviderModeJob},
 		start:    func(context.Context) error { return nil },
 		stop:     func(context.Context) error { return nil },
 	}); err != nil {
@@ -98,7 +98,7 @@ func TestPhase111JobModeMayComplete(t *testing.T) {
 	if !ok {
 		t.Fatal("Provider(migration) not found")
 	}
-	if mode := coreruntime.ProviderModeOf(provider); mode != coreruntime.ProviderModeJob {
+	if mode := runtime.ProviderModeOf(provider); mode != runtime.ProviderModeJob {
 		t.Fatalf("ProviderModeOf(migration) = %s, want job", mode)
 	}
 	if err := app.Run(context.Background()); err != nil {
@@ -106,7 +106,7 @@ func TestPhase111JobModeMayComplete(t *testing.T) {
 	}
 }
 
-func waitProviderStatus(t *testing.T, app *coreruntime.App, name string, want coreruntime.Status) {
+func waitProviderStatus(t *testing.T, app *runtime.App, name string, want runtime.Status) {
 	t.Helper()
 	deadline := time.After(time.Second)
 	tick := time.NewTicker(time.Millisecond)

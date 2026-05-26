@@ -9,7 +9,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/security/audit"
 	"github.com/huwenlong92/sdkit/core/security/risk"
 	"github.com/huwenlong92/sdkit/core/security/state"
-	securitycrypto "github.com/huwenlong92/sdkit/pkg/security/crypto"
+	"github.com/huwenlong92/sdkit/pkg/security/crypto"
 )
 
 var ErrMissingSecret = errors.New("security signature: missing secret")
@@ -70,8 +70,8 @@ func (c *SignatureChecker) Check(ctx context.Context, rc *risk.Context) (*risk.C
 			return &risk.CheckResult{Passed: false, Actions: []risk.Action{risk.ActionBlock}, Events: []*audit.Event{event(rc, "nonce_replay", levelHigh, 100, risk.ActionBlock, "nonce replay")}}, nil
 		}
 	}
-	expected := securitycrypto.SignHMACSHA256(c.Secret, rc.Method, rc.Path, ts, nonce, rc.Body)
-	if !securitycrypto.EqualHMACHex(signature, expected) {
+	expected := crypto.SignHMACSHA256(c.Secret, rc.Method, rc.Path, ts, nonce, rc.Body)
+	if !crypto.EqualHMACHex(signature, expected) {
 		return c.signatureFail(ctx, rc, "signature_invalid", "invalid signature")
 	}
 	return &risk.CheckResult{Passed: true, Actions: []risk.Action{risk.ActionAllow}}, nil

@@ -8,7 +8,7 @@ import (
 
 	"github.com/huwenlong92/sdkit/core/config"
 	"github.com/huwenlong92/sdkit/core/logger"
-	fscore "github.com/huwenlong92/sdkit/pkg/storage/core"
+	"github.com/huwenlong92/sdkit/pkg/storage/core"
 )
 
 func TestFilesystemConfigKeepsDriverConfig(t *testing.T) {
@@ -32,7 +32,7 @@ filesystem:
 	}
 
 	var cfg struct {
-		FileSystem fscore.Config `mapstructure:"filesystem"`
+		FileSystem core.Config `mapstructure:"filesystem"`
 	}
 	err := config.Load(path, &cfg)
 	if err != nil {

@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	apperrors "github.com/huwenlong92/sdkit/core/errors"
+	"github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/core/security"
 	"github.com/huwenlong92/sdkit/core/security/risk"
@@ -41,19 +41,19 @@ func RiskWithContext(scene string, manager *risk.Manager, fill RiskContextFunc, 
 		}
 		result, err := manager.Check(c.Request.Context(), rc)
 		if err != nil {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, apperrors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusInternalServerError, errors.NewCodeWithData(security.ErrCodeSecurityInternal, security.MsgSecurityInternal, nil))
 			return
 		}
 		if result.Blocked {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeRiskBlocked, security.MsgRiskBlocked, result))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, errors.NewCodeWithData(security.ErrCodeRiskBlocked, security.MsgRiskBlocked, result))
 			return
 		}
 		if result.NeedCaptcha {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeCaptchaRequired, security.MsgCaptchaRequired, result))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, errors.NewCodeWithData(security.ErrCodeCaptchaRequired, security.MsgCaptchaRequired, result))
 			return
 		}
 		if result.NeedVerify {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, apperrors.NewCodeWithData(security.ErrCodeVerifyRequired, security.MsgVerifyRequired, result))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusOK, errors.NewCodeWithData(security.ErrCodeVerifyRequired, security.MsgVerifyRequired, result))
 			return
 		}
 		c.Next()

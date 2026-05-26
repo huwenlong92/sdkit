@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
-	queuemiddleware "github.com/huwenlong92/sdkit/core/queue/runtime/middleware"
+	"github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue/runtime/middleware"
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
@@ -32,7 +32,7 @@ func TestRuntimeMiddlewareTracingCreatesWorkerSpan(t *testing.T) {
 	defer provider.Shutdown(context.Background())
 
 	wantErr := errors.New("worker error")
-	handler := queuemiddleware.Tracing()(func(ctx context.Context, _ *corequeue.Message) error {
+	handler := middleware.Tracing()(func(ctx context.Context, _ *queue.Message) error {
 		spanContext := oteltrace.SpanContextFromContext(ctx)
 		if !spanContext.IsValid() {
 			t.Fatal("worker tracing middleware should pass span context to handler")
@@ -42,7 +42,7 @@ func TestRuntimeMiddlewareTracingCreatesWorkerSpan(t *testing.T) {
 
 	ctx := tracking.WithTrackID(context.Background(), "track-queue")
 	ctx = requestid.WithRequestID(ctx, "request-queue")
-	err := handler(ctx, &corequeue.Message{
+	err := handler(ctx, &queue.Message{
 		ID:    "task-id",
 		Type:  "user_sync",
 		Queue: "critical",

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/huwenlong92/sdkit/core/ratelimit/keyer"
-	rlMiddleware "github.com/huwenlong92/sdkit/core/ratelimit/middleware"
+	"github.com/huwenlong92/sdkit/core/ratelimit/middleware"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 
 	"github.com/gin-gonic/gin"
@@ -20,7 +20,7 @@ func TestLimiterPerUser_Int64UserID(t *testing.T) {
 		keyer.SetSubject(c, "user", int64(1001))
 		c.Next()
 	})
-	r.Use(rlMiddleware.LimiterPerUser(0.000001, 3))
+	r.Use(middleware.LimiterPerUser(0.000001, 3))
 	r.GET("/", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
 
 	for i := 0; i < 3; i++ {
@@ -53,7 +53,7 @@ func TestLimiterPerUser_DifferentUsers(t *testing.T) {
 		}
 		c.Next()
 	})
-	r.Use(rlMiddleware.LimiterPerUser(0.000001, 3))
+	r.Use(middleware.LimiterPerUser(0.000001, 3))
 	r.GET("/", func(c *gin.Context) { c.JSON(200, gin.H{}) })
 
 	makeReq := func(uid string) *httptest.ResponseRecorder {
@@ -87,7 +87,7 @@ func TestLimiterPerUser_NoUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
-	r.Use(rlMiddleware.LimiterPerUser(0.000001, 3))
+	r.Use(middleware.LimiterPerUser(0.000001, 3))
 	r.GET("/", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
 
 	for i := 0; i < 20; i++ {
@@ -108,7 +108,7 @@ func TestLimiterPerUserRoute(t *testing.T) {
 		keyer.SetSubject(c, "user", int64(1001))
 		c.Next()
 	})
-	r.Use(rlMiddleware.LimiterPerUserRoute(0.000001, 2))
+	r.Use(middleware.LimiterPerUserRoute(0.000001, 2))
 	r.GET("/api/a", func(c *gin.Context) { c.JSON(200, gin.H{}) })
 	r.GET("/api/b", func(c *gin.Context) { c.JSON(200, gin.H{}) })
 

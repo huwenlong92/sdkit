@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	pkgcache "github.com/huwenlong92/sdkit/pkg/cache"
+	"github.com/huwenlong92/sdkit/pkg/cache"
 )
 
-var _ pkgcache.Cache = (*Store)(nil)
+var _ cache.Cache = (*Store)(nil)
 
 type memItem struct {
 	value  string

@@ -1,7 +1,7 @@
 package operations
 
 import (
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
@@ -10,15 +10,15 @@ const (
 )
 
 type Config struct {
-	Queue    corequeue.Config
-	Metadata corequeue.RuntimeMetadata
+	Queue    queue.Config
+	Metadata queue.RuntimeMetadata
 }
 
 type ConfigLoader func(app *runtime.App) (Config, error)
 
-func NewConfig(name string, service string, cfg corequeue.Config) Config {
+func NewConfig(name string, service string, cfg queue.Config) Config {
 	return Config{
 		Queue:    cfg,
-		Metadata: corequeue.RuntimeMetadataFromConfig(name, service, cfg),
+		Metadata: queue.RuntimeMetadataFromConfig(name, service, cfg),
 	}
 }

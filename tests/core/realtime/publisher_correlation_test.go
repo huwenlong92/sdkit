@@ -10,12 +10,12 @@ import (
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
-	eventbusmemory "github.com/huwenlong92/sdkit/pkg/eventbus/memory"
+	"github.com/huwenlong92/sdkit/pkg/eventbus/memory"
 	eventbuspublisher "github.com/huwenlong92/sdkit/pkg/realtime/publisher/eventbus"
 )
 
 func TestPublisherDoesNotWriteTrackIDAsRealtimeTraceID(t *testing.T) {
-	bus := eventbusmemory.New()
+	bus := memory.New()
 	got := make(chan *eventbus.Event, 1)
 
 	_, err := bus.Subscribe(context.Background(), realtime.DefaultTopic, func(_ context.Context, event *eventbus.Event) error {
@@ -63,7 +63,7 @@ func TestPublisherDoesNotWriteTrackIDAsRealtimeTraceID(t *testing.T) {
 }
 
 func TestPublisherPushRoomWritesRoomID(t *testing.T) {
-	bus := eventbusmemory.New()
+	bus := memory.New()
 	got := make(chan *eventbus.Event, 1)
 
 	_, err := bus.Subscribe(context.Background(), realtime.DefaultTopic, func(_ context.Context, event *eventbus.Event) error {
@@ -93,7 +93,7 @@ func TestPublisherPushRoomWritesRoomID(t *testing.T) {
 }
 
 func TestPublisherEventProtocolFields(t *testing.T) {
-	bus := eventbusmemory.New()
+	bus := memory.New()
 	got := make(chan *eventbus.Event, 1)
 
 	_, err := bus.Subscribe(context.Background(), realtime.DefaultTopic, func(_ context.Context, event *eventbus.Event) error {

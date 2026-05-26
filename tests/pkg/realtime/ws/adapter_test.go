@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/realtime"
-	realtimews "github.com/huwenlong92/sdkit/pkg/realtime/ws"
+	"github.com/huwenlong92/sdkit/pkg/realtime/ws"
 
 	"github.com/gorilla/websocket"
 )
@@ -19,7 +19,7 @@ import (
 func TestAdapterServesGorillaWebSocket(t *testing.T) {
 	registry := newFakeRegistry()
 	gotPayload := make(chan []byte, 1)
-	adapter := realtimews.New(registry, realtimews.Options{
+	adapter := ws.New(registry, ws.Options{
 		OnMessage: func(_ context.Context, _ *realtime.Client, payload []byte) error {
 			gotPayload <- append([]byte(nil), payload...)
 			return nil
@@ -69,7 +69,7 @@ func TestAdapterServesGorillaWebSocket(t *testing.T) {
 func TestAdapterLogsHandlerErrorsWithCommonFields(t *testing.T) {
 	registry := newFakeRegistry()
 	log := &captureLogger{}
-	adapter := realtimews.New(registry, realtimews.Options{
+	adapter := ws.New(registry, ws.Options{
 		Logger: log,
 		OnMessage: func(_ context.Context, _ *realtime.Client, _ []byte) error {
 			return errors.New("handler failed")

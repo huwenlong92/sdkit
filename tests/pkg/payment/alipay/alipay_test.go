@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/huwenlong92/sdkit/core/payment"
-	paymentalipay "github.com/huwenlong92/sdkit/pkg/payment/alipay"
+	"github.com/huwenlong92/sdkit/pkg/payment/alipay"
 )
 
 type client struct {
@@ -31,7 +31,7 @@ func (c *client) CreatePayment(_ context.Context, req payment.CreatePaymentReque
 }
 
 func TestAlipayAdapterCapabilities(t *testing.T) {
-	adapter, err := paymentalipay.NewAdapter(paymentalipay.Config{ClientMode: paymentalipay.ClientModeStatic, Client: &client{}})
+	adapter, err := alipay.NewAdapter(alipay.Config{ClientMode: alipay.ClientModeStatic, Client: &client{}})
 	if err != nil {
 		t.Fatalf("new adapter: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestAlipayAdapterCreatePaymentChannels(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &client{}
-			adapter, err := paymentalipay.NewAdapter(paymentalipay.Config{ClientMode: paymentalipay.ClientModeStatic, Client: client})
+			adapter, err := alipay.NewAdapter(alipay.Config{ClientMode: alipay.ClientModeStatic, Client: client})
 			if err != nil {
 				t.Fatalf("new adapter: %v", err)
 			}
@@ -107,8 +107,8 @@ func TestAlipayAdapterCreatePaymentChannels(t *testing.T) {
 func TestAlipayAdapterAllowsRedirectForWapAndPage(t *testing.T) {
 	for _, channel := range []payment.Channel{payment.ChannelAlipayWap, payment.ChannelAlipayPage} {
 		t.Run(string(channel), func(t *testing.T) {
-			adapter, err := paymentalipay.NewAdapter(paymentalipay.Config{
-				ClientMode: paymentalipay.ClientModeStatic,
+			adapter, err := alipay.NewAdapter(alipay.Config{
+				ClientMode: alipay.ClientModeStatic,
 				Client: &client{action: payment.PaymentAction{
 					Type: payment.ActionRedirectURL,
 					URL:  "https://openapi.alipay.example.test/pay",
@@ -132,8 +132,8 @@ func TestAlipayAdapterAllowsRedirectForWapAndPage(t *testing.T) {
 }
 
 func TestAlipayAdapterRejectsChannelActionMismatch(t *testing.T) {
-	adapter, err := paymentalipay.NewAdapter(paymentalipay.Config{
-		ClientMode: paymentalipay.ClientModeStatic,
+	adapter, err := alipay.NewAdapter(alipay.Config{
+		ClientMode: alipay.ClientModeStatic,
 		Client: &client{action: payment.PaymentAction{
 			Type: payment.ActionQRCode,
 			URL:  "https://qr.example.test",
@@ -157,8 +157,8 @@ func TestAlipayAdapterRejectsChannelActionMismatch(t *testing.T) {
 func TestAlipayAdapterDynamicClientLoaderCleansUp(t *testing.T) {
 	calls := 0
 	cleanups := 0
-	adapter, err := paymentalipay.NewAdapter(paymentalipay.Config{
-		ClientLoader: paymentalipay.ClientLoaderFunc(func(ctx context.Context, merchantKey string) (paymentalipay.Client, paymentalipay.ClientCleanup, error) {
+	adapter, err := alipay.NewAdapter(alipay.Config{
+		ClientLoader: alipay.ClientLoaderFunc(func(ctx context.Context, merchantKey string) (alipay.Client, alipay.ClientCleanup, error) {
 			calls++
 			if merchantKey != "school_a" {
 				t.Fatalf("merchant key = %q", merchantKey)

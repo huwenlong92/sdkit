@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	rlMiddleware "github.com/huwenlong92/sdkit/core/ratelimit/middleware"
+	"github.com/huwenlong92/sdkit/core/ratelimit/middleware"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 
 	"github.com/gin-gonic/gin"
@@ -19,10 +19,10 @@ func TestLimiterPerIP_Presets(t *testing.T) {
 		name string
 		fn   func() gin.HandlerFunc
 	}{
-		{"Loose", rlMiddleware.LimiterLoose},
-		{"Normal", rlMiddleware.LimiterNormal},
-		{"Strict", rlMiddleware.LimiterStrict},
-		{"Upload", rlMiddleware.LimiterUpload},
+		{"Loose", middleware.LimiterLoose},
+		{"Normal", middleware.LimiterNormal},
+		{"Strict", middleware.LimiterStrict},
+		{"Upload", middleware.LimiterUpload},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestLimiterPerIP_429(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
-	r.Use(rlMiddleware.Limiter(0.000001, 1))
+	r.Use(middleware.Limiter(0.000001, 1))
 	r.GET("/", func(c *gin.Context) { c.JSON(200, gin.H{}) })
 
 	w := httptest.NewRecorder()
@@ -65,7 +65,7 @@ func TestLimiterLogin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
-	r.Use(rlMiddleware.LimiterLogin())
+	r.Use(middleware.LimiterLogin())
 	r.GET("/login", func(c *gin.Context) { c.JSON(200, gin.H{}) })
 
 	for i := 0; i < 5; i++ {
@@ -90,7 +90,7 @@ func TestMiddleware_LimiterInterface(t *testing.T) {
 
 	tb := strategy.NewTokenBucket(100, 1)
 	r := gin.New()
-	r.Use(rlMiddleware.Middleware(tb))
+	r.Use(middleware.Middleware(tb))
 	r.GET("/test", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
 
 	w := httptest.NewRecorder()
@@ -112,7 +112,7 @@ func TestMiddlewareWithKey(t *testing.T) {
 
 	tb := strategy.NewTokenBucket(100, 1)
 	r := gin.New()
-	r.Use(rlMiddleware.MiddlewareWithKey(tb, func(c *gin.Context) string {
+	r.Use(middleware.MiddlewareWithKey(tb, func(c *gin.Context) string {
 		return c.GetHeader("X-User-Id")
 	}))
 	r.GET("/test", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
@@ -149,7 +149,7 @@ func TestBBRMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
-	r.Use(rlMiddleware.BBRNormal())
+	r.Use(middleware.BBRNormal())
 	r.GET("/test", func(c *gin.Context) {
 		time.Sleep(5 * time.Millisecond)
 		c.JSON(200, gin.H{"ok": true})

@@ -5,15 +5,15 @@ import (
 	"net/http"
 	"strings"
 
-	coreauth "github.com/huwenlong92/sdkit/core/auth"
+	"github.com/huwenlong92/sdkit/core/auth"
 	corerealtime "github.com/huwenlong92/sdkit/core/realtime"
 )
 
 type Authenticator struct {
-	Authenticator coreauth.RequestAuthenticator
+	Authenticator auth.RequestAuthenticator
 }
 
-func From(authenticator coreauth.RequestAuthenticator) corerealtime.Authenticator {
+func From(authenticator auth.RequestAuthenticator) corerealtime.Authenticator {
 	return Authenticator{Authenticator: authenticator}
 }
 
@@ -34,7 +34,7 @@ func (a Authenticator) Authenticate(ctx context.Context, r *http.Request) (*core
 	}, nil
 }
 
-func realtimeSubjectKey(identity *coreauth.Identity) string {
+func realtimeSubjectKey(identity *auth.Identity) string {
 	if identity == nil {
 		return ""
 	}

@@ -2,8 +2,8 @@ package casbin
 
 import (
 	corecasbin "github.com/huwenlong92/sdkit/core/casbin"
-	databasefacade "github.com/huwenlong92/sdkit/core/database/facade"
-	loggerfacade "github.com/huwenlong92/sdkit/core/logger/facade"
+	database "github.com/huwenlong92/sdkit/core/database/facade"
+	logger "github.com/huwenlong92/sdkit/core/logger/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
@@ -23,8 +23,8 @@ func defaultUseOptions() useOptions {
 	return useOptions{
 		dependencies: []runtime.Dependency{
 			runtime.OptionalBootstrap(),
-			runtime.Optional(loggerfacade.Name),
-			runtime.Optional(databasefacade.Name),
+			runtime.Optional(logger.Name),
+			runtime.Optional(database.Name),
 		},
 		internal: true,
 	}
@@ -111,7 +111,7 @@ func Use(opts ...UseOption) runtime.Capability {
 			db = loaded
 		}
 		if db == nil {
-			db = databasefacade.From(app)
+			db = database.From(app)
 		}
 
 		manager := o.manager

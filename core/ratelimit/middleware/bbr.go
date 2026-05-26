@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	apperrors "github.com/huwenlong92/sdkit/core/errors"
+	"github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 
@@ -32,7 +32,7 @@ func BBRMiddlewareWithOptions(l *strategy.BBR, opts ...BBRMiddlewareOption) gin.
 	return func(c *gin.Context) {
 		done, err := l.Allow()
 		if err != nil {
-			ginresponder.RespondError(cfg.Responder, c, http.StatusTooManyRequests, apperrors.NewCodeWithData(http.StatusTooManyRequests, "服务繁忙，请稍后再试", nil))
+			ginresponder.RespondError(cfg.Responder, c, http.StatusTooManyRequests, errors.NewCodeWithData(http.StatusTooManyRequests, "服务繁忙，请稍后再试", nil))
 			return
 		}
 		c.Next()

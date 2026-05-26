@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	corecron "github.com/huwenlong92/sdkit/core/crontab"
+	"github.com/huwenlong92/sdkit/core/crontab"
 
 	"github.com/robfig/cron/v3"
 )
@@ -14,12 +14,12 @@ import (
 type Scheduler struct {
 	mu        sync.Mutex
 	cron      *cron.Cron
-	runner    *corecron.Runner
+	runner    *crontab.Runner
 	running   bool
 	signature string
 }
 
-func New(runner *corecron.Runner) *Scheduler {
+func New(runner *crontab.Runner) *Scheduler {
 	return &Scheduler{runner: runner}
 }
 
@@ -50,7 +50,7 @@ func (s *Scheduler) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (s *Scheduler) Reload(ctx context.Context, jobs []corecron.Job) error {
+func (s *Scheduler) Reload(ctx context.Context, jobs []crontab.Job) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -92,7 +92,7 @@ func (s *Scheduler) Reload(ctx context.Context, jobs []corecron.Job) error {
 	return nil
 }
 
-func jobsSignature(jobs []corecron.Job) string {
+func jobsSignature(jobs []crontab.Job) string {
 	var b strings.Builder
 	for _, job := range jobs {
 		if !job.Enabled || job.Spec == "" {

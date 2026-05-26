@@ -7,39 +7,39 @@ import (
 	"testing"
 	"time"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
-	queuemiddleware "github.com/huwenlong92/sdkit/core/queue/runtime/middleware"
+	"github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue/runtime/middleware"
 )
 
 func TestDispatcherLifecycleHooksWrapMiddlewareChain(t *testing.T) {
-	dispatcher := corequeue.NewDispatcher()
+	dispatcher := queue.NewDispatcher()
 	order := make([]string, 0, 6)
-	dispatcher.AddHook(corequeue.HookFunc{
-		Before: func(context.Context, *corequeue.Message) error {
+	dispatcher.AddHook(queue.HookFunc{
+		Before: func(context.Context, *queue.Message) error {
 			order = append(order, "before")
 			return nil
 		},
-		After: func(_ context.Context, _ *corequeue.Message, err error) {
+		After: func(_ context.Context, _ *queue.Message, err error) {
 			if err != nil {
 				t.Fatalf("after err = %v", err)
 			}
 			order = append(order, "after")
 		},
-		Success: func(context.Context, *corequeue.Message) {
+		Success: func(context.Context, *queue.Message) {
 			order = append(order, "success")
 		},
-		Failure: func(context.Context, *corequeue.Message, error) {
+		Failure: func(context.Context, *queue.Message, error) {
 			t.Fatal("failure hook should not run")
 		},
 	})
-	dispatcher.Use(func(next corequeue.HandlerFunc) corequeue.HandlerFunc {
-		return func(ctx context.Context, msg *corequeue.Message) error {
+	dispatcher.Use(func(next queue.HandlerFunc) queue.HandlerFunc {
+		return func(ctx context.Context, msg *queue.Message) error {
 			order = append(order, "middleware")
 			return next(ctx, msg)
 		}
 	})
 
-	if err := dispatcher.Register("task.lifecycle", func(context.Context, *corequeue.Message) error {
+	if err := dispatcher.Register("task.lifecycle", func(context.Context, *queue.Message) error {
 		order = append(order, "handler")
 		return nil
 	}); err != nil {
@@ -55,23 +55,23 @@ func TestDispatcherLifecycleHooksWrapMiddlewareChain(t *testing.T) {
 }
 
 func TestDispatcherLifecycleHookFailureShortCircuitsHandler(t *testing.T) {
-	dispatcher := corequeue.NewDispatcher()
+	dispatcher := queue.NewDispatcher()
 	wantErr := errors.New("before failed")
 	calledHandler := false
 	calledAfter := false
 	calledFailure := false
-	dispatcher.AddHook(corequeue.HookFunc{
-		Before: func(context.Context, *corequeue.Message) error {
+	dispatcher.AddHook(queue.HookFunc{
+		Before: func(context.Context, *queue.Message) error {
 			return wantErr
 		},
-		After: func(_ context.Context, _ *corequeue.Message, err error) {
+		After: func(_ context.Context, _ *queue.Message, err error) {
 			calledAfter = errors.Is(err, wantErr)
 		},
-		Failure: func(_ context.Context, _ *corequeue.Message, err error) {
+		Failure: func(_ context.Context, _ *queue.Message, err error) {
 			calledFailure = errors.Is(err, wantErr)
 		},
 	})
-	if err := dispatcher.Register("task.lifecycle", func(context.Context, *corequeue.Message) error {
+	if err := dispatcher.Register("task.lifecycle", func(context.Context, *queue.Message) error {
 		calledHandler = true
 		return nil
 	}); err != nil {
@@ -92,30 +92,30 @@ func TestRuntimeGovernanceMiddlewares(t *testing.T) {
 	deadletter := &runtimeDeadLetter{}
 	wantErr := errors.New("boom")
 
-	handler := corequeue.Chain(
-		func(context.Context, *corequeue.Message) error {
+	handler := queue.Chain(
+		func(context.Context, *queue.Message) error {
 			return wantErr
 		},
-		queuemiddleware.Metrics(metrics),
-		queuemiddleware.Concurrency(limiter, queuemiddleware.StaticConcurrencyKey("sandbox")),
-		queuemiddleware.Retry(corequeue.RetryStrategyFunc(func(context.Context, *corequeue.Message, int, error) (time.Duration, bool) {
+		middleware.Metrics(metrics),
+		middleware.Concurrency(limiter, middleware.StaticConcurrencyKey("sandbox")),
+		middleware.Retry(queue.RetryStrategyFunc(func(context.Context, *queue.Message, int, error) (time.Duration, bool) {
 			return 3 * time.Second, true
 		})),
-		queuemiddleware.DeadLetter(deadletter),
+		middleware.DeadLetter(deadletter),
 	)
 
-	err := handler(context.Background(), &corequeue.Message{
+	err := handler(context.Background(), &queue.Message{
 		Type:       "sandbox.run",
 		Queue:      "critical",
 		RetryCount: 2,
 		MaxRetry:   2,
 	})
-	if !corequeue.IsDeadLetterError(err) {
+	if !queue.IsDeadLetterError(err) {
 		t.Fatalf("handler error = %v, want deadletter runtime error", err)
 	}
-	runtimeErr, _ := corequeue.RuntimeErrorFrom(err)
-	if runtimeErr.Kind != corequeue.ErrorDeadLetter {
-		t.Fatalf("runtime error kind = %s, want %s", runtimeErr.Kind, corequeue.ErrorDeadLetter)
+	runtimeErr, _ := queue.RuntimeErrorFrom(err)
+	if runtimeErr.Kind != queue.ErrorDeadLetter {
+		t.Fatalf("runtime error kind = %s, want %s", runtimeErr.Kind, queue.ErrorDeadLetter)
 	}
 	if limiter.acquired != "sandbox" || limiter.released != "sandbox" {
 		t.Fatalf("limiter acquired=%q released=%q", limiter.acquired, limiter.released)
@@ -123,10 +123,10 @@ func TestRuntimeGovernanceMiddlewares(t *testing.T) {
 	if deadletter.count != 1 {
 		t.Fatalf("deadletter count = %d, want 1", deadletter.count)
 	}
-	if metrics.counter[queuemiddleware.MetricQueueTaskTotal] != 1 ||
-		metrics.counter[queuemiddleware.MetricQueueTaskFailTotal] != 1 ||
-		metrics.counter[queuemiddleware.MetricQueueTaskRetryTotal] != 2 ||
-		metrics.duration[queuemiddleware.MetricQueueTaskDuration] == 0 {
+	if metrics.counter[middleware.MetricQueueTaskTotal] != 1 ||
+		metrics.counter[middleware.MetricQueueTaskFailTotal] != 1 ||
+		metrics.counter[middleware.MetricQueueTaskRetryTotal] != 2 ||
+		metrics.duration[middleware.MetricQueueTaskDuration] == 0 {
 		t.Fatalf("metrics counter=%v duration=%v", metrics.counter, metrics.duration)
 	}
 }
@@ -136,14 +136,14 @@ type runtimeMetricsRecorder struct {
 	duration map[string]time.Duration
 }
 
-func (r *runtimeMetricsRecorder) IncCounter(_ context.Context, name string, _ corequeue.MetricsLabels, value int64) {
+func (r *runtimeMetricsRecorder) IncCounter(_ context.Context, name string, _ queue.MetricsLabels, value int64) {
 	if r.counter == nil {
 		r.counter = map[string]int64{}
 	}
 	r.counter[name] += value
 }
 
-func (r *runtimeMetricsRecorder) ObserveDuration(_ context.Context, name string, _ corequeue.MetricsLabels, value time.Duration) {
+func (r *runtimeMetricsRecorder) ObserveDuration(_ context.Context, name string, _ queue.MetricsLabels, value time.Duration) {
 	if r.duration == nil {
 		r.duration = map[string]time.Duration{}
 	}
@@ -168,7 +168,7 @@ type runtimeDeadLetter struct {
 	count int
 }
 
-func (d *runtimeDeadLetter) Push(context.Context, *corequeue.Message, error) error {
+func (d *runtimeDeadLetter) Push(context.Context, *queue.Message, error) error {
 	d.count++
 	return nil
 }

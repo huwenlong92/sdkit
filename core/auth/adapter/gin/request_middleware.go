@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	coreauth "github.com/huwenlong92/sdkit/core/auth"
-	apperrors "github.com/huwenlong92/sdkit/core/errors"
+	"github.com/huwenlong92/sdkit/core/auth"
+	"github.com/huwenlong92/sdkit/core/errors"
 	"github.com/huwenlong92/sdkit/core/ginresponder"
 	"github.com/huwenlong92/sdkit/core/session"
 
@@ -62,10 +62,10 @@ func newMiddlewareConfig(opts ...MiddlewareOption) *MiddlewareConfig {
 }
 
 func respondUnauthorized(cfg *MiddlewareConfig, c *gin.Context, message string) {
-	ginresponder.RespondError(cfg.Responder, c, http.StatusUnauthorized, apperrors.NewCodeWithData(apperrors.CodeAuthRequired, message, nil))
+	ginresponder.RespondError(cfg.Responder, c, http.StatusUnauthorized, errors.NewCodeWithData(errors.CodeAuthRequired, message, nil))
 }
 
-func Required(authenticator coreauth.RequestAuthenticator, opts ...MiddlewareOption) gin.HandlerFunc {
+func Required(authenticator auth.RequestAuthenticator, opts ...MiddlewareOption) gin.HandlerFunc {
 	cfg := newMiddlewareConfig(opts...)
 	return func(c *gin.Context) {
 		identity, err := authenticate(c, authenticator)
@@ -78,7 +78,7 @@ func Required(authenticator coreauth.RequestAuthenticator, opts ...MiddlewareOpt
 	}
 }
 
-func Optional(authenticator coreauth.RequestAuthenticator) gin.HandlerFunc {
+func Optional(authenticator auth.RequestAuthenticator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		identity, err := authenticate(c, authenticator)
 		if err == nil && identity != nil && identity.Authenticated() {
@@ -88,9 +88,9 @@ func Optional(authenticator coreauth.RequestAuthenticator) gin.HandlerFunc {
 	}
 }
 
-func authenticate(c *gin.Context, authenticator coreauth.RequestAuthenticator) (*coreauth.Identity, error) {
+func authenticate(c *gin.Context, authenticator auth.RequestAuthenticator) (*auth.Identity, error) {
 	if authenticator == nil {
-		return nil, coreauth.ErrUnauthorized
+		return nil, auth.ErrUnauthorized
 	}
 	c.Request = c.Request.WithContext(WithContext(c.Request.Context(), c))
 	return authenticator.AuthenticateRequest(c.Request.Context(), c.Request)

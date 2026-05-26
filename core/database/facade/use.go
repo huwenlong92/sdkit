@@ -8,7 +8,7 @@ import (
 	corelogger "github.com/huwenlong92/sdkit/core/logger"
 	loggerfacade "github.com/huwenlong92/sdkit/core/logger/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
-	tracingfacade "github.com/huwenlong92/sdkit/core/tracing/facade"
+	tracing "github.com/huwenlong92/sdkit/core/tracing/facade"
 
 	"go.uber.org/zap"
 )
@@ -33,7 +33,7 @@ func defaultUseOptions() useOptions {
 		dependencies: []runtime.Dependency{
 			runtime.OptionalBootstrap(),
 			runtime.Optional(loggerfacade.Name),
-			runtime.Optional(tracingfacade.Name),
+			runtime.Optional(tracing.Name),
 		},
 		internal: true,
 	}

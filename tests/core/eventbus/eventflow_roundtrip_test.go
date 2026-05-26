@@ -10,14 +10,14 @@ import (
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
-	eventbusmemory "github.com/huwenlong92/sdkit/pkg/eventbus/memory"
+	"github.com/huwenlong92/sdkit/pkg/eventbus/memory"
 )
 
 func TestEventFlowCorrelationRoundTripThroughMemoryBus(t *testing.T) {
 	restore := installTracing(t)
 	defer restore()
 
-	bus := eventbusmemory.New()
+	bus := memory.New()
 	defer func() {
 		if err := bus.Close(); err != nil {
 			t.Fatalf("Close: %v", err)

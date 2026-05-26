@@ -9,7 +9,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
-	eventbusmemory "github.com/huwenlong92/sdkit/pkg/eventbus/memory"
+	"github.com/huwenlong92/sdkit/pkg/eventbus/memory"
 
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -20,7 +20,7 @@ func TestTracingMiddlewareCreatesHandlerSpan(t *testing.T) {
 	recorder, restore := installTracingRecorder(t)
 	defer restore()
 
-	bus := eventbusmemory.New()
+	bus := memory.New()
 	ctx := tracking.WithTrackID(context.Background(), "track-event")
 	ctx = requestid.WithRequestID(ctx, "request-event")
 	ctx, parent := tracing.StartSpan(ctx, "eventbus.publish")

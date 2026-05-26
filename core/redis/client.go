@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/huwenlong92/sdkit/core/runtime"
-	pkgredis "github.com/huwenlong92/sdkit/pkg/redisx"
+	"github.com/huwenlong92/sdkit/pkg/redisx"
 
 	goredis "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -21,11 +21,11 @@ var (
 	mu sync.Mutex
 )
 
-type Config = pkgredis.Config
-type RuntimeClient = pkgredis.Client
+type Config = redisx.Config
+type RuntimeClient = redisx.Client
 
 func New(cfg Config, log *zap.Logger) *RuntimeClient {
-	return pkgredis.New(cfg, pkgredis.WithHooks(NewHook(log)))
+	return redisx.New(cfg, redisx.WithHooks(NewHook(log)))
 }
 
 func Init(ctx context.Context, cfg Config, log *zap.Logger) error {

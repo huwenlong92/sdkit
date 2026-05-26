@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/huwenlong92/sdkit/core/realtime"
-	eventbuspublisher "github.com/huwenlong92/sdkit/pkg/realtime/publisher/eventbus"
+	"github.com/huwenlong92/sdkit/pkg/realtime/publisher/eventbus"
 )
 
 var (
-	_ realtime.Publisher = eventbuspublisher.New(nil, realtime.DefaultTopic)
-	_ realtime.Service   = eventbuspublisher.New(nil, realtime.DefaultTopic)
+	_ realtime.Publisher = eventbus.New(nil, realtime.DefaultTopic)
+	_ realtime.Service   = eventbus.New(nil, realtime.DefaultTopic)
 )
 
 func TestNewOptionsNormalizesDefaults(t *testing.T) {
@@ -46,7 +46,7 @@ func TestDefaultConfigProducesNormalizedOptions(t *testing.T) {
 }
 
 func TestPublisherInterfaceIsTransportFree(t *testing.T) {
-	var publisher realtime.Publisher = eventbuspublisher.New(nil, realtime.DefaultTopic)
+	var publisher realtime.Publisher = eventbus.New(nil, realtime.DefaultTopic)
 	err := publisher.Broadcast(context.Background(), realtime.NewEvent("notify", map[string]string{"ok": "1"}))
 	if err == nil {
 		t.Fatal("default publisher should return error when eventbus default is not initialized")

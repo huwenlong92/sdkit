@@ -4,14 +4,14 @@ import (
 	"context"
 	"errors"
 
-	corequeue "github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/queue"
 
 	hibasynq "github.com/hibiken/asynq"
 )
 
-func (q *Queue) ListQueues(ctx context.Context) ([]*corequeue.QueueInfo, error) {
+func (q *Queue) ListQueues(ctx context.Context) ([]*queue.QueueInfo, error) {
 	if q == nil || q.inspector == nil {
-		return nil, corequeue.ErrNotInitialized
+		return nil, queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -20,7 +20,7 @@ func (q *Queue) ListQueues(ctx context.Context) ([]*corequeue.QueueInfo, error) 
 	if err != nil {
 		return nil, mapInspectorError(err)
 	}
-	out := make([]*corequeue.QueueInfo, 0, len(names))
+	out := make([]*queue.QueueInfo, 0, len(names))
 	for _, name := range names {
 		info, err := q.inspector.GetQueueInfo(name)
 		if err != nil {
@@ -31,9 +31,9 @@ func (q *Queue) ListQueues(ctx context.Context) ([]*corequeue.QueueInfo, error) 
 	return out, nil
 }
 
-func (q *Queue) GetQueue(ctx context.Context, queueName string) (*corequeue.QueueInfo, error) {
+func (q *Queue) GetQueue(ctx context.Context, queueName string) (*queue.QueueInfo, error) {
 	if q == nil || q.inspector == nil {
-		return nil, corequeue.ErrNotInitialized
+		return nil, queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -45,16 +45,16 @@ func (q *Queue) GetQueue(ctx context.Context, queueName string) (*corequeue.Queu
 	return fromAsynqQueueInfo(info), nil
 }
 
-func (q *Queue) ListTasks(ctx context.Context, query corequeue.TaskQuery) ([]*corequeue.TaskInfo, error) {
+func (q *Queue) ListTasks(ctx context.Context, query queue.TaskQuery) ([]*queue.TaskInfo, error) {
 	if q == nil || q.inspector == nil {
-		return nil, corequeue.ErrNotInitialized
+		return nil, queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	queueName := query.Queue
 	if queueName == "" {
-		queueName = corequeue.DefaultQueueName
+		queueName = queue.DefaultQueueName
 	}
 	opts := listOptions(query)
 	var (
@@ -62,25 +62,25 @@ func (q *Queue) ListTasks(ctx context.Context, query corequeue.TaskQuery) ([]*co
 		err   error
 	)
 	switch query.State {
-	case "", corequeue.StatePending:
+	case "", queue.StatePending:
 		tasks, err = q.inspector.ListPendingTasks(queueName, opts...)
-	case corequeue.StateActive:
+	case queue.StateActive:
 		tasks, err = q.inspector.ListActiveTasks(queueName, opts...)
-	case corequeue.StateScheduled:
+	case queue.StateScheduled:
 		tasks, err = q.inspector.ListScheduledTasks(queueName, opts...)
-	case corequeue.StateRetry:
+	case queue.StateRetry:
 		tasks, err = q.inspector.ListRetryTasks(queueName, opts...)
-	case corequeue.StateArchived:
+	case queue.StateArchived:
 		tasks, err = q.inspector.ListArchivedTasks(queueName, opts...)
-	case corequeue.StateSucceeded:
+	case queue.StateSucceeded:
 		tasks, err = q.inspector.ListCompletedTasks(queueName, opts...)
 	default:
-		return nil, unsupported("asynq", corequeue.CapInspector)
+		return nil, unsupported("asynq", queue.CapInspector)
 	}
 	if err != nil {
 		return nil, mapInspectorError(err)
 	}
-	out := make([]*corequeue.TaskInfo, 0, len(tasks))
+	out := make([]*queue.TaskInfo, 0, len(tasks))
 	for _, task := range tasks {
 		info := fromAsynqTaskInfo(task)
 		if query.Type != "" && info.Type != query.Type {
@@ -94,9 +94,9 @@ func (q *Queue) ListTasks(ctx context.Context, query corequeue.TaskQuery) ([]*co
 	return out, nil
 }
 
-func (q *Queue) GetTask(ctx context.Context, queueName, taskID string) (*corequeue.TaskInfo, error) {
+func (q *Queue) GetTask(ctx context.Context, queueName, taskID string) (*queue.TaskInfo, error) {
 	if q == nil || q.inspector == nil {
-		return nil, corequeue.ErrNotInitialized
+		return nil, queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -110,7 +110,7 @@ func (q *Queue) GetTask(ctx context.Context, queueName, taskID string) (*coreque
 
 func (q *Queue) DeleteTask(ctx context.Context, queueName string, taskID string) error {
 	if q == nil || q.inspector == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -120,7 +120,7 @@ func (q *Queue) DeleteTask(ctx context.Context, queueName string, taskID string)
 
 func (q *Queue) RetryTask(ctx context.Context, queueName string, taskID string) error {
 	if q == nil || q.inspector == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -130,7 +130,7 @@ func (q *Queue) RetryTask(ctx context.Context, queueName string, taskID string) 
 
 func (q *Queue) ArchiveTask(ctx context.Context, queueName string, taskID string) error {
 	if q == nil || q.inspector == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -144,7 +144,7 @@ func (q *Queue) CancelTask(ctx context.Context, queueName string, taskID string)
 
 func (q *Queue) PauseQueue(ctx context.Context, queueName string) error {
 	if q == nil || q.inspector == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -154,7 +154,7 @@ func (q *Queue) PauseQueue(ctx context.Context, queueName string) error {
 
 func (q *Queue) ResumeQueue(ctx context.Context, queueName string) error {
 	if q == nil || q.inspector == nil {
-		return corequeue.ErrNotInitialized
+		return queue.ErrNotInitialized
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -167,10 +167,10 @@ func mapInspectorError(err error) error {
 		return nil
 	}
 	if errors.Is(err, hibasynq.ErrQueueNotFound) {
-		return corequeue.ErrQueueNotFound
+		return queue.ErrQueueNotFound
 	}
 	if errors.Is(err, hibasynq.ErrTaskNotFound) {
-		return corequeue.ErrTaskNotFound
+		return queue.ErrTaskNotFound
 	}
 	return err
 }
