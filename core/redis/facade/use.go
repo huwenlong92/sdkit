@@ -2,14 +2,16 @@ package redis
 
 import (
 	"context"
+	"errors"
 
-	coreconfig "github.com/huwenlong92/sdkit/core/config"
-	corelogger "github.com/huwenlong92/sdkit/core/logger"
+	"github.com/huwenlong92/sdkit/core/logger"
 	coreredis "github.com/huwenlong92/sdkit/core/redis"
 	"github.com/huwenlong92/sdkit/core/runtime"
 
 	"go.uber.org/zap"
 )
+
+var ErrConfigRequired = errors.New("redis facade: config or client required")
 
 type UseOption func(*useOptions)
 
@@ -21,6 +23,16 @@ type useOptions struct {
 	logger       *zap.Logger
 	dependencies []runtime.Dependency
 	internal     bool
+}
+
+func defaultUseOptions() useOptions {
+	return useOptions{
+		dependencies: []runtime.Dependency{
+			runtime.Optional("bootstrap"),
+			runtime.Optional(string(logger.KeyLogger)),
+		},
+		internal: true,
+	}
 }
 
 func WithConfig(cfg Config) UseOption {
@@ -60,19 +72,19 @@ func WithInternal() UseOption {
 	}
 }
 
+func WithExternal() UseOption {
+	return func(o *useOptions) {
+		o.internal = false
+	}
+}
+
 func Use(opts ...UseOption) runtime.Capability {
-	o := useOptions{}
+	o := defaultUseOptions()
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&o)
 		}
 	}
-
-	dependencies := []runtime.Dependency{
-		runtime.Optional("bootstrap"),
-		runtime.Optional(string(corelogger.KeyLogger)),
-	}
-	dependencies = append(dependencies, o.dependencies...)
 
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
 		Name:        string(KeyRedis),
@@ -80,29 +92,26 @@ func Use(opts ...UseOption) runtime.Capability {
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,
 		Internal:    o.internal,
-	}, dependencies, func(app *runtime.App) error {
-		config := o.config
-		hasConfig := o.hasConfig
-		if o.configLoader != nil {
-			loaded, err := o.configLoader(app)
-			if err != nil {
-				return err
-			}
-			config = loaded
-			hasConfig = true
-		}
-
+	}, o.dependencies, func(app *runtime.App) error {
 		log := o.logger
 		if log == nil {
-			log = corelogger.From(app)
+			log = logger.From(app)
 		}
 
 		client := o.client
+		config := o.config
 		if client == nil {
-			if !hasConfig && coreconfig.V != nil {
-				if err := coreconfig.V.UnmarshalKey("redis", &config); err != nil {
+			hasConfig := o.hasConfig
+			if o.configLoader != nil {
+				loaded, err := o.configLoader(app)
+				if err != nil {
 					return err
 				}
+				config = loaded
+				hasConfig = true
+			}
+			if !hasConfig {
+				return ErrConfigRequired
 			}
 			client = coreredis.New(config, log)
 			if err := client.Ping(app.Context()); err != nil {
@@ -114,7 +123,7 @@ func Use(opts ...UseOption) runtime.Capability {
 			return err
 		}
 		log.Info("Redis初始化成功",
-			zap.String(corelogger.TraceIDKey, ""),
+			zap.String(logger.TraceIDKey, ""),
 			zap.String("addr", config.Addr),
 		)
 		return nil

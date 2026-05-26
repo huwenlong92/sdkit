@@ -60,6 +60,8 @@ runtimeApp.RegisterCapabilities(
 bootstrap 使用 `rediscap.WithConfigLoader(...)`，确保配置能力先初始化，再由 `rediscap.Use` 读取最终配置。
 根包不实现 runtime `Use`；根包只保留 Redis 实现、全局快捷入口和 `Bind(app, client)` 容器绑定能力，避免与 facade 重复实现 capability 注册。根包的 `KeyRedis`、`From(app)`、`Bind(app, client)` 统一放在 `binding.go`；`Use(...)`、`WithConfig(...)`、生命周期关闭只允许放在 `facade/use.go`。
 
+`rediscap.Use()` 默认按框架底座能力处理，metadata `Internal=true`。需要在启动信息或 CLI 中对外展示 Redis capability 时，调用方必须显式传入 `rediscap.WithExternal()`。Redis facade 不默认读取 `core/config.V`；未传 `WithConfig` / `WithConfigLoader` / `WithClient` 时，会返回 `ErrConfigRequired`，不使用零值配置隐式连接 Redis。
+
 ## 配置项
 
 | 字段 | 说明 |
@@ -113,6 +115,7 @@ client.Key(parts...)
 
 ## 更新记录
 
+- 2026-05-26：Redis runtime facade 默认作为 internal 底座能力，新增 `WithExternal()` 显式对外展示；配置必须通过 `WithConfig` / `WithConfigLoader` / `WithClient` 显式提供，缺少配置或 client 时返回 `ErrConfigRequired`。
 - 2026-05-16：`core/redis/facade` 作为唯一 Runtime Capability 接入层；根包移除重复的 `Use/UseOption`，保留 `Bind/From/Client/Health` 等 Redis 本体 API；根包运行时绑定原语统一放在 `binding.go`。
 - 2026-05-15：包装类型改名为 `RuntimeClient`，新增 `redis.Client(ctx)` 和 `redis.ClientFrom(app)` 作为 API DX 快捷入口。
 - 2026-05-13：新增 `core/redis` gateway，Redis 业务入口统一收敛到 `core/redis`；底层 driver 位于 `pkg/redisx`。
