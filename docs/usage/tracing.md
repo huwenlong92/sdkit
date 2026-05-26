@@ -23,6 +23,8 @@ app.RegisterCapabilities(
 
 bootstrap 会在主 Runtime 中先加载配置，再通过 `core/tracing/facade` 的 `tracing.Use(tracing.WithConfigLoader(...))` 注册公共 tracing 能力。业务 middleware、span、propagation 仍然直接使用根包 `github.com/huwenlong92/sdkit/core/tracing`。
 
+`tracing.Use()` 默认是内部底座能力。只有需要把 tracing capability 展示给外部启动信息或 CLI 时，才传入 `tracing.WithExternal()`。未传配置时使用默认配置，默认 `enabled=false`，不会创建 exporter。
+
 ## 启用配置
 
 Tracing 配置放在 `configs/tracing.yaml`，主配置 `configs/config.yaml` 通过 `imports` 引入：

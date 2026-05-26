@@ -14,7 +14,6 @@ type UseOption func(*useOptions)
 
 type useOptions struct {
 	config       Config
-	hasConfig    bool
 	configLoader ConfigLoader
 	serviceName  string
 	environment  string
@@ -23,10 +22,19 @@ type useOptions struct {
 	internal     bool
 }
 
+func defaultUseOptions() useOptions {
+	return useOptions{
+		dependencies: []runtime.Dependency{
+			runtime.Optional("bootstrap"),
+			runtime.Optional(string(corelogger.KeyLogger)),
+		},
+		internal: true,
+	}
+}
+
 func WithConfig(cfg Config) UseOption {
 	return func(o *useOptions) {
 		o.config = cfg
-		o.hasConfig = true
 	}
 }
 
@@ -66,19 +74,19 @@ func WithInternal() UseOption {
 	}
 }
 
+func WithExternal() UseOption {
+	return func(o *useOptions) {
+		o.internal = false
+	}
+}
+
 func Use(opts ...UseOption) runtime.Capability {
-	o := useOptions{}
+	o := defaultUseOptions()
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&o)
 		}
 	}
-
-	dependencies := []runtime.Dependency{
-		runtime.Optional("bootstrap"),
-		runtime.Optional(string(corelogger.KeyLogger)),
-	}
-	dependencies = append(dependencies, o.dependencies...)
 
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
 		Name:        Name,
@@ -86,7 +94,7 @@ func Use(opts ...UseOption) runtime.Capability {
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,
 		Internal:    o.internal,
-	}, dependencies, func(app *runtime.App) error {
+	}, o.dependencies, func(app *runtime.App) error {
 		cfg := o.config
 		if o.configLoader != nil {
 			loaded, err := o.configLoader(app)

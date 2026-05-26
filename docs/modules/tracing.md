@@ -80,6 +80,8 @@ runtimeApp.RegisterCapabilities(
 
 bootstrap 使用 `tracingcap.WithConfigLoader(...)`，确保配置能力先初始化，再由 `tracingcap.Use` 读取最终配置，并补齐 `service_name` / `environment`。
 
+`tracingcap.Use()` 默认按框架底座能力处理，metadata `Internal=true`。需要在启动信息或 CLI 中对外展示 tracing capability 时，调用方必须显式传入 `tracingcap.WithExternal()`。未传 `WithConfig` / `WithConfigLoader` 时使用 `core/tracing` 的默认配置，默认 `enabled=false`，只设置 propagator，不创建 exporter。
+
 ## 初始化
 
 `bootstrap.Init` 会读取 `tracing` 配置，并通过 `core/tracing/facade` 调用根包初始化：
@@ -107,6 +109,7 @@ tracingcap.WithConfigLoader(loader)
 tracingcap.WithServiceName(name)
 tracingcap.WithEnvironment(env)
 tracingcap.WithLogger(log)
+tracingcap.WithExternal()
 ```
 
 ## Gin Middleware
@@ -240,6 +243,7 @@ Redis tracing 在 `core/redis` hook 中实现，不在 `core/tracing` 暴露 Red
 
 ## 更新记录
 
+- 2026-05-26：Tracing runtime facade 默认作为 internal 底座能力，新增 `WithExternal()` 显式对外展示；默认依赖收敛到 `defaultUseOptions()`。
 - 2026-05-16：HTTP root span 接入统一 correlation helper，补齐 `trace_id/span_id/track_id/request_id/traceparent`；Queue/Redis 去掉分散的手写 `trace_id`。
 - 2026-05-16：新增 `core/tracing/facade` Runtime Capability 接入层，按 `config.go/client.go/use.go/default.go` 组织，根包保留 tracing 实现和业务 API。
 - 2026-05-13：EventBus/SSE 单事件处理创建 `eventbus.handle <name|topic>` span；redisstream driver 补齐默认 middleware 链。
