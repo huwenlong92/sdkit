@@ -72,6 +72,8 @@ runtimeApp.RegisterCapabilities(
 bootstrap 使用 `databasecap.WithConfigLoader(...)` 和 `databasecap.WithModeLoader(...)`，确保配置能力先初始化，再由 `databasecap.Use` 读取最终配置。
 根包不实现 runtime `Use`；根包只保留数据库本体、全局快捷入口和 `Bind(app, db)` 容器绑定能力，避免与 facade 重复实现 capability 注册。根包的 `KeyDatabase`、`From(app)`、`Bind(app, db)` 统一放在 `binding.go`；`Use(...)`、`WithConfig(...)`、生命周期关闭只允许放在 `facade/use.go`。
 
+`databasecap.Use()` 默认按框架底座能力处理，metadata `Internal=true`。需要在启动信息或 CLI 中对外展示 database capability 时，调用方必须显式传入 `databasecap.WithExternal()`。Database facade 不默认读取 `core/config.V`；配置和 mode 由 `WithConfig` / `WithConfigLoader` / `WithMode` / `WithModeLoader` 显式提供。未传配置或现成数据库实例时，会返回 `ErrConfigRequired`，不使用零值配置隐式连接数据库。
+
 ## 核心结构
 
 ```go
@@ -144,6 +146,7 @@ DSN 必填。`MaxIdleConns` 大于 `MaxOpenConns` 时会被限制到 `MaxOpenCon
 
 ## 更新记录
 
+- 2026-05-26：Database runtime facade 默认作为 internal 底座能力，新增 `WithExternal()` 显式对外展示；配置和 mode 必须通过 option 显式提供，移除 `core/config.V` 隐式读取。
 - 2026-05-16：`core/database/facade` 作为唯一 Runtime Capability 接入层；根包移除重复的 `Use/UseOption`，保留 `Bind/From/Gorm/PGX/Transaction` 等数据库本体 API；根包运行时绑定原语统一放在 `binding.go`。
 - 2026-05-15：新增 `database.Gorm(ctx)`、`database.PGX(ctx)`、`database.Transaction` 和 `database.PGXTransaction`，将 pgx 全局快捷变量重命名为 `PGXPool`。
 - 2026-05-12：admin/api 请求路径数据库操作透传 `Request.Context()`，支持 HTTP trace 串联 GORM span。

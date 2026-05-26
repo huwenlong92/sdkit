@@ -42,6 +42,8 @@ app.RegisterCapabilities(
 bootstrap 会在主 Runtime 中先加载配置，再通过 `core/database/facade` 的 `databasecap.Use(databasecap.WithConfigLoader(...))` 注册公共 database 能力。业务查询仍然直接使用根包 `github.com/huwenlong92/sdkit/core/database`。
 根包 `core/database` 的 `Key/From/Bind` 约定统一放在 `binding.go`；真正的 runtime `Use` 只在 `core/database/facade/use.go`。
 
+`databasecap.Use()` 默认是内部底座能力。只有需要把 database capability 展示给外部启动信息或 CLI 时，才传入 `databasecap.WithExternal()`。未传 `WithConfig` / `WithConfigLoader` / `WithDatabase` 时会返回 `ErrConfigRequired`，不会从 `core/config.V` 隐式读取 database 配置或 app mode。
+
 初始化完成后：
 
 ```go
