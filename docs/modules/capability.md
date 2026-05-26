@@ -132,6 +132,56 @@ core/eventbus/facade
 
 core runtime facade 的文件边界固定为：根包 `binding.go` 只放 `Key/From/Bind` 绑定原语；`facade/use.go` 才放 `Use/WithConfig/WithConfigLoader` 和生命周期逻辑。不要在 root 与 facade 两边同时实现 runtime `Use`。
 
+## Core Runtime Facade 默认规则
+
+core runtime facade 的默认行为必须集中在 `defaultUseOptions()`，避免调用方为了补齐内部约定反复传入样板 option。`Use(...)` 只负责应用 option、创建 `runtime.Capability`、执行初始化和关闭流程。
+
+适用范围：
+
+- Redis、Database、Cache、Logger、Tracing、Storage、Email、SMS、Casbin、Ratelimit 等框架底座能力，默认是内部能力，`defaultUseOptions()` 必须设置 `internal: true`。
+- EventBus、Realtime、Queue producer、Queue operations 等可能被服务或 CLI 展示的能力，需要按业务展示语义单独判断，不因为有 facade 就自动默认 internal。
+- 服务本地 capability 由服务侧 `RuntimeCapabilities` 和 `ScopeServiceLocal` 控制，不套用全局底座能力默认值。
+
+实现规则：
+
+- 每个 core facade 优先提供 `defaultUseOptions()`，在里面声明默认依赖、默认 config loader、默认 `internal` 等零值以外的语义。
+- `WithInternal()` 只保留兼容或少数显式场景；新代码不应依赖调用方传 `WithInternal()` 才能得到框架默认行为。
+- 默认 internal 的 facade 如需外部展示，应提供 `WithExternal()`，由调用方显式把 `internal` 设置为 `false`。
+- 配置来源必须显式命名。允许从 `core/config.V` 读取时，应抽成 `loadConfigFromCore` 这类私有函数，不要把 `coreconfig.V.UnmarshalKey(...)` 散落在 `Use(...)` 主流程里。
+- 如果模块没有安全默认配置，且调用方没有传 `WithConfig` / `WithConfigLoader` / 现成实例，初始化必须返回明确 error，不允许静默使用零值连接外部资源。
+- facade 不读取服务私有配置字段。服务侧必须在 config loader 中把服务配置映射成 facade 自己的 `Config`。
+
+推荐骨架：
+
+```go
+func defaultUseOptions() useOptions {
+    return useOptions{
+        configLoader: loadConfigFromCore,
+        dependencies: []runtime.Dependency{
+            runtime.Optional("bootstrap"),
+        },
+        internal: true,
+    }
+}
+
+func WithExternal() UseOption {
+    return func(o *useOptions) {
+        o.internal = false
+    }
+}
+
+func Use(opts ...UseOption) runtime.Capability {
+    o := defaultUseOptions()
+    for _, opt := range opts {
+        if opt != nil {
+            opt(&o)
+        }
+    }
+
+    // register lifecycle...
+}
+```
+
 职责：
 
 - 按配置选择 `memory`、`redis`、`redis_stream` driver。
@@ -255,6 +305,7 @@ publisher 来源顺序：
 
 ## 更新记录
 
+- 2026-05-26：新增 core runtime facade 默认规则：默认行为集中到 `defaultUseOptions()`，框架底座能力默认 internal，外部展示使用 `WithExternal()` 显式声明，配置兜底读取抽成私有 loader。
 - 2026-05-16：移除旧泛型注册器、各 `bootstrap/capabilities/*` 的旧声明入口，以及服务内注册函数；服务本地能力统一由 Provider `RuntimeCapabilities` 声明，生命周期交给 runtime。
 - 2026-05-16：`filesystem` 从 `bootstrap/capabilities` 迁移到 `infra/capabilities`；`realtime` 下沉到 `core/realtime/facade`；旧 SSE/WebSocket publisher capability 删除；Queue producer 收敛到 `core/queue/facade/producer`，Queue 管理能力收敛到 `core/queue/facade/operations`，Worker queue runtime 由 Worker 服务自行初始化。
 - 2026-05-16：删除旧 SSE/WebSocket publisher bridge，实时推送统一通过 `realtime` capability 和服务 `infra/realtime` adapter。
