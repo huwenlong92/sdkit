@@ -14,9 +14,6 @@ import (
 type UseOption func(*useOptions)
 
 type useOptions struct {
-	config       Config
-	hasConfig    bool
-	configLoader ConfigLoader
 	store        Store
 	redisClient  *goredis.Client
 	prefix       string
@@ -24,16 +21,13 @@ type useOptions struct {
 	internal     bool
 }
 
-func WithConfig(cfg Config) UseOption {
-	return func(o *useOptions) {
-		o.config = cfg
-		o.hasConfig = true
-	}
-}
-
-func WithConfigLoader(loader ConfigLoader) UseOption {
-	return func(o *useOptions) {
-		o.configLoader = loader
+func defaultUseOptions() useOptions {
+	return useOptions{
+		dependencies: []runtime.Dependency{
+			runtime.Optional("bootstrap"),
+			runtime.Optional(string(redisfacade.KeyRedis)),
+		},
+		internal: true,
 	}
 }
 
@@ -67,8 +61,14 @@ func WithInternal() UseOption {
 	}
 }
 
+func WithExternal() UseOption {
+	return func(o *useOptions) {
+		o.internal = false
+	}
+}
+
 func Use(opts ...UseOption) runtime.Capability {
-	o := useOptions{}
+	o := defaultUseOptions()
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&o)
@@ -77,25 +77,13 @@ func Use(opts ...UseOption) runtime.Capability {
 	var runtimeStore Store
 	var ownStore bool
 
-	dependencies := []runtime.Dependency{
-		runtime.Optional("bootstrap"),
-		runtime.Optional(string(redisfacade.KeyRedis)),
-	}
-	dependencies = append(dependencies, o.dependencies...)
-
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
 		Name:        string(KeyRateLimit),
 		Description: "Rate limit shared store",
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,
 		Internal:    o.internal,
-	}, dependencies, func(app *runtime.App) error {
-		if o.configLoader != nil {
-			if _, err := o.configLoader(app); err != nil {
-				return err
-			}
-		}
-
+	}, o.dependencies, func(app *runtime.App) error {
 		rateStore := o.store
 		if rateStore == nil {
 			rdb := o.redisClient
