@@ -120,9 +120,24 @@ type Config struct {
 	ConfigFile string
 }
 
-registry := runtime.NewServiceRegistry[*Config]()
+services := runtime.NewServiceBootstrapWithResolver[*Config](
+	func(configFile string) (map[string]runtime.ServiceSpec, error) {
+		var specs map[string]runtime.ServiceSpec
+		if err := config.LoadKey(configFile, "services", &specs); err != nil {
+			return nil, err
+		}
+		return specs, nil
+	},
+	func(configFile string, name string) (runtime.ServiceSpec, error) {
+		var spec runtime.ServiceSpec
+		if err := config.LoadKey(configFile, "services."+name, &spec); err != nil {
+			return runtime.ServiceSpec{}, err
+		}
+		return spec, nil
+	},
+)
 
-registry.RegisterServiceDefinition(runtime.ServiceDefinition[*Config]{
+services.RegisterServiceDefinition(runtime.ServiceDefinition[*Config]{
 	Type: "api",
 	Kind: runtime.ServiceKindHTTP,
 	ContextFactory: func(ctx runtime.ServiceContext[*Config]) (runtime.Service, error) {
@@ -142,21 +157,45 @@ registry.RegisterServiceDefinition(runtime.ServiceDefinition[*Config]{
 	},
 })
 
-svc, err := registry.BuildService(
+svc, err := services.BuildService(
 	"configs/config.yaml",
-	"api",
 	"api",
 	"api",
 	&Config{ConfigFile: "configs/config.yaml"},
 )
 ```
 
-构建后的 `ServiceInfo()` 会带上注册时的 `Type`、`Kind` 和本地能力名。能力名如果带服务名前缀，例如 `api.queue.producer`，展示时会压缩为 `queue.producer`。上层启动器可以通过 `registry.ServiceKind(serviceType)` 按 `http` / `queue` / `cli` 类型声明公共 capability 依赖，例如只让 HTTP 服务依赖 `validator`。
+`ServiceBootstrap[T]` 只接管 service skeleton 的重复规则：注册 provider、读取 `services` map、解析单服务 `config_key`、构建服务、声明 service-local runtime capability 和查询 service kind。业务项目仍然持有自己的 `Config` 和配置读取函数。构建后的 `ServiceInfo()` 会带上注册时的 `Type`、`Kind` 和本地能力名。能力名如果带服务名前缀，例如 `api.queue.producer`，展示时会压缩为 `queue.producer`。上层启动器可以通过 `services.ServiceKindForType(serviceType)` 按 `http` / `queue` / `cli` 类型声明公共 capability 依赖，例如只让 HTTP 服务依赖 `validator`。
+
+如果项目希望完全显式装配，不在 bootstrap 包里保存全局 registry，可以使用 `ServiceRunner[T]`：
+
+```go
+boot := NewConfigCapability(bootConfig)
+runner := runtime.NewServiceRunner(runtime.ServiceRunnerOptions[*Config]{
+	LoadSpecs:   loadServiceSpecs,
+	ResolveSpec: loadServiceSpec,
+	Providers: []runtime.ServiceProvider[*Config]{
+		api.Provider(),
+		admin.Provider(),
+	},
+	Capabilities: func(selection runtime.ServiceSelection) []runtime.CapabilityContract {
+		return commonCapabilities(boot, selection)
+	},
+	BaseConfig: boot.Config,
+})
+
+app, err := runner.NewApp(runtime.ServiceRunOptions{
+	ConfigFile: "configs/config.yaml",
+	Services:   []string{"api", "admin"},
+})
+```
+
+`Services` 为空时按配置里的 enabled 服务启动；传入服务名时只启动指定服务。全局能力由 `Capabilities` 返回，服务私有能力仍由各 provider 的 `RuntimeCapabilities` 返回。
 
 如果服务需要运行时私有 capability，用 `RuntimeCapabilityFactory`：
 
 ```go
-registry.RegisterServiceDefinition(runtime.ServiceDefinition[*Config]{
+services.RegisterServiceDefinition(runtime.ServiceDefinition[*Config]{
 	Type: "api",
 	RuntimeCapabilityFactory: func(ctx runtime.RuntimeCapabilityContext[*Config]) []runtime.CapabilityContract {
 		return []runtime.CapabilityContract{
@@ -165,12 +204,12 @@ registry.RegisterServiceDefinition(runtime.ServiceDefinition[*Config]{
 	},
 })
 
-caps := registry.RuntimeCapabilitiesForService(
+caps := services.RuntimeCapabilitiesForService(
 	runtime.NewRuntimeCapabilityContext("configs/config.yaml", "api", "api", "", baseConfig),
 )
 ```
 
-`RuntimeCapabilitiesForService` 返回的 capability 会被标记为 `runtime.ScopeServiceLocal`。业务项目仍然负责读取 `services` 配置、注册实际 service factory，并决定这些 capability 如何进入 runtime app。
+`RuntimeCapabilitiesForService` 返回的 capability 会被标记为 `runtime.ScopeServiceLocal`。业务项目仍然负责注册实际 service factory，并决定这些 capability 如何进入 runtime app。
 
 如果某个 provider `Start` 失败，runtime 会对当前失败 provider 和已经启动成功的 provider 按倒序调用 `Stop(ctx)` 做 rollback。
 
