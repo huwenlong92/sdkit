@@ -296,6 +296,20 @@ func (p *Provider) Dependencies() []runtime.Dependency {
 }
 ```
 
+Bootstrap 是 runtime 约定的配置加载锚点，名称由 core runtime 统一维护：
+
+```go
+const (
+	CapabilityBootstrap      = "bootstrap"
+	CapabilityBootstrapError = "bootstrap.error"
+)
+
+runtime.OptionalBootstrap()
+runtime.RequireBootstrap()
+```
+
+core facade 需要等待 bootstrap 先执行时，使用 `runtime.OptionalBootstrap()`，不要手写 `"bootstrap"` 字符串。业务项目可以用自己的 capability 实现这个名称，但 `Config` 结构和配置加载逻辑仍由业务项目持有。
+
 禁止在 provider dependency 中通过 `database.Capability()` 一类实现对象表达依赖。Capability 的具体实现由 runtime app 在启动时注册决定。
 
 Provider 如果需要声明服务私有 capability，实现 `RuntimeCapabilityProvider`：

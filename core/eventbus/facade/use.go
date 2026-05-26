@@ -69,7 +69,7 @@ func Use(opts ...UseOption) runtime.Capability {
 	}
 
 	dependencies := []runtime.Dependency{
-		runtime.Optional("bootstrap"),
+		runtime.OptionalBootstrap(),
 		runtime.Optional(string(redisfacade.KeyRedis)),
 	}
 	dependencies = append(dependencies, o.dependencies...)

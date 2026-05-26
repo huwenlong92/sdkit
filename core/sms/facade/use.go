@@ -28,7 +28,7 @@ type useOptions struct {
 func defaultUseOptions() useOptions {
 	return useOptions{
 		dependencies: []runtime.Dependency{
-			runtime.Optional("bootstrap"),
+			runtime.OptionalBootstrap(),
 		},
 		internal: true,
 	}

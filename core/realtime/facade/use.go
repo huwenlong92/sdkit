@@ -62,7 +62,7 @@ func Use(opts ...UseOption) runtime.Capability {
 	}
 
 	dependencies := []runtime.Dependency{
-		runtime.Optional("bootstrap"),
+		runtime.OptionalBootstrap(),
 		runtime.Require(eventbusfacade.Name),
 	}
 	dependencies = append(dependencies, o.dependencies...)

@@ -23,7 +23,7 @@ type useOptions struct {
 func defaultUseOptions() useOptions {
 	return useOptions{
 		dependencies: []runtime.Dependency{
-			runtime.Optional("bootstrap"),
+			runtime.OptionalBootstrap(),
 			runtime.Optional(string(redisfacade.KeyRedis)),
 		},
 		internal: true,

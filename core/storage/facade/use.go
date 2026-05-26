@@ -25,7 +25,7 @@ func defaultUseOptions() useOptions {
 	return useOptions{
 		configLoader: loadConfigFromCore,
 		dependencies: []runtime.Dependency{
-			runtime.Optional("bootstrap"),
+			runtime.OptionalBootstrap(),
 		},
 		internal: true,
 	}
