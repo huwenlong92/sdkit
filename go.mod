@@ -30,7 +30,9 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/speps/go-hashids v2.0.0+incompatible
 	github.com/spf13/viper v1.21.0
+	github.com/stripe/stripe-go/v85 v85.1.0
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.73
+	github.com/wechatpay-apiv3/wechatpay-go v0.2.21
 	go.opentelemetry.io/otel v1.43.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.43.0
 	go.opentelemetry.io/otel/sdk v1.43.0
