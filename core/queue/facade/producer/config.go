@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	KeyQueue runtime.Key = "queue.producer"
-	Name                 = string(KeyQueue)
+	Name = "queue.producer"
 )
 
 // Producer is the runtime-facing queue producer capability.

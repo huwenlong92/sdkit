@@ -6,7 +6,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
-const KeyCasbin = corecasbin.KeyCasbin
+const Name = string(corecasbin.KeyCasbin)
 
 type Config = corecasbin.Config
 type Manager = corecasbin.Manager

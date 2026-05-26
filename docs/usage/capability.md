@@ -86,6 +86,13 @@ info, err := queue.Enqueue(ctx, task)
 fs, err := storage.Default()
 ```
 
+声明依赖或服务本地能力名时统一使用 facade 的 `Name`：
+
+```go
+runtime.Require(databasefacade.Name)
+queueops.WithName(ctx.LocalName(queueops.Name))
+```
+
 配置装配函数不暴露给业务层。能力关闭由 runtime 的 `Capability.Shutdown(ctx)` 统一处理，不在 `NewServerWithContext` 或服务 `Shutdown` 中重复关闭。
 
 ## 必填配置

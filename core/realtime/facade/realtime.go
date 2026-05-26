@@ -12,7 +12,7 @@ import (
 	eventbuspublisher "github.com/huwenlong92/sdkit/pkg/realtime/publisher/eventbus"
 )
 
-const Name = "realtime"
+const Name = string(corerealtime.KeyRealtime)
 
 var (
 	ErrNotConfigured         = errors.New("realtime capability 未初始化")

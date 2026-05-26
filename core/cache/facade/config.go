@@ -5,7 +5,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
-const KeyCache = corecache.KeyCache
+const Name = string(corecache.KeyCache)
 
 type Config = corecache.Config
 type Cache = corecache.Cache

@@ -5,7 +5,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
-const KeyRedis = coreredis.KeyRedis
+const Name = string(coreredis.KeyRedis)
 
 type Config = coreredis.Config
 type RuntimeClient = coreredis.RuntimeClient

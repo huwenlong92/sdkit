@@ -72,19 +72,19 @@ func WithInternal() UseOption {
 }
 
 func Use(opts ...UseOption) runtime.Capability {
-	o := useOptions{name: KeyQueue}
+	o := useOptions{name: runtime.Key(Name)}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&o)
 		}
 	}
 	if o.name == "" {
-		o.name = KeyQueue
+		o.name = runtime.Key(Name)
 	}
 
 	dependencies := []runtime.Dependency{
 		runtime.OptionalBootstrap(),
-		runtime.Optional(string(redisfacade.KeyRedis)),
+		runtime.Optional(redisfacade.Name),
 	}
 	dependencies = append(dependencies, o.dependencies...)
 

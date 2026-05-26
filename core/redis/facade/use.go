@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/huwenlong92/sdkit/core/logger"
+	corelogger "github.com/huwenlong92/sdkit/core/logger"
+	loggerfacade "github.com/huwenlong92/sdkit/core/logger/facade"
 	coreredis "github.com/huwenlong92/sdkit/core/redis"
 	"github.com/huwenlong92/sdkit/core/runtime"
 
@@ -29,7 +30,7 @@ func defaultUseOptions() useOptions {
 	return useOptions{
 		dependencies: []runtime.Dependency{
 			runtime.OptionalBootstrap(),
-			runtime.Optional(string(logger.KeyLogger)),
+			runtime.Optional(loggerfacade.Name),
 		},
 		internal: true,
 	}
@@ -87,7 +88,7 @@ func Use(opts ...UseOption) runtime.Capability {
 	}
 
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
-		Name:        string(KeyRedis),
+		Name:        Name,
 		Description: "Redis client",
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,
@@ -95,7 +96,7 @@ func Use(opts ...UseOption) runtime.Capability {
 	}, o.dependencies, func(app *runtime.App) error {
 		log := o.logger
 		if log == nil {
-			log = logger.From(app)
+			log = corelogger.From(app)
 		}
 
 		client := o.client
@@ -123,7 +124,7 @@ func Use(opts ...UseOption) runtime.Capability {
 			return err
 		}
 		log.Info("Redis初始化成功",
-			zap.String(logger.TraceIDKey, ""),
+			zap.String(corelogger.TraceIDKey, ""),
 			zap.String("addr", config.Addr),
 		)
 		return nil

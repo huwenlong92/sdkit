@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	Name        = "eventbus"
-	KeyEventBus = coreeventbus.KeyEventBus
+	Name = string(coreeventbus.KeyEventBus)
 
 	DriverMemory      = "memory"
 	DriverRedis       = "redis"

@@ -7,7 +7,7 @@ import (
 
 func From(app *runtime.App) Store {
 	if app != nil {
-		if value, ok := app.Container().Get(KeyRateLimit); ok {
+		if value, ok := app.Container().Get(runtime.Key(Name)); ok {
 			if store, ok := value.(Store); ok {
 				return store
 			}

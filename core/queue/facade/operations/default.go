@@ -13,7 +13,7 @@ func From(app *runtime.App) *corequeue.RuntimeInstance {
 	if app == nil {
 		return nil
 	}
-	value, ok := app.Container().Get(KeyQueue)
+	value, ok := app.Container().Get(runtime.Key(Name))
 	if !ok {
 		return nil
 	}

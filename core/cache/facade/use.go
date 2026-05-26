@@ -24,7 +24,7 @@ func defaultUseOptions() useOptions {
 	return useOptions{
 		dependencies: []runtime.Dependency{
 			runtime.OptionalBootstrap(),
-			runtime.Optional(string(redisfacade.KeyRedis)),
+			runtime.Optional(redisfacade.Name),
 		},
 		internal: true,
 	}
@@ -75,7 +75,7 @@ func Use(opts ...UseOption) runtime.Capability {
 	}
 
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
-		Name:        string(KeyCache),
+		Name:        Name,
 		Description: "Cache store",
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,

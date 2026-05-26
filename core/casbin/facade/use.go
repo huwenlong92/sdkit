@@ -3,7 +3,7 @@ package casbin
 import (
 	corecasbin "github.com/huwenlong92/sdkit/core/casbin"
 	databasefacade "github.com/huwenlong92/sdkit/core/database/facade"
-	corelogger "github.com/huwenlong92/sdkit/core/logger"
+	loggerfacade "github.com/huwenlong92/sdkit/core/logger/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
@@ -23,8 +23,8 @@ func defaultUseOptions() useOptions {
 	return useOptions{
 		dependencies: []runtime.Dependency{
 			runtime.OptionalBootstrap(),
-			runtime.Optional(string(corelogger.KeyLogger)),
-			runtime.Optional(string(databasefacade.KeyDatabase)),
+			runtime.Optional(loggerfacade.Name),
+			runtime.Optional(databasefacade.Name),
 		},
 		internal: true,
 	}
@@ -87,7 +87,7 @@ func Use(opts ...UseOption) runtime.Capability {
 	}
 
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
-		Name:        string(KeyCasbin),
+		Name:        Name,
 		Description: "Casbin RBAC manager",
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,

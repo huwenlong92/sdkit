@@ -5,7 +5,8 @@ import (
 	"errors"
 
 	coredatabase "github.com/huwenlong92/sdkit/core/database"
-	"github.com/huwenlong92/sdkit/core/logger"
+	corelogger "github.com/huwenlong92/sdkit/core/logger"
+	loggerfacade "github.com/huwenlong92/sdkit/core/logger/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
 	tracingfacade "github.com/huwenlong92/sdkit/core/tracing/facade"
 
@@ -31,7 +32,7 @@ func defaultUseOptions() useOptions {
 	return useOptions{
 		dependencies: []runtime.Dependency{
 			runtime.OptionalBootstrap(),
-			runtime.Optional(string(logger.KeyLogger)),
+			runtime.Optional(loggerfacade.Name),
 			runtime.Optional(tracingfacade.Name),
 		},
 		internal: true,
@@ -96,7 +97,7 @@ func Use(opts ...UseOption) runtime.Capability {
 	}
 
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
-		Name:        string(KeyDatabase),
+		Name:        Name,
 		Description: "GORM and pgx database",
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,
@@ -136,7 +137,7 @@ func Use(opts ...UseOption) runtime.Capability {
 		if err := coredatabase.Bind(app, db); err != nil {
 			return err
 		}
-		logger.From(app).Info("数据库连接成功", zap.String(logger.TraceIDKey, ""))
+		loggerfacade.From(app).Info("数据库连接成功", zap.String(corelogger.TraceIDKey, ""))
 		return nil
 	}, func(context.Context) error {
 		coredatabase.Close()

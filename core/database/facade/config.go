@@ -5,7 +5,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
-const KeyDatabase = coredatabase.KeyDatabase
+const Name = string(coredatabase.KeyDatabase)
 
 type Config = coredatabase.Config
 type Database = coredatabase.Database

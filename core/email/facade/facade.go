@@ -12,10 +12,7 @@ type Message = coreemail.Message
 type SendResult = coreemail.SendResult
 type Middleware = coreemail.Middleware
 
-const (
-	KeyEmail = coreemail.KeyEmail
-	Name     = string(KeyEmail)
-)
+const Name = string(coreemail.KeyEmail)
 
 func FromDefault() (*Manager, error) {
 	return coreemail.ManagerDefault()

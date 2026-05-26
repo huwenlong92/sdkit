@@ -1,10 +1,7 @@
 package ratelimit
 
-import (
-	"github.com/huwenlong92/sdkit/core/runtime"
-	"github.com/huwenlong92/sdkit/pkg/ratelimit/store"
-)
+import "github.com/huwenlong92/sdkit/pkg/ratelimit/store"
 
-const KeyRateLimit runtime.Key = "ratelimit"
+const Name = "ratelimit"
 
 type Store = store.Store

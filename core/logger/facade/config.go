@@ -5,7 +5,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
-const KeyLogger = corelogger.KeyLogger
+const Name = string(corelogger.KeyLogger)
 
 type RotationConfig = corelogger.RotationConfig
 type Config = corelogger.Config

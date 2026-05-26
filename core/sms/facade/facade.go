@@ -16,10 +16,7 @@ type Middleware = coresms.Middleware
 type RateLimiter = coresms.RateLimiter
 type RateLimitRule = coresms.RateLimitRule
 
-const (
-	KeySMS = coresms.KeySMS
-	Name   = string(KeySMS)
-)
+const Name = string(coresms.KeySMS)
 
 func FromDefault() (*Manager, error) {
 	return coresms.ManagerDefault()

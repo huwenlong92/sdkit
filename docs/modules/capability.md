@@ -295,6 +295,7 @@ publisher 来源顺序：
 ## 约束
 
 - `Provider` 声明 `type/kind/factory`，服务私有能力统一通过 `RuntimeCapabilities` 声明。
+- core facade 层对外统一暴露 `Name` 作为 runtime capability 名称；底层 container 的 typed key 只保留在 core 根包绑定实现中，业务和 facade 调用处不要再导出或依赖 `KeyXxx` 别名。
 - `ServiceInfo.Capabilities` 不手写静态展示能力；启动表格从 runtime capability metadata 合并。
 - `ScopeGlobal` capability 展示在公共能力表；`ScopeServiceLocal` capability 去掉服务名前缀后展示在服务行。
 - `ServiceContext.Capabilities` 同时保存 capability 实例；需要在服务内复用通用能力时，优先从 registry 或业务 adapter 获取，不要再复制 service 私有 runtime bootstrap。
@@ -304,6 +305,7 @@ publisher 来源顺序：
 
 ## 更新记录
 
+- 2026-05-26：统一 core facade capability 命名出口，移除 facade 层 `KeyXxx` 别名，对外依赖和 metadata 使用 `Name`。
 - 2026-05-26：新增 core runtime facade 默认规则：默认行为集中到 `defaultUseOptions()`，框架底座能力默认 internal，外部展示使用 `WithExternal()` 显式声明，配置由 `WithConfig` / `WithConfigLoader` 显式注入。
 - 2026-05-16：移除旧泛型注册器、各 `bootstrap/capabilities/*` 的旧声明入口，以及服务内注册函数；服务本地能力统一由 Provider `RuntimeCapabilities` 声明，生命周期交给 runtime。
 - 2026-05-16：`filesystem` 从 `bootstrap/capabilities` 迁移到 `infra/capabilities`；`realtime` 下沉到 `core/realtime/facade`；旧 SSE/WebSocket publisher capability 删除；Queue producer 收敛到 `core/queue/facade/producer`，Queue 管理能力收敛到 `core/queue/facade/operations`，Worker queue runtime 由 Worker 服务自行初始化。

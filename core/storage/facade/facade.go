@@ -11,10 +11,7 @@ type Manager = corestorage.Manager
 type FileSystem = corestorage.FileSystem
 type Policy = corestorage.Policy
 
-const (
-	KeyStorage = corestorage.KeyStorage
-	Name       = string(KeyStorage)
-)
+const Name = string(corestorage.KeyStorage)
 
 func FromDefault() (*Manager, error) {
 	return corestorage.ManagerDefault()

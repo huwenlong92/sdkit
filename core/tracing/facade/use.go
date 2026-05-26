@@ -4,6 +4,7 @@ import (
 	"context"
 
 	corelogger "github.com/huwenlong92/sdkit/core/logger"
+	loggerfacade "github.com/huwenlong92/sdkit/core/logger/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
 	coretracing "github.com/huwenlong92/sdkit/core/tracing"
 
@@ -26,7 +27,7 @@ func defaultUseOptions() useOptions {
 	return useOptions{
 		dependencies: []runtime.Dependency{
 			runtime.OptionalBootstrap(),
-			runtime.Optional(string(corelogger.KeyLogger)),
+			runtime.Optional(loggerfacade.Name),
 		},
 		internal: true,
 	}

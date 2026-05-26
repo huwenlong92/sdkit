@@ -69,7 +69,7 @@ func Use(opts ...UseOption) runtime.Capability {
 
 	var runtimeService Service
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
-		Name:        string(corerealtime.KeyRealtime),
+		Name:        Name,
 		Description: "Realtime publisher",
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,
@@ -121,7 +121,7 @@ func Use(opts ...UseOption) runtime.Capability {
 
 func From(app *runtime.App) Service {
 	if app != nil {
-		if value, ok := app.Container().Get(corerealtime.KeyRealtime); ok {
+		if value, ok := app.Container().Get(runtime.Key(Name)); ok {
 			if service, ok := value.(Service); ok {
 				return service
 			}

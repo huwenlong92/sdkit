@@ -75,7 +75,7 @@ func Use(opts ...UseOption) runtime.Capability {
 	}
 
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
-		Name:        string(KeyLogger),
+		Name:        Name,
 		Description: "Zap logger",
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,
@@ -104,7 +104,7 @@ func Use(opts ...UseOption) runtime.Capability {
 		} else {
 			corelogger.L = log
 		}
-		return app.Container().Bind(KeyLogger, log)
+		return app.Container().Bind(runtime.Key(Name), log)
 	}, func(context.Context) error {
 		corelogger.Sync()
 		return nil

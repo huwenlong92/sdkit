@@ -25,7 +25,7 @@ func defaultUseOptions() useOptions {
 	return useOptions{
 		dependencies: []runtime.Dependency{
 			runtime.OptionalBootstrap(),
-			runtime.Optional(string(redisfacade.KeyRedis)),
+			runtime.Optional(redisfacade.Name),
 		},
 		internal: true,
 	}
@@ -78,7 +78,7 @@ func Use(opts ...UseOption) runtime.Capability {
 	var ownStore bool
 
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
-		Name:        string(KeyRateLimit),
+		Name:        Name,
 		Description: "Rate limit shared store",
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,
@@ -103,7 +103,7 @@ func Use(opts ...UseOption) runtime.Capability {
 		}
 		runtimeStore = rateStore
 		rlMiddleware.SetStore(rateStore)
-		return app.Container().Bind(KeyRateLimit, rateStore)
+		return app.Container().Bind(runtime.Key(Name), rateStore)
 	}, func(context.Context) error {
 		rlMiddleware.SetStore(nil)
 		if ownStore && runtimeStore != nil {

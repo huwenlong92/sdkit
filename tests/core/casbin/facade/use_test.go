@@ -29,8 +29,8 @@ func TestUseRegistersCasbinCapability(t *testing.T) {
 	capability := casbinfacade.Use(casbinfacade.WithCapabilityManager(manager))
 
 	metadata := capability.Metadata()
-	if metadata.Name != string(casbinfacade.KeyCasbin) {
-		t.Fatalf("metadata name = %q, want %q", metadata.Name, casbinfacade.KeyCasbin)
+	if metadata.Name != casbinfacade.Name {
+		t.Fatalf("metadata name = %q, want %q", metadata.Name, casbinfacade.Name)
 	}
 	if metadata.Group != runtime.GroupSystem {
 		t.Fatalf("metadata group = %q, want %q", metadata.Group, runtime.GroupSystem)

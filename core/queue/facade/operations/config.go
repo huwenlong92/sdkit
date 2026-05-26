@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	KeyQueue runtime.Key = "queue.operations"
-	Name                 = string(KeyQueue)
+	Name = "queue.operations"
 )
 
 type Config struct {

@@ -70,13 +70,13 @@ func Use(opts ...UseOption) runtime.Capability {
 
 	dependencies := []runtime.Dependency{
 		runtime.OptionalBootstrap(),
-		runtime.Optional(string(redisfacade.KeyRedis)),
+		runtime.Optional(redisfacade.Name),
 	}
 	dependencies = append(dependencies, o.dependencies...)
 
 	var runtimeService Service
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
-		Name:        string(KeyEventBus),
+		Name:        Name,
 		Description: "EventBus service",
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,
@@ -121,7 +121,7 @@ func Use(opts ...UseOption) runtime.Capability {
 
 func From(app *runtime.App) Service {
 	if app != nil {
-		if value, ok := app.Container().Get(KeyEventBus); ok {
+		if value, ok := app.Container().Get(runtime.Key(Name)); ok {
 			if service, ok := value.(Service); ok {
 				return service
 			}

@@ -5,10 +5,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
-const (
-	KeyPayment = corepayment.KeyPayment
-	Name       = string(KeyPayment)
-)
+const Name = string(corepayment.KeyPayment)
 
 type Service = corepayment.Service
 type ServiceConfig = corepayment.ServiceConfig
