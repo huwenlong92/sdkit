@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	coreconfig "github.com/huwenlong92/sdkit/core/config"
 	"github.com/huwenlong92/sdkit/core/runtime"
 	coresms "github.com/huwenlong92/sdkit/core/sms"
 	_ "github.com/huwenlong92/sdkit/pkg/sms/driver/aliyun"
@@ -28,7 +27,6 @@ type useOptions struct {
 
 func defaultUseOptions() useOptions {
 	return useOptions{
-		configLoader: loadConfigFromCore,
 		dependencies: []runtime.Dependency{
 			runtime.Optional("bootstrap"),
 		},
@@ -70,6 +68,12 @@ func WithDependencies(deps ...runtime.Dependency) UseOption {
 func WithInternal() UseOption {
 	return func(o *useOptions) {
 		o.internal = true
+	}
+}
+
+func WithExternal() UseOption {
+	return func(o *useOptions) {
+		o.internal = false
 	}
 }
 
@@ -125,17 +129,6 @@ func Use(opts ...UseOption) runtime.Capability {
 	}, func(context.Context) error {
 		return coresms.Close()
 	})
-}
-
-func loadConfigFromCore(*runtime.App) (Config, error) {
-	if coreconfig.V == nil || !coreconfig.V.IsSet("sms") {
-		return Config{}, coresms.ErrNotConfigured
-	}
-	var cfg Config
-	if err := coreconfig.V.UnmarshalKey("sms", &cfg); err != nil {
-		return Config{}, err
-	}
-	return cfg, nil
 }
 
 func RateLimitMiddleware(limiter RateLimiter, rule RateLimitRule) Middleware {

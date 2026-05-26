@@ -36,14 +36,23 @@ email:
 ## 初始化
 
 ```go
-import emailcap "github.com/huwenlong92/sdkit/core/email/facade"
+import (
+    emailcap "github.com/huwenlong92/sdkit/core/email/facade"
+    "github.com/huwenlong92/sdkit/core/runtime"
+)
 
-if err := emailcap.Use().Register(app); err != nil {
+if err := emailcap.Use(
+    emailcap.WithConfigLoader(func(app *runtime.App) (emailcap.Config, error) {
+        return cfg.Email, nil
+    }),
+).Register(app); err != nil {
     return err
 }
 ```
 
-全局启动场景可以使用 `WithOptional()`：未配置 `email` 时跳过绑定，配置存在但内容错误时仍返回错误。
+facade 不会从 `core/config.V` 隐式读取配置。应用需要通过 `WithConfig` 或 `WithConfigLoader` 显式传入配置。
+
+全局启动场景可以使用 `WithOptional()`：未显式传入配置时跳过绑定，配置存在但内容错误时仍返回错误。
 
 已经有配置对象时可以直接传入：
 

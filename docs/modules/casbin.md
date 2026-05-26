@@ -31,6 +31,8 @@ app.RegisterCapabilities(
 )
 ```
 
+facade 默认作为内部 capability 注册；需要对外展示时显式使用 `WithExternal()`。
+
 capability 名称为 `casbin`，依赖：
 
 - `bootstrap`：可选，用于确保配置先初始化。
@@ -79,4 +81,5 @@ casbinfacade.EnforcerFrom(app)
 
 ## 更新记录
 
+- 2026-05-26：facade 默认内部注册，新增 `WithExternal()`；移除 `Use` 内无实际分支意义的 `hasConfig` 状态。
 - 2026-05-16：新增 `core/casbin/facade` capability facade；bootstrap 在数据库启用时通过 facade 注册 Casbin；新增 `InitContext/NewContext/ReloadContext` 和 `Bind/From` 以支持 runtime context 透传与容器绑定。

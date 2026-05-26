@@ -12,7 +12,9 @@
 - 支持单次指定 provider 列表
 - 支持发送 middleware
 - Runtime capability 放在 `core/email/facade`
-- facade 支持 `WithOptional()`，用于全局启动时在缺少配置的环境跳过绑定
+- facade 默认作为内部 capability 注册；需要对外展示时显式使用 `WithExternal()`
+- facade 不从 `core/config.V` 隐式读取配置，应用必须通过 `WithConfig` 或 `WithConfigLoader` 注入配置
+- facade 支持 `WithOptional()`，用于全局启动时在未显式传入配置的环境跳过绑定
 
 ## 模块边界
 
@@ -85,3 +87,7 @@ func Close() error
 - `smtp`：基于 Go 标准库 SMTP 实现，位于 `pkg/email/driver/smtp`
 
 第三方或应用内自定义发送方通过 `RegisterDriver` 注册。
+
+## 更新记录
+
+- 2026-05-26：facade 移除 `core/config.V` 隐式配置读取，默认内部注册；新增 `WithExternal()`，全局启动通过显式 `WithConfigLoader` 注入配置。

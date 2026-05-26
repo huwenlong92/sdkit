@@ -26,14 +26,23 @@ sms:
 ## 初始化
 
 ```go
-import smscap "github.com/huwenlong92/sdkit/core/sms/facade"
+import (
+    "github.com/huwenlong92/sdkit/core/runtime"
+    smscap "github.com/huwenlong92/sdkit/core/sms/facade"
+)
 
-if err := smscap.Use().Register(app); err != nil {
+if err := smscap.Use(
+    smscap.WithConfigLoader(func(app *runtime.App) (smscap.Config, error) {
+        return cfg.SMS, nil
+    }),
+).Register(app); err != nil {
     return err
 }
 ```
 
-全局启动场景可以使用 `WithOptional()`：未配置 `sms` 时跳过绑定，配置存在但内容错误时仍返回错误。
+facade 不会从 `core/config.V` 隐式读取配置。应用需要通过 `WithConfig` 或 `WithConfigLoader` 显式传入配置。
+
+全局启动场景可以使用 `WithOptional()`：未显式传入配置时跳过绑定，配置存在但内容错误时仍返回错误。
 
 ## 消息
 

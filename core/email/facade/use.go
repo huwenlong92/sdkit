@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	coreconfig "github.com/huwenlong92/sdkit/core/config"
 	coreemail "github.com/huwenlong92/sdkit/core/email"
 	"github.com/huwenlong92/sdkit/core/runtime"
 	_ "github.com/huwenlong92/sdkit/pkg/email/driver/smtp"
@@ -27,7 +26,6 @@ type useOptions struct {
 
 func defaultUseOptions() useOptions {
 	return useOptions{
-		configLoader: loadConfigFromCore,
 		dependencies: []runtime.Dependency{
 			runtime.Optional("bootstrap"),
 		},
@@ -69,6 +67,12 @@ func WithDependencies(deps ...runtime.Dependency) UseOption {
 func WithInternal() UseOption {
 	return func(o *useOptions) {
 		o.internal = true
+	}
+}
+
+func WithExternal() UseOption {
+	return func(o *useOptions) {
+		o.internal = false
 	}
 }
 
@@ -124,15 +128,4 @@ func Use(opts ...UseOption) runtime.Capability {
 	}, func(context.Context) error {
 		return coreemail.Close()
 	})
-}
-
-func loadConfigFromCore(*runtime.App) (Config, error) {
-	if coreconfig.V == nil || !coreconfig.V.IsSet("email") {
-		return Config{}, coreemail.ErrNotConfigured
-	}
-	var cfg Config
-	if err := coreconfig.V.UnmarshalKey("email", &cfg); err != nil {
-		return Config{}, err
-	}
-	return cfg, nil
 }

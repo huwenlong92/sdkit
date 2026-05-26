@@ -10,6 +10,18 @@ import (
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
+func TestUseDefaultsToInternal(t *testing.T) {
+	capability := casbinfacade.Use()
+	if !capability.Metadata().Internal {
+		t.Fatal("Use() should default to internal capability")
+	}
+
+	capability = casbinfacade.Use(casbinfacade.WithExternal())
+	if capability.Metadata().Internal {
+		t.Fatal("WithExternal() should expose capability")
+	}
+}
+
 func TestUseRegistersCasbinCapability(t *testing.T) {
 	t.Cleanup(func() { corecasbin.Default = nil })
 

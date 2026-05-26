@@ -79,6 +79,8 @@ casbinfacade.Config{
 }
 ```
 
+facade 默认作为内部 capability 注册；只有需要对外展示 capability 时才显式使用 `WithExternal()`。
+
 自定义 runtime app 中推荐使用 facade capability：
 
 ```go

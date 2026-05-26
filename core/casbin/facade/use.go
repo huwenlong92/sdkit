@@ -11,7 +11,6 @@ type UseOption func(*useOptions)
 
 type useOptions struct {
 	config         Config
-	hasConfig      bool
 	configLoader   ConfigLoader
 	database       *Database
 	databaseLoader DatabaseLoader
@@ -20,10 +19,20 @@ type useOptions struct {
 	internal       bool
 }
 
+func defaultUseOptions() useOptions {
+	return useOptions{
+		dependencies: []runtime.Dependency{
+			runtime.Optional("bootstrap"),
+			runtime.Optional(string(corelogger.KeyLogger)),
+			runtime.Optional(string(databasefacade.KeyDatabase)),
+		},
+		internal: true,
+	}
+}
+
 func WithConfig(cfg Config) UseOption {
 	return func(o *useOptions) {
 		o.config = cfg
-		o.hasConfig = true
 	}
 }
 
@@ -63,20 +72,19 @@ func WithInternal() UseOption {
 	}
 }
 
+func WithExternal() UseOption {
+	return func(o *useOptions) {
+		o.internal = false
+	}
+}
+
 func Use(opts ...UseOption) runtime.Capability {
-	o := useOptions{}
+	o := defaultUseOptions()
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&o)
 		}
 	}
-
-	dependencies := []runtime.Dependency{
-		runtime.Optional("bootstrap"),
-		runtime.Optional(string(corelogger.KeyLogger)),
-		runtime.Optional(string(databasefacade.KeyDatabase)),
-	}
-	dependencies = append(dependencies, o.dependencies...)
 
 	return runtime.NewCapabilityWithMetadataAndDependencies(runtime.CapabilityMetadata{
 		Name:        string(KeyCasbin),
@@ -84,16 +92,14 @@ func Use(opts ...UseOption) runtime.Capability {
 		Group:       runtime.GroupSystem,
 		Scope:       runtime.ScopeGlobal,
 		Internal:    o.internal,
-	}, dependencies, func(app *runtime.App) error {
+	}, o.dependencies, func(app *runtime.App) error {
 		config := o.config
-		hasConfig := o.hasConfig
 		if o.configLoader != nil {
 			loaded, err := o.configLoader(app)
 			if err != nil {
 				return err
 			}
 			config = loaded
-			hasConfig = true
 		}
 
 		db := o.database
@@ -110,9 +116,6 @@ func Use(opts ...UseOption) runtime.Capability {
 
 		manager := o.manager
 		if manager == nil {
-			if !hasConfig {
-				config = Config{}
-			}
 			created, err := corecasbin.NewContext(app.Context(), db, config)
 			if err != nil {
 				return err
