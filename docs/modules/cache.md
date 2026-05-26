@@ -71,6 +71,8 @@ runtimeApp.RegisterCapabilities(
 bootstrap 使用 `cachecap.WithConfigLoader(...)`，确保配置能力先初始化，再由 `cachecap.Use` 读取最终配置。cache capability 依赖 Redis 时只声明可选依赖，Redis 不启用时自动使用内存缓存。
 根包不实现 runtime `Use`；根包只保留缓存实现、默认缓存入口和 `Bind(app, cache)` 容器绑定能力，避免与 facade 重复实现 capability 注册。根包的 `KeyCache`、`From(app)`、`Bind(app, cache)` 统一放在 `binding.go`；`Use(...)`、`WithConfig(...)`、生命周期关闭只允许放在 `facade/use.go`。缓存实例创建统一走 `core/cache.NewFromConfig`，facade 不再维护 Redis/memory 分支。
 
+`cachecap.Use()` 默认按框架底座能力处理，metadata `Internal=true`。需要在启动信息或 CLI 中对外展示 cache capability 时，调用方必须显式传入 `cachecap.WithExternal()`。Cache facade 不默认读取 `core/config.V`；配置由 `WithConfig` / `WithConfigLoader` 显式提供。未传配置时使用 `core/cache.NewFromConfig(nil, rdb)`，即默认 prefix 和可用 Redis，否则内存缓存。
+
 ## 核心接口
 
 底层缓存接口位于 `pkg/cache`，当前缓存值是字符串：
@@ -282,6 +284,7 @@ func userCacheKey(uid int64) string {
 
 ## 更新记录
 
+- 2026-05-26：Cache runtime facade 默认作为 internal 底座能力，新增 `WithExternal()` 显式对外展示；移除 `core/config.V` 隐式读取，无配置时使用内存缓存默认配置。
 - 2026-05-19：删除 `core/cache/key.go`，cache core 不再提供 `Key/UserKey/SessionKey`，业务 key helper 由应用层自行定义。
 - 2026-05-19：补齐 `core/cache` 包级字符串缓存方法 `Get/Set/Del/Exists/Incr/TTL/Expire/Gets/Sets/Delete` 及对应 `With` 方法；对象缓存 helper 改为 `SetJSON/GetJSON/DeleteJSON/Remember`。
 - 2026-05-19：新增 `core/cache.NewFromConfig`，`cache.Init` 和 `core/cache/facade.Use` 统一复用根包工厂，移除 facade 内部重复的 Redis/memory 创建分支。
