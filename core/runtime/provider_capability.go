@@ -22,14 +22,21 @@ func (a *App) collectProviderCapabilities(providers []Provider) ([]CapabilityCon
 		return nil, nil
 	}
 	out := make([]CapabilityContract, 0)
+	collected := make(map[string]struct{})
 	for _, provider := range providers {
 		for _, capability := range providerRuntimeCapabilities(provider) {
 			if capability == nil {
 				return nil, ErrCapabilityNil
 			}
 			name := capabilityName(capability)
-			if name != "" && a.providerCapabilityRegistered(name) {
-				continue
+			if name != "" {
+				if a.providerCapabilityRegistered(name) {
+					continue
+				}
+				if _, ok := collected[name]; ok {
+					continue
+				}
+				collected[name] = struct{}{}
 			}
 			out = append(out, capability)
 		}
@@ -65,7 +72,7 @@ func (a *App) capabilitiesWithProviderDeclarations() ([]Capability, error) {
 				return nil, fmt.Errorf("%w: %s", ErrCapabilityNameDuplicate, metadata.Name)
 			}
 			if _, ok := declared[metadata.Name]; ok {
-				return nil, fmt.Errorf("%w: %s", ErrCapabilityNameDuplicate, metadata.Name)
+				continue
 			}
 			declared[metadata.Name] = struct{}{}
 			capabilities = append(capabilities, newRuntimeCapability(capability))

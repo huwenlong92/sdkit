@@ -173,6 +173,32 @@ func TestPhase3RunRegistersAllProvidersBeforeStart(t *testing.T) {
 	}
 }
 
+func TestPhase3RunDeduplicatesProviderRuntimeCapabilitiesByName(t *testing.T) {
+	app := runtime.New()
+	registerCount := 0
+	shared := runtime.NewCapability("eventbus", func(*runtime.App) error {
+		registerCount++
+		return nil
+	})
+
+	if err := app.Register(
+		testProvider{name: "worker", runtimeCapabilities: []runtime.CapabilityContract{shared}},
+		testProvider{name: "crontab", runtimeCapabilities: []runtime.CapabilityContract{shared}},
+	); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	if err := app.ValidateDependencies(); err != nil {
+		t.Fatalf("ValidateDependencies() error = %v", err)
+	}
+	if err := app.Run(context.Background()); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if registerCount != 1 {
+		t.Fatalf("eventbus register count = %d, want 1", registerCount)
+	}
+}
+
 func TestPhase3StartRollbackStopsStartedProvidersInReverseOrder(t *testing.T) {
 	app := runtime.New()
 	startErr := errors.New("worker failed")
