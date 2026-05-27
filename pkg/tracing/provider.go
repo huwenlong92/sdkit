@@ -12,7 +12,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/tracecontext"
 )
 
-var ErrNotCompiled = errors.New("tracing enabled but binary was built without sdkit_tracing")
+var ErrNotCompiled = errors.New("tracing enabled but binary was built without sdkit_tracing_otel")
 
 type Provider interface {
 	Init(context.Context, Config) (func(context.Context) error, error)

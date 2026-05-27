@@ -1,4 +1,4 @@
-//go:build sdkit_tracing
+//go:build sdkit_tracing_otel
 
 package otel
 
