@@ -47,7 +47,7 @@ func Valid(data []byte) bool
 | 应用层 response | HTTP JSON 响应 |
 | `core/cache` | 对象缓存 helper |
 | `core/queue` | 任务 payload 编解码 |
-| `core/session` | Redis session extra 字段 |
+| `core/gin/session` | Redis session extra 字段 |
 | `core/accesslog` | 请求头、请求体摘要和表单字段记录 |
 | `crontab` | 任务 payload 解析 |
 | `worker` | 失败任务 payload 处理 |

@@ -5,7 +5,7 @@
 ## 当前边界
 
 - `core/errors` 继续负责业务错误模型和错误码。
-- `core/ginresponder` 只提供 Gin middleware 的错误响应注入点和默认 fallback。
+- `core/gin/responder` 只提供 Gin middleware 的错误响应注入点和默认 fallback。
 - sdkit core middleware 不再直接输出 `err_code/msg/data` 应用协议。
 - sdkitgo 应用层统一使用 `app/http/response` 输出业务响应。
 
@@ -31,6 +31,6 @@ casbin.Middleware(casbin.WithResponder(appmiddleware.ErrorResponder))
 
 ## 更新记录
 
-- 2026-05-19：移除 `core/response`，新增 `core/ginresponder`，core middleware 改为 responder 注入。
+- 2026-05-19：移除 `core/response`，新增 `core/gin/responder`，core middleware 改为 responder 注入。
 - 2026-05-15：历史版本新增 `response.Fail` 和 `response.AbortFail`。
 - 2026-05-13：历史版本新增统一 response 模块。

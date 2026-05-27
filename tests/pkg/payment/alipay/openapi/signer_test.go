@@ -1,3 +1,5 @@
+//go:build sdkit_payment_alipay
+
 package openapi_test
 
 import (

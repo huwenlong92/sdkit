@@ -14,7 +14,7 @@
 
 `core/auth` 不负责业务用户模型、后台管理员语义、商户语义、菜单权限、RBAC 或 Casbin policy。
 
-JWT 的签发和解析复用 `pkg/jwtx`。Session 存储仍由 `core/session` 负责，`core/auth` 只通过 `SessionReader` 读取登录态并映射为 `Identity`，并提供生命周期 hooks 给接入方挂载业务操作。
+JWT 的签发和解析复用 `pkg/jwtx`。Session 存储仍由 `core/gin/session` 负责，`core/auth` 只通过 `SessionReader` 读取登录态并映射为 `Identity`，并提供生命周期 hooks 给接入方挂载业务操作。
 
 ## Identity 约束
 

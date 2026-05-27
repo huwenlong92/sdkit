@@ -41,6 +41,25 @@
 
 `core/payment` 不依赖任何支付平台 SDK。
 
+## Provider Build Tag
+
+支付 provider 按 provider 维度编译。`core/payment` 只保留统一模型、registry、selector 和 facade，不 import 任何具体 provider 或官方 SDK。
+
+| provider | package | build tag |
+| --- | --- | --- |
+| alipay | `pkg/payment/alipay`, `pkg/payment/alipay/openapi` | `sdkit_payment_alipay` |
+| wechat | `pkg/payment/wechat`, `pkg/payment/wechat/apiv3` | `sdkit_payment_wechat` |
+| stripe | `pkg/payment/stripe`, `pkg/payment/stripe/stripego` | `sdkit_payment_stripe` |
+| paypal | `pkg/payment/paypal`, `pkg/payment/paypal/ordersapi` | `sdkit_payment_paypal` |
+
+`pkg/payment/aggregate`、`pkg/payment/channelrouter`、`pkg/payment/debuglog`、`pkg/payment/mock` 不绑定第三方 SDK，默认保留。
+
+规则：
+
+- 应用只 import 已启用 tag 对应的 provider。
+- 构建时只打开当前二进制需要的 provider tag。
+- 配置可以包含多个 channel，但二进制只能使用已编译的 provider。
+
 ## 包结构
 
 ```text

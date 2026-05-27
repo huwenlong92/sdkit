@@ -1,11 +1,11 @@
 # CORS 使用文档
 
-`core/cors` 用于 Gin HTTP 服务的跨域处理。
+`core/gin/cors` 用于 Gin HTTP 服务的跨域处理。
 
 ## 默认使用
 
 ```go
-import "github.com/huwenlong92/sdkit/core/cors"
+import "github.com/huwenlong92/sdkit/core/gin/cors"
 
 r.Use(cors.Middleware())
 ```

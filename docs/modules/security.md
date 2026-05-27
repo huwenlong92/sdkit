@@ -2,7 +2,7 @@
 
 `core/security` 是安全与风控基础能力中心，负责人机验证适配、短期状态、黑名单、审计、风控编排和 Gin 中间件。加解密、签名、密码哈希、随机 token、请求指纹等纯工具位于 `pkg/security`。
 
-不负责登录态、JWT、Session、RBAC、菜单权限和普通访问日志；这些继续由 `core/auth`、`core/session`、`core/casbin`、`core/accesslog` 等模块维护。
+不负责登录态、JWT、Session、RBAC、菜单权限和普通访问日志；这些继续由 `core/auth`、`core/gin/session`、`core/casbin`、`core/accesslog` 等模块维护。
 
 ## 包结构
 
@@ -72,7 +72,7 @@ type Checker interface {
 - `core/auth` 保持独立，security 只产出风险结果，不签发登录态或 JWT。
 - `core/ratelimit` 保持独立，security 通过 `RateLimitChecker` 适配 `pkg/ratelimit.Limiter`，不依赖 ratelimit 的 Runtime Capability 或 Gin middleware。
 - `core/accesslog` 继续记录普通访问日志；security 只写安全事件。
-- security Gin middleware 通过 `core/ginresponder` 支持应用层注入统一响应结构；未注入时使用 core 默认 JSON fallback。
+- security Gin middleware 通过 `core/gin/responder` 支持应用层注入统一响应结构；未注入时使用 core 默认 JSON fallback。
 
 ## 更新记录
 

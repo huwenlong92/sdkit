@@ -130,7 +130,7 @@ adminAuth := auth.NewSessionAuthenticator(auth.SessionAuthenticator{
 })
 ```
 
-Gin 中使用 session 时，需要先挂 `core/session` middleware，再挂 auth middleware。
+Gin 中使用 session 时，需要先挂 `core/gin/session` middleware，再挂 auth middleware。
 
 ```go
 sessionMiddleware, err := session.Middleware(cfg.Session)

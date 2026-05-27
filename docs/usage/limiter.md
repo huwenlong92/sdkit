@@ -192,7 +192,7 @@ r.Use(rlMiddleware.BBRMiddleware(bbr))
 
 ### 自定义中间件
 
-`core/ratelimit/middleware.Limiter(r, burst)` 和 `LimiterPerUser(r, burst)` 是 Gin 接入层预设；纯算法和 Store 位于 `pkg/ratelimit`。
+`core/gin/ratelimit/middleware.Limiter(r, burst)` 和 `LimiterPerUser(r, burst)` 是 Gin 接入层预设；纯算法和 Store 位于 `pkg/ratelimit`。
 
 ```go
 r.Use(rlMiddleware.Limiter(100, 200))

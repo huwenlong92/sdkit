@@ -31,7 +31,7 @@
 
 - 定义底层 provider 接口、消息 payload 和发送结果
 - 管理 driver 注册表
-- 实现具体短信 driver，例如阿里云、飞鸽
+- 实现具体短信 driver，例如阿里云、飞鸽；driver 必须通过 build tag 按需编译
 
 `core/sms` 不负责：
 
@@ -90,12 +90,25 @@ type ProviderMessage interface {
 
 `Payload.Data` 使用有序参数列表，兼容飞鸽这类按变量顺序拼接的接口；阿里云 driver 会转换成 JSON map。
 
-## Driver
+## Driver 与 Build Tag
 
-第一版内置：
+内置 driver：
 
-- `aliyun`
-- `feige`
+| driver | package | build tag |
+| --- | --- | --- |
+| `aliyun` | `pkg/sms/driver/aliyun` | `sdkit_sms_aliyun` |
+| `feige` | `pkg/sms/driver/feige` | `sdkit_sms_feige` |
+
+`core/sms` 和 `core/sms/facade` 不 blank import 任何 driver。应用需要某个 driver 时，必须：
+
+- 构建时启用对应 build tag。
+- 在启动接线层 import 对应 driver 包，或调用 driver 包的 `Register()`。
+
+示例：
+
+```go
+import _ "github.com/huwenlong92/sdkit/pkg/sms/driver/aliyun"
+```
 
 学校或业务定制 provider 不放进 core，应用可通过 `RegisterDriver` 注入，例如 `cqu`、`nuaa`。
 
@@ -111,4 +124,5 @@ type RateLimiter interface {
 
 ## 更新记录
 
+- 2026-05-27：短信 driver 改为 build tag 按需编译；`core/sms/facade` 不再默认引入 aliyun、feige。
 - 2026-05-26：facade 移除 `core/config.V` 隐式配置读取，默认内部注册；新增 `WithExternal()`，全局启动通过显式 `WithConfigLoader` 注入配置。

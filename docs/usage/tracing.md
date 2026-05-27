@@ -21,7 +21,7 @@ app.RegisterCapabilities(
 )
 ```
 
-bootstrap 会在主 Runtime 中先加载配置，再通过 `core/tracing/facade` 的 `tracing.Use(tracing.WithConfigLoader(...))` 注册公共 tracing 能力。业务 middleware、span、propagation 仍然直接使用根包 `github.com/huwenlong92/sdkit/core/tracing`。
+bootstrap 会在主 Runtime 中先加载配置，再通过 `core/tracing/facade` 的 `tracing.Use(tracing.WithConfigLoader(...))` 注册公共 tracing 能力。业务 span、propagation 使用根包 `github.com/huwenlong92/sdkit/core/tracing`；Gin HTTP middleware 使用 `github.com/huwenlong92/sdkit/core/gin/tracing`。
 
 `tracing.Use()` 默认是内部底座能力。只有需要把 tracing capability 展示给外部启动信息或 CLI 时，才传入 `tracing.WithExternal()`。未传配置时使用默认配置，默认 `enabled=false`，不会创建 exporter。
 
@@ -61,9 +61,13 @@ http://192.168.1.126:16686
 现有 admin/api/sse router 已注册：
 
 ```go
-r.Use(tracking.Middleware())
-r.Use(tracing.Middleware("admin"))
-r.Use(requestid.Middleware())
+import gintracking "github.com/huwenlong92/sdkit/core/gin/tracking"
+import gintracing "github.com/huwenlong92/sdkit/core/gin/tracing"
+import ginrequestid "github.com/huwenlong92/sdkit/core/gin/requestid"
+
+r.Use(gintracking.Middleware())
+r.Use(gintracing.Middleware("admin"))
+r.Use(ginrequestid.Middleware())
 ```
 
 完整 HTTP 推荐顺序是 `Recovery -> Tracking -> Tracing -> RequestID -> CORS -> AccessLog -> BBR -> RateLimit -> Auth/Casbin -> Handler`。`Tracking` 必须先于 `Tracing`，让 HTTP root span 带上 `track_id`；`RequestID` 放在 `Tracing` 后面，tracing middleware 会在下游返回后补充 `sd.request_id`。

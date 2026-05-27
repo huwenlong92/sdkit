@@ -2,7 +2,7 @@
 
 ## 作用
 
-`core/tracing` 提供 OpenTelemetry 链路追踪能力，负责 trace/span 的生成、传播、日志字段提取和 OTLP 导出。
+`core/tracing` 提供 OpenTelemetry 链路追踪能力，负责 trace/span 的生成、传播、日志字段提取和 OTLP 导出；Gin HTTP middleware 位于 `core/gin/tracing`。
 
 职责边界：
 
@@ -58,7 +58,6 @@ tracing.DefaultConfig().Enabled == false
 core/tracing/
   tracing.go
   config.go
-  middleware.go
   span.go
   propagator.go
   facade/
@@ -117,9 +116,13 @@ tracingcap.WithExternal()
 HTTP 服务在 `tracking` 后、`requestid` 前注册 tracing middleware：
 
 ```go
-r.Use(tracking.Middleware())
-r.Use(tracing.Middleware("admin"))
-r.Use(requestid.Middleware())
+import gintracking "github.com/huwenlong92/sdkit/core/gin/tracking"
+import gintracing "github.com/huwenlong92/sdkit/core/gin/tracing"
+import ginrequestid "github.com/huwenlong92/sdkit/core/gin/requestid"
+
+r.Use(gintracking.Middleware())
+r.Use(gintracing.Middleware("admin"))
+r.Use(ginrequestid.Middleware())
 ```
 
 完整推荐顺序是：
@@ -240,10 +243,12 @@ Redis tracing 在 `core/redis` hook 中实现，不在 `core/tracing` 暴露 Red
 - `core/tracing` 定义 trace/track/request 字段语义和底层传播 helper。
 - `core/queue` 定义队列链路契约，具体 driver 只依赖 `core/queue` 的 correlation API。
 - `pkg` 只实现 Asynq、Outbox、EventBus driver 等具体适配，不维护独立 header 规则。
+- 新增 HTTP 框架接入时必须放到对应 adapter 目录；不要把 Gin、Echo 等框架依赖放回 `core/tracing` 根包。
 
 ## 更新记录
 
 - 2026-05-26：Tracing runtime facade 默认作为 internal 底座能力，新增 `WithExternal()` 显式对外展示；默认依赖收敛到 `defaultUseOptions()`。
+- 2026-05-27：Gin HTTP middleware 拆到 `core/gin/tracing`，`core/tracing` 根包只保留 tracing 抽象、provider 初始化和传播 helper。
 - 2026-05-16：HTTP root span 接入统一 correlation helper，补齐 `trace_id/span_id/track_id/request_id/traceparent`；Queue/Redis 去掉分散的手写 `trace_id`。
 - 2026-05-16：新增 `core/tracing/facade` Runtime Capability 接入层，按 `config.go/client.go/use.go/default.go` 组织，根包保留 tracing 实现和业务 API。
 - 2026-05-13：EventBus/SSE 单事件处理创建 `eventbus.handle <name|topic>` span；redisstream driver 补齐默认 middleware 链。

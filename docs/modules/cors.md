@@ -2,7 +2,7 @@
 
 ## 作用
 
-`core/cors` 提供 Gin CORS 中间件，统一处理跨域请求的 allow headers、expose headers、methods、origins 和 max age。
+`core/gin/cors` 提供 Gin CORS 中间件，统一处理跨域请求的 allow headers、expose headers、methods、origins 和 max age。
 
 ## 对外接口
 

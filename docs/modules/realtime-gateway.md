@@ -60,9 +60,9 @@ HTTP router 使用 Gin，并复用已有通用 middleware：
 
 ```go
 r.Use(recovery.Middleware())
-r.Use(tracking.Middleware())
-r.Use(tracing.Middleware("realtime"))
-r.Use(requestid.Middleware())
+r.Use(gintracking.Middleware())
+r.Use(gintracing.Middleware("realtime"))
+r.Use(ginrequestid.Middleware())
 r.Use(cors.Middleware())
 ```
 

@@ -91,7 +91,7 @@ func SubCodeForCode(code int) string
 
 | 模块 | 集成方式 |
 |------|----------|
-| `core/ginresponder` | 为 Gin middleware 提供 responder 注入点，应用层决定响应结构 |
+| `core/gin/responder` | 为 Gin middleware 提供 responder 注入点，应用层决定响应结构 |
 | 应用层 validator | 将 Gin bind 和 validator 错误转换为 `CodeBadRequest` 的 `AppError` |
 | `app/admin/handler/system/auth.go` | 示例迁移：登录、用户信息错误通过 `AppError` 返回 |
 | `app/api/handler/security_demo.go` | 示例迁移：安全 demo 错误通过 `AppError` 返回 |

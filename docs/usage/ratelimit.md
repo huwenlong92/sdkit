@@ -19,12 +19,12 @@ app.RegisterCapabilities(
 )
 ```
 
-bootstrap 会通过 `ratelimitcap.Use()` 注册公共 ratelimit store。Redis 已初始化时使用 RedisStore，否则使用 MemoryStore。业务中间件仍然直接使用根包下的 `core/ratelimit/middleware`。
+bootstrap 会通过 `ratelimitcap.Use()` 注册公共 ratelimit store。Redis 已初始化时使用 RedisStore，否则使用 MemoryStore。业务中间件仍然直接使用根包下的 `core/gin/ratelimit/middleware`。
 
 `ratelimitcap.Use()` 默认是内部底座能力。只有需要把 ratelimit capability 展示给外部启动信息或 CLI 时，才传入 `ratelimitcap.WithExternal()`。facade 只初始化共享 store；限流 rate、burst、BBR 等策略由具体 middleware 或业务配置控制。
 
 ```go
-import rlMiddleware "github.com/huwenlong92/sdkit/core/ratelimit/middleware"
+import rlMiddleware "github.com/huwenlong92/sdkit/core/gin/ratelimit/middleware"
 ```
 
 ## 快速使用
@@ -86,7 +86,7 @@ r.Use(rlMiddleware.BBRSensitive())    // CPU 60% 触发
 import (
     "time"
 
-    rlMiddleware "github.com/huwenlong92/sdkit/core/ratelimit/middleware"
+    rlMiddleware "github.com/huwenlong92/sdkit/core/gin/ratelimit/middleware"
     "github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 )
 
@@ -127,7 +127,7 @@ type Limiter interface {
 
 ```go
 import (
-    rlMiddleware "github.com/huwenlong92/sdkit/core/ratelimit/middleware"
+    rlMiddleware "github.com/huwenlong92/sdkit/core/gin/ratelimit/middleware"
     coreredis "github.com/huwenlong92/sdkit/core/redis"
     "github.com/huwenlong92/sdkit/pkg/ratelimit/store"
 )

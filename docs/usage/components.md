@@ -5,7 +5,7 @@ HTTP 通用能力按职责拆分在 `core/*` 和应用侧 middleware 中，服�
 ## Recovery
 
 ```go
-import "github.com/huwenlong92/sdkit/core/recovery"
+import "github.com/huwenlong92/sdkit/core/gin/recovery"
 
 r.Use(recovery.Middleware())
 ```
@@ -27,7 +27,7 @@ r.Use(recovery.Middleware())
 ## CORS
 
 ```go
-import "github.com/huwenlong92/sdkit/core/cors"
+import "github.com/huwenlong92/sdkit/core/gin/cors"
 
 r.Use(cors.Middleware())
 r.Use(cors.Middleware(
@@ -50,9 +50,9 @@ r.Use(cors.Middleware(
 
 ```go
 r.Use(recovery.Middleware())
-r.Use(tracking.Middleware())
-r.Use(tracing.Middleware("admin"))
-r.Use(requestid.Middleware())
+r.Use(gintracking.Middleware())
+r.Use(gintracing.Middleware("admin"))
+r.Use(ginrequestid.Middleware())
 r.Use(cors.Middleware())
 r.Use(adminmiddleware.AccessLog(accessLogger))
 r.Use(appmiddleware.BBR(bbrCfg))

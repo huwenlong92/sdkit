@@ -1,3 +1,5 @@
+//go:build sdkit_sms_aliyun
+
 package aliyun
 
 import (
@@ -12,6 +14,10 @@ import (
 )
 
 func init() {
+	Register()
+}
+
+func Register() {
 	sms.RegisterDriver("aliyun", New)
 }
 

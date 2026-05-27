@@ -1,22 +1,22 @@
 # Tracking 使用文档
 
-`core/tracking` 用于生成或透传 HTTP 业务追踪 ID。
+`core/tracking` 用于生成和透传业务追踪 ID；Gin middleware 使用 `core/gin/tracking`。
 
 ## 注册中间件
 
 ```go
-import "github.com/huwenlong92/sdkit/core/tracking"
+import gintracking "github.com/huwenlong92/sdkit/core/gin/tracking"
 
-r.Use(tracking.Middleware())
+r.Use(gintracking.Middleware())
 ```
 
 推荐注册顺序：
 
 ```go
 r.Use(recovery.Middleware())
-r.Use(tracking.Middleware())
-r.Use(tracing.Middleware("admin"))
-r.Use(requestid.Middleware())
+r.Use(gintracking.Middleware())
+r.Use(gintracing.Middleware("admin"))
+r.Use(ginrequestid.Middleware())
 r.Use(cors.Middleware())
 r.Use(adminmiddleware.AccessLog(accessLogger))
 ```
@@ -36,7 +36,9 @@ X-Track-ID
 ## 配置
 
 ```go
-r.Use(tracking.Middleware(tracking.Config{
+import coretracking "github.com/huwenlong92/sdkit/core/tracking"
+
+r.Use(gintracking.Middleware(coretracking.Config{
     Enabled:        true,
     Header:         "X-Track-ID",
     ResponseHeader: "X-Track-ID",
@@ -50,8 +52,7 @@ r.Use(tracking.Middleware(tracking.Config{
 ## 读取 track_id
 
 ```go
-trackID := tracking.Get(c)
-sameTrackID := tracking.TrackID(c.Request.Context())
+trackID := gintracking.Get(c)
 ```
 
 值会同时写入：
@@ -63,6 +64,8 @@ sameTrackID := tracking.TrackID(c.Request.Context())
 非 HTTP 场景可手动透传：
 
 ```go
+import "github.com/huwenlong92/sdkit/core/tracking"
+
 ctx = tracking.WithTrackID(ctx, trackID)
 ```
 
@@ -87,7 +90,7 @@ AccessLog 会把该值写入 `track_id`。`trace_id` 只来自 OpenTelemetry spa
 
 ## 导入约束
 
-业务追踪统一使用 `github.com/huwenlong92/sdkit/core/tracking`。`core/tracking/tests` 中的 import guard 会阻止重新引入非正式 tracking 入口。
+业务追踪纯能力统一使用 `github.com/huwenlong92/sdkit/core/tracking`；Gin 接入统一使用 `github.com/huwenlong92/sdkit/core/gin/tracking`。
 
 ## 注意事项
 

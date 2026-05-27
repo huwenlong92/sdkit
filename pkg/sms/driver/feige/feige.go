@@ -1,3 +1,5 @@
+//go:build sdkit_sms_feige
+
 package feige
 
 import (
@@ -15,6 +17,10 @@ import (
 const defaultEndpoint = "https://api.4321.sh/sms/template"
 
 func init() {
+	Register()
+}
+
+func Register() {
 	sms.RegisterDriver("feige", New)
 }
 

@@ -2,7 +2,7 @@
 
 ## 概述
 
-`core/session` 是 `gin-contrib/sessions` 的薄封装，只处理 HTTP 请求里的 session：
+`core/gin/session` 是 `gin-contrib/sessions` 的薄封装，只处理 HTTP 请求里的 session：
 
 - 初始化 cookie / redis store
 - 注册 Gin session middleware

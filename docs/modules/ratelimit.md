@@ -2,7 +2,7 @@
 
 ## 目标
 
-`pkg/ratelimit` 提供通用限流库，`core/ratelimit` 提供 sdkit HTTP 接口限流能力接入，负责限流 key 提取、Gin 中间件和 Runtime Capability。
+`pkg/ratelimit` 提供通用限流库，`core/ratelimit` 提供运行时共享 Store 和 capability，Gin keyer/middleware 位于 `core/gin/ratelimit`。
 
 目标能力：
 
@@ -23,9 +23,12 @@
 
 `core/ratelimit` 负责：
 
+- 提供 Runtime Capability，统一设置共享 Store
+
+`core/gin/ratelimit` 负责：
+
 - 提供常用 Gin 中间件预设
 - 提供 IP、用户、用户 + 路由 key 提取函数
-- 提供 Runtime Capability，统一设置共享 Store
 - 在限流拒绝时返回统一 429 JSON
 
 `core/ratelimit` 不负责：
@@ -86,7 +89,7 @@ runtimeApp.RegisterCapabilities(
 )
 ```
 
-bootstrap 默认注册 `ratelimitcap.Use()`。Redis 已初始化时 facade 会设置 `pkg/ratelimit/store.RedisStore`；Redis 不可用时设置 `MemoryStore`。业务侧仍通过 `core/ratelimit/middleware` 使用中间件预设。
+bootstrap 默认注册 `ratelimitcap.Use()`。Redis 已初始化时 facade 会设置 `pkg/ratelimit/store.RedisStore`；Redis 不可用时设置 `MemoryStore`。业务侧仍通过 `core/gin/ratelimit/middleware` 使用中间件预设。
 
 `ratelimitcap.Use()` 默认按框架底座能力处理，metadata `Internal=true`。需要在启动信息或 CLI 中对外展示 ratelimit capability 时，调用方必须显式传入 `ratelimitcap.WithExternal()`。该 facade 只负责运行时共享 store，不接收限流策略配置；限流速率、burst、BBR 等策略仍由具体 middleware 或业务配置负责。
 
@@ -217,7 +220,7 @@ BBR 依赖 Linux `/proc/stat`。非 Linux 环境无法正确读取 CPU 使用率
 ## 更新记录
 
 - 2026-05-26：Ratelimit runtime facade 默认作为 internal 底座能力，新增 `WithExternal()` 显式对外展示；移除无效的 `WithConfig` / `WithConfigLoader`，facade 只保留共享 store 初始化职责。
-- 2026-05-21：拆分边界，`Limiter`、策略和 Store 下沉到 `pkg/ratelimit`，`core/ratelimit` 仅保留 Runtime Capability、keyer 和 Gin middleware。
+- 2026-05-21：拆分边界，`Limiter`、策略和 Store 下沉到 `pkg/ratelimit`，`core/ratelimit` 仅保留 Runtime Capability 和共享 Store；Gin keyer/middleware 位于 `core/gin/ratelimit`。
 - 2026-05-16：新增 `core/ratelimit/facade` Runtime Capability 接入层，按 `config.go/client.go/use.go/default.go` 组织，根包保留限流实现和业务 API。
 - 2026-05-12：限流 Store 增加 context-aware 调用路径，Redis 限流命令可串联 OpenTelemetry HTTP trace。
 - 2026-05-10：补充 RateLimit 模块设计、接口、策略、存储和使用约束。

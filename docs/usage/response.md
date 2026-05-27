@@ -20,7 +20,7 @@ response.Success(c, data)
 response.Fail(c, err)
 ```
 
-middleware 需要统一应用响应结构时，通过 `core/ginresponder` 注入应用 responder：
+middleware 需要统一应用响应结构时，通过 `core/gin/responder` 注入应用 responder：
 
 ```go
 recovery.Middleware(recovery.WithResponder(appmiddleware.ErrorResponder))

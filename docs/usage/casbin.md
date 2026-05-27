@@ -62,10 +62,10 @@ authz.Use(adminmiddleware.Casbin())
 1. core/auth 写入 `auth_role_id`
 2. 服务 middleware 查询自己的角色表，得到 `role.Code`
 3. 服务 middleware 归一化路径，例如 admin 去掉 `/admin/v1`
-4. core/casbin 调用 `Enforce(roleCode, path, method)`
+4. `core/gin/casbin` middleware 调用 `core/casbin` manager 的 `Enforce(roleCode, path, method)`
 5. 无权限返回 403
 
-`core/casbin` 只提供通用 manager 和 middleware，不依赖服务 model。角色解析、路径前缀处理等服务相关逻辑放在 `app/admin/middleware/casbin.go` 或各服务自己的 middleware 中。
+`core/casbin` 只提供通用 manager；Gin middleware 位于 `core/gin/casbin`。角色解析、路径前缀处理等服务相关逻辑放在 `app/admin/middleware/casbin.go` 或各服务自己的 middleware 中。
 
 ## 初始化
 

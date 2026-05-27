@@ -3,11 +3,14 @@
 ## 作用
 
 `core/accesslog` 提供通用 HTTP 访问日志采集能力，不绑定具体数据库表。服务侧通过实现 `Writer` 决定落库方式。
+Gin 请求采集中间件位于 `core/gin/accesslog`。
 
 ## 初始化
 
 ```go
-accessLogger := accesslog.NewLogger(writer, accesslog.Config{
+import coreaccesslog "github.com/huwenlong92/sdkit/core/accesslog"
+
+accessLogger := coreaccesslog.NewLogger(writer, coreaccesslog.Config{
     QueueSize:     1024,
     BatchSize:     100,
     FlushInterval: 200 * time.Millisecond,
@@ -66,38 +69,40 @@ type Skipper func(*gin.Context) bool
 敏感字段默认覆盖 `authorization/cookie/password/token/secret`，业务可按服务追加字段和 header：
 
 ```go
-r.Use(accesslog.Middleware(
+import ginaccesslog "github.com/huwenlong92/sdkit/core/gin/accesslog"
+
+r.Use(ginaccesslog.Middleware(
     "admin",
-    accesslog.WithLogger(accessLogger),
-    accesslog.WithAdditionalSensitiveFields("otp", "pin_code"),
-    accesslog.WithAdditionalSensitiveHeaders("X-Internal-Secret"),
+    ginaccesslog.WithLogger(accessLogger),
+    ginaccesslog.WithAdditionalSensitiveFields("otp", "pin_code"),
+    ginaccesslog.WithAdditionalSensitiveHeaders("X-Internal-Secret"),
 ))
 ```
 
 可通过 `WithSkipper` 按请求跳过记录，也可以在请求处理中调用 `Skip(c)` 标记当前请求不写访问日志：
 
 ```go
-r.Use(accesslog.Middleware(
+r.Use(ginaccesslog.Middleware(
     "admin",
-    accesslog.WithLogger(accessLogger),
-    accesslog.WithSkipper(func(c *gin.Context) bool {
+    ginaccesslog.WithLogger(accessLogger),
+    ginaccesslog.WithSkipper(func(c *gin.Context) bool {
         return c.Request.URL.Path == "/ping"
     }),
 ))
 
 func Handler(c *gin.Context) {
-    accesslog.Skip(c)
+    ginaccesslog.Skip(c)
 }
 ```
 
 固定的 method 或 IP 白名单可以直接用内置选项，不需要每次手写 `WithSkipper`：
 
 ```go
-r.Use(accesslog.Middleware(
+r.Use(ginaccesslog.Middleware(
     "admin",
-    accesslog.WithLogger(accessLogger),
-    accesslog.WithSkipMethods("OPTIONS", "HEAD"),
-    accesslog.WithSkipIPs("127.0.0.1", "10.0.0.0/8"),
+    ginaccesslog.WithLogger(accessLogger),
+    ginaccesslog.WithSkipMethods("OPTIONS", "HEAD"),
+    ginaccesslog.WithSkipIPs("127.0.0.1", "10.0.0.0/8"),
 ))
 ```
 
@@ -106,21 +111,26 @@ r.Use(accesslog.Middleware(
 测试或调试场景可显式传空列表，关闭字段或 header 脱敏：
 
 ```go
-r.Use(accesslog.Middleware(
+r.Use(ginaccesslog.Middleware(
     "admin",
-    accesslog.WithLogger(accessLogger),
-    accesslog.WithSensitiveFields(),
-    accesslog.WithSensitiveHeaders(),
+    ginaccesslog.WithLogger(accessLogger),
+    ginaccesslog.WithSensitiveFields(),
+    ginaccesslog.WithSensitiveHeaders(),
 ))
 ```
 
 ## 中间件
 
 ```go
-r.Use(tracking.Middleware())
-r.Use(tracing.Middleware("admin"))
-r.Use(requestid.Middleware())
-r.Use(accesslog.Middleware("admin", accesslog.WithLogger(accessLogger)))
+import ginaccesslog "github.com/huwenlong92/sdkit/core/gin/accesslog"
+import ginrequestid "github.com/huwenlong92/sdkit/core/gin/requestid"
+import gintracking "github.com/huwenlong92/sdkit/core/gin/tracking"
+import gintracing "github.com/huwenlong92/sdkit/core/gin/tracing"
+
+r.Use(gintracking.Middleware())
+r.Use(gintracing.Middleware("admin"))
+r.Use(ginrequestid.Middleware())
+r.Use(ginaccesslog.Middleware("admin", ginaccesslog.WithLogger(accessLogger)))
 ```
 
 推荐顺序是 `Recovery -> Tracking -> Tracing -> RequestID -> CORS -> AccessLog -> BBR -> RateLimit -> Auth/Casbin -> Handler`。AccessLog 必须在 Tracking、Tracing、RequestID 之后，才能完整采集 `track_id/trace_id/request_id`。
@@ -157,3 +167,4 @@ r.Use(accesslog.Middleware("admin", accesslog.WithLogger(accessLogger)))
 - 2026-05-21：新增 `WithSkipper` 和 `Skip(c)`，支持按请求跳过访问日志记录。
 - 2026-05-21：新增 `WithSkipMethods` 和 `WithSkipIPs`，支持按 HTTP method、精确 IP 和 CIDR 网段跳过访问日志记录。
 - 2026-05-21：`Entry` 新增 `ErrCode` / `ErrMsg`，由 core 从响应体提取统一业务码和消息。
+- 2026-05-27：Gin middleware 和请求 helper 拆到 `core/gin/accesslog`，`core/accesslog` 保留 `Entry`、`Writer`、`Logger` 和通用过滤能力。

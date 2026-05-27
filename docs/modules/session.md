@@ -2,7 +2,7 @@
 
 ## 职责
 
-`core/session` 只封装 `gin-contrib/sessions`，不再实现自研 session 库，也不再作为 runtime capability 注册。
+`core/gin/session` 只封装 `gin-contrib/sessions`，不再实现自研 session 库，也不再作为 runtime capability 注册。
 
 模块负责：
 

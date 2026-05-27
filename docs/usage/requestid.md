@@ -1,22 +1,22 @@
 # RequestID 使用文档
 
-`core/requestid` 用于生成或透传 HTTP 请求 ID。
+`core/requestid` 提供请求 ID 的 header 和 context API；Gin middleware 使用 `core/gin/requestid`。
 
 ## 注册中间件
 
 ```go
-import "github.com/huwenlong92/sdkit/core/requestid"
+import ginrequestid "github.com/huwenlong92/sdkit/core/gin/requestid"
 
-r.Use(requestid.Middleware())
+r.Use(ginrequestid.Middleware())
 ```
 
 推荐注册顺序：
 
 ```go
 r.Use(recovery.Middleware())
-r.Use(tracking.Middleware())
-r.Use(tracing.Middleware("admin"))
-r.Use(requestid.Middleware())
+r.Use(gintracking.Middleware())
+r.Use(gintracing.Middleware("admin"))
+r.Use(ginrequestid.Middleware())
 r.Use(cors.Middleware())
 r.Use(adminmiddleware.AccessLog(accessLogger))
 ```
@@ -36,13 +36,14 @@ X-Request-ID
 ## 读取 request_id
 
 ```go
-requestID := requestid.Get(c)
-sameRequestID := requestid.FromContext(c.Request.Context())
+requestID := ginrequestid.Get(c)
 ```
 
 非 Gin 场景使用：
 
 ```go
+import "github.com/huwenlong92/sdkit/core/requestid"
+
 ctx = requestid.WithRequestID(ctx, requestID)
 requestID = requestid.FromContext(ctx)
 ```

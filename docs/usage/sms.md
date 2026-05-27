@@ -2,6 +2,27 @@
 
 `core/sms` 提供多短信发送方管理、指定发送、消息级失败转移和发送 middleware。
 
+## Build Tag
+
+短信 driver 按需编译，`core/sms` 不会默认拉入任何短信 SDK。
+
+| driver | build tag |
+| --- | --- |
+| aliyun | `sdkit_sms_aliyun` |
+| feige | `sdkit_sms_feige` |
+
+示例：
+
+```bash
+go build -tags sdkit_sms_aliyun ./cmd/server
+```
+
+启动接线层需要 import 对应 driver：
+
+```go
+import _ "github.com/huwenlong92/sdkit/pkg/sms/driver/aliyun"
+```
+
 ## 配置
 
 ```yaml

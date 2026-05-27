@@ -2,7 +2,7 @@
 
 ## 作用
 
-`core/tracking` 负责为请求生成和透传业务追踪 ID，用于日志检索、前后端联动排查和异步任务来源传递。
+`core/tracking` 负责业务追踪 ID 的配置、生成和 context 透传；Gin HTTP middleware 位于 `core/gin/tracking`。
 
 当前模块只提供轻量 tracking 能力，不实现 OpenTelemetry、Jaeger、W3C Trace Context、span tree 或采样策略。
 
@@ -14,9 +14,9 @@
 ## 初始化
 
 ```go
-import "github.com/huwenlong92/sdkit/core/tracking"
+import gintracking "github.com/huwenlong92/sdkit/core/gin/tracking"
 
-r.Use(tracking.Middleware())
+r.Use(gintracking.Middleware())
 ```
 
 推荐顺序：
@@ -59,11 +59,19 @@ const (
 )
 
 func DefaultConfig() Config
-func Middleware(configs ...Config) gin.HandlerFunc
 func WithTrackID(ctx context.Context, trackID string) context.Context
 func TrackID(ctx context.Context) string
 func MustTrackID(ctx context.Context) string
 func NewTrackID() string
+```
+
+Gin 适配入口：
+
+```go
+import gintracking "github.com/huwenlong92/sdkit/core/gin/tracking"
+import coretracking "github.com/huwenlong92/sdkit/core/tracking"
+
+func Middleware(configs ...coretracking.Config) gin.HandlerFunc
 func Get(c *gin.Context) string
 ```
 
@@ -93,7 +101,7 @@ func Get(c *gin.Context) string
 
 ## 导入约束
 
-业务追踪统一使用 `github.com/huwenlong92/sdkit/core/tracking`。仓库内由 `core/tracking/tests` 的 import guard 阻止重新引入非正式 tracking 入口。
+业务追踪的纯能力统一使用 `github.com/huwenlong92/sdkit/core/tracking`；Gin 接入统一使用 `github.com/huwenlong92/sdkit/core/gin/tracking`。仓库内由 import guard 阻止重新引入非正式 tracking 入口。
 
 ## 注意事项
 
@@ -112,3 +120,4 @@ func Get(c *gin.Context) string
 - 2026-05-13：同步 HTTP 推荐 middleware 顺序为 `Tracking -> Tracing -> RequestID`，明确 Tracking 必须先于 Tracing。
 - 2026-05-13：新增 typed context key 层，`WithTrackID` / `TrackID` 只使用 typed key。
 - 2026-05-13：业务追踪入口统一为 `core/tracking`，import guard 放在 `core/tracking/tests`。
+- 2026-05-27：Gin middleware 拆到 `core/gin/tracking`，`core/tracking` 保留配置、生成和 context API。

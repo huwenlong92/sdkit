@@ -5,7 +5,7 @@
 业务代码优先使用上层 capability：
 
 - `core/cache`：缓存读写
-- `core/session`：会话存储
+- `core/gin/session`：会话存储
 - `pkg/ratelimit/store`：限流状态
 - `core/queue`：Asynq 队列
 

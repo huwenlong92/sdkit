@@ -2,7 +2,24 @@
 
 `payment` 提供统一支付能力。业务侧只面向 `core/payment` 的统一 API；微信、支付宝、Stripe、PayPal 等平台差异放在 `pkg/payment/*` adapter 里。
 
-常用 import：
+## Build Tag
+
+支付 provider 按需编译。只打开当前二进制实际需要的 provider tag：
+
+| provider | build tag |
+| --- | --- |
+| alipay | `sdkit_payment_alipay` |
+| wechat | `sdkit_payment_wechat` |
+| stripe | `sdkit_payment_stripe` |
+| paypal | `sdkit_payment_paypal` |
+
+示例：
+
+```bash
+go build -tags sdkit_payment_alipay,sdkit_payment_wechat ./cmd/server
+```
+
+按需 import。下面示例同时展示四类 provider，真实项目只保留已启用 provider 的 import：
 
 ```go
 import (
@@ -533,20 +550,20 @@ SDKIT_ALIPAY_GATEWAY_URL=https://openapi-sandbox.dl.alipaydev.com/gateway.do
 执行：
 
 ```bash
-go test ./tests/pkg/payment/alipay/openapi -run TestSandboxConfigBuildsPagePayRequest
+go test -tags sdkit_payment_alipay ./tests/pkg/payment/alipay/openapi -run TestSandboxConfigBuildsPagePayRequest
 ```
 
 查询、退款和退款查询：
 
 ```bash
 SDKIT_ALIPAY_QUERY_OUT_TRADE_NO=sdkit_sandbox_202605260001 \
-go test ./tests/pkg/payment/alipay/openapi -run TestSandboxQueryPayment
+go test -tags sdkit_payment_alipay ./tests/pkg/payment/alipay/openapi -run TestSandboxQueryPayment
 
 SDKIT_ALIPAY_REFUND_OUT_TRADE_NO=sdkit_sandbox_202605260001 \
 SDKIT_ALIPAY_REFUND_OUT_REQUEST_NO=sdkit_refund_202605260001 \
-go test ./tests/pkg/payment/alipay/openapi -run TestSandboxRefund
+go test -tags sdkit_payment_alipay ./tests/pkg/payment/alipay/openapi -run TestSandboxRefund
 
 SDKIT_ALIPAY_REFUND_QUERY_OUT_TRADE_NO=sdkit_sandbox_202605260001 \
 SDKIT_ALIPAY_REFUND_QUERY_OUT_REQUEST_NO=sdkit_refund_202605260001 \
-go test ./tests/pkg/payment/alipay/openapi -run TestSandboxQueryRefund
+go test -tags sdkit_payment_alipay ./tests/pkg/payment/alipay/openapi -run TestSandboxQueryRefund
 ```

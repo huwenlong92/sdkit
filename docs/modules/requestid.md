@@ -2,21 +2,23 @@
 
 ## 作用
 
-`core/requestid` 负责为每个 HTTP 请求提供请求级唯一 ID，用于幂等排查、单次请求定位和日志串联。
+`core/requestid` 负责定义请求 ID 的 header、字段名和 context API；Gin HTTP middleware 位于 `core/gin/requestid`。
 
 RequestID 与 TrackID 的职责不同：
 
 - `request_id`：标识一次 HTTP 请求。
 - `track_id`：标识一次业务请求追踪链路。
 
-当前模块只处理 Gin HTTP 请求，不负责分布式追踪协议转换。
+当前模块不依赖 Gin，不负责分布式追踪协议转换。
 
 ## 初始化
 
 在 Gin router 中注册：
 
 ```go
-r.Use(requestid.Middleware())
+import ginrequestid "github.com/huwenlong92/sdkit/core/gin/requestid"
+
+r.Use(ginrequestid.Middleware())
 ```
 
 推荐顺序：
@@ -39,9 +41,17 @@ const (
     Key    = "request_id"
 )
 
-func Middleware() gin.HandlerFunc
 func WithRequestID(ctx context.Context, requestID string) context.Context
 func FromContext(ctx context.Context) string
+func New() string
+```
+
+Gin 适配入口：
+
+```go
+import ginrequestid "github.com/huwenlong92/sdkit/core/gin/requestid"
+
+func Middleware() gin.HandlerFunc
 func Get(c *gin.Context) string
 ```
 
@@ -69,10 +79,12 @@ func Get(c *gin.Context) string
 ## 使用示例
 
 ```go
-r.Use(requestid.Middleware())
+import ginrequestid "github.com/huwenlong92/sdkit/core/gin/requestid"
+
+r.Use(ginrequestid.Middleware())
 
 func Handler(c *gin.Context) {
-    requestID := requestid.Get(c)
+    requestID := ginrequestid.Get(c)
     ctx := c.Request.Context()
     _ = requestID
     _ = ctx
@@ -94,10 +106,11 @@ func Handler(c *gin.Context) {
 
 - 不做 header 值长度限制。
 - 不做全局唯一性校验。
-- 不直接支持非 Gin 框架。
+- 非 Gin 框架只复用 `core/requestid` 的 context API；框架适配应放到对应 adapter 目录。
 
 ## 更新记录
 
 - 2026-05-10：补充 request context 透传规则和 logger/pgx/redis/accesslog 关联说明。
 - 2026-05-13：同步 HTTP 推荐 middleware 顺序，明确 `request_id` 与 `trace_id/track_id` 的字段边界。
 - 2026-05-13：新增 typed context key 层，`WithRequestID` / `FromContext` 只使用 typed key。
+- 2026-05-27：Gin middleware 拆到 `core/gin/requestid`，`core/requestid` 保留纯 context/header API。

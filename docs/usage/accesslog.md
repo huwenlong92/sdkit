@@ -7,7 +7,8 @@
 - `Entry`：通用日志结构
 - `Writer`：批量写入接口
 - `Logger`：异步队列 + 批量 flush
-- `Middleware`：Gin 请求采集中间件
+
+Gin 请求采集中间件和请求 helper 位于 `core/gin/accesslog`。
 
 具体落库由业务服务自己实现 `Writer`。当前 admin 服务使用 GORM 写入自己的 `SystemAccessLog` 表。
 
@@ -47,9 +48,11 @@ type Writer interface {
 ## 创建 Logger
 
 ```go
+import coreaccesslog "github.com/huwenlong92/sdkit/core/accesslog"
+
 writer := appaccesslog.NewWriter(database.DB, 100)
 
-logger := accesslog.NewLogger(writer, accesslog.Config{
+logger := coreaccesslog.NewLogger(writer, coreaccesslog.Config{
     QueueSize:     1024,
     BatchSize:     100,
     FlushInterval: 200 * time.Millisecond,
@@ -72,18 +75,20 @@ defer cancel()
 
 ## Gin 中间件
 
-core 中间件通过 `WithLogger` 接入异步 Logger：
+Gin 中间件通过 `WithLogger` 接入异步 Logger：
 
 ```go
-r.Use(accesslog.Middleware(
+import ginaccesslog "github.com/huwenlong92/sdkit/core/gin/accesslog"
+
+r.Use(ginaccesslog.Middleware(
     "admin",
-    accesslog.WithLogger(logger),
-    accesslog.WithActorResolver(func(c *gin.Context) accesslog.Actor {
+    ginaccesslog.WithLogger(logger),
+    ginaccesslog.WithActorResolver(func(c *gin.Context) ginaccesslog.Actor {
         identity := authgin.GetIdentity(c)
         if identity == nil {
-            return accesslog.Actor{}
+            return ginaccesslog.Actor{}
         }
-        return accesslog.Actor{
+        return ginaccesslog.Actor{
             ID:   strconv.FormatInt(identity.SubjectID, 10),
             Type: identity.SubjectType,
             Name: identity.Username,
@@ -95,21 +100,21 @@ r.Use(accesslog.Middleware(
 可以按服务追加业务敏感字段和请求头：
 
 ```go
-r.Use(accesslog.Middleware(
+r.Use(ginaccesslog.Middleware(
     "admin",
-    accesslog.WithLogger(logger),
-    accesslog.WithAdditionalSensitiveFields("otp", "pin_code"),
-    accesslog.WithAdditionalSensitiveHeaders("X-Internal-Secret"),
+    ginaccesslog.WithLogger(logger),
+    ginaccesslog.WithAdditionalSensitiveFields("otp", "pin_code"),
+    ginaccesslog.WithAdditionalSensitiveHeaders("X-Internal-Secret"),
 ))
 ```
 
 可以按请求跳过访问日志。适合健康检查、静态资源、无需审计的内部接口：
 
 ```go
-r.Use(accesslog.Middleware(
+r.Use(ginaccesslog.Middleware(
     "admin",
-    accesslog.WithLogger(logger),
-    accesslog.WithSkipper(func(c *gin.Context) bool {
+    ginaccesslog.WithLogger(logger),
+    ginaccesslog.WithSkipper(func(c *gin.Context) bool {
         return c.Request.URL.Path == "/ping"
     }),
 ))
@@ -119,7 +124,7 @@ r.Use(accesslog.Middleware(
 
 ```go
 func Health(c *gin.Context) {
-    accesslog.Skip(c)
+    ginaccesslog.Skip(c)
     c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 ```
@@ -127,11 +132,11 @@ func Health(c *gin.Context) {
 固定的 method 或 IP 白名单可以直接用内置选项：
 
 ```go
-r.Use(accesslog.Middleware(
+r.Use(ginaccesslog.Middleware(
     "admin",
-    accesslog.WithLogger(logger),
-    accesslog.WithSkipMethods("OPTIONS", "HEAD"),
-    accesslog.WithSkipIPs("127.0.0.1", "10.0.0.0/8"),
+    ginaccesslog.WithLogger(logger),
+    ginaccesslog.WithSkipMethods("OPTIONS", "HEAD"),
+    ginaccesslog.WithSkipIPs("127.0.0.1", "10.0.0.0/8"),
 ))
 ```
 
@@ -140,11 +145,11 @@ r.Use(accesslog.Middleware(
 测试或调试时可以显式传空，关闭字段或 header 脱敏：
 
 ```go
-r.Use(accesslog.Middleware(
+r.Use(ginaccesslog.Middleware(
     "admin",
-    accesslog.WithLogger(logger),
-    accesslog.WithSensitiveFields(),
-    accesslog.WithSensitiveHeaders(),
+    ginaccesslog.WithLogger(logger),
+    ginaccesslog.WithSensitiveFields(),
+    ginaccesslog.WithSensitiveHeaders(),
 ))
 ```
 
@@ -171,9 +176,9 @@ admin 启动时创建 writer/logger，并传入 router：
 ```go
 logCtx, cancelLog := context.WithCancel(context.Background())
 
-accessLogger := accesslog.NewLogger(
+accessLogger := coreaccesslog.NewLogger(
     appaccesslog.NewWriter(database.DB, 100),
-    accesslog.Config{
+    coreaccesslog.Config{
         QueueSize:     1024,
         BatchSize:     100,
         FlushInterval: 200 * time.Millisecond,
@@ -202,7 +207,7 @@ type Writer struct {
     batchSize int
 }
 
-func (w *AccessLogWriter) WriteBatch(ctx context.Context, entries []*accesslog.Entry) error {
+func (w *AccessLogWriter) WriteBatch(ctx context.Context, entries []*coreaccesslog.Entry) error {
     // Entry -> app/models.SystemAccessLog
     return w.db.WithContext(ctx).CreateInBatches(rows, w.batchSize).Error
 }
@@ -319,16 +324,19 @@ multipart 只记录普通表单字段，不记录文件二进制内容。
 ## 工具函数
 
 ```go
-import "github.com/huwenlong92/sdkit/core/accesslog"
+import (
+    coreaccesslog "github.com/huwenlong92/sdkit/core/accesslog"
+    ginaccesslog "github.com/huwenlong92/sdkit/core/gin/accesslog"
+)
 
-postMap, err := accesslog.GetRequestBody(c)
-queryMap := accesslog.GetRequestQuery(c)
-headers := accesslog.GetRequestHeaders(c)
+postMap, err := ginaccesslog.GetRequestBody(c)
+queryMap := ginaccesslog.GetRequestQuery(c)
+headers := ginaccesslog.GetRequestHeaders(c)
 
-inputs, err := accesslog.RequestInputs(c)
+inputs, err := ginaccesslog.RequestInputs(c)
 // 返回 {"GET": {...}, "POST": {...}}
 
-jsonStr := accesslog.FilterHeaders(r.Header)
-jsonStr = accesslog.FilterHeadersWithSensitiveHeaders(r.Header, "X-Internal-Secret")
-jsonStr = accesslog.FilterHeadersWithAdditionalSensitiveHeaders(r.Header, "X-Internal-Secret")
+jsonStr := coreaccesslog.FilterHeaders(r.Header)
+jsonStr = coreaccesslog.FilterHeadersWithSensitiveHeaders(r.Header, "X-Internal-Secret")
+jsonStr = coreaccesslog.FilterHeadersWithAdditionalSensitiveHeaders(r.Header, "X-Internal-Secret")
 ```

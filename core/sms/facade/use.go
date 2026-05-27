@@ -6,8 +6,6 @@ import (
 
 	"github.com/huwenlong92/sdkit/core/runtime"
 	coresms "github.com/huwenlong92/sdkit/core/sms"
-	_ "github.com/huwenlong92/sdkit/pkg/sms/driver/aliyun"
-	_ "github.com/huwenlong92/sdkit/pkg/sms/driver/feige"
 )
 
 type ConfigLoader func(app *runtime.App) (Config, error)
