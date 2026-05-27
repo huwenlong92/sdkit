@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/tracing"
-	"github.com/huwenlong92/sdkit/core/tracking"
 )
 
 func startExecuteSpan(ctx context.Context, entry Entry, templateName string, cron string, allowOverlap bool, timeout time.Duration) (context.Context, tracing.Span) {
@@ -18,13 +17,12 @@ func startExecuteSpan(ctx context.Context, entry Entry, templateName string, cro
 		tracing.Bool("allow_overlap", allowOverlap),
 		tracing.String("timeout", timeout.String()),
 	}
-	if trackID := tracking.TrackID(ctx); trackID != "" {
-		attrs = append(attrs, tracing.String("track_id", trackID))
-	}
-	return tracing.StartSpanWithOptions(ctx, "crontab.execute", tracing.SpanOptions{
+	ctx, span := tracing.StartSpanWithOptions(ctx, "crontab.execute", tracing.SpanOptions{
 		TracerName: "sdkitgo/core/crontab",
 		Kind:       tracing.SpanKindInternal,
 	}, attrs...)
+	tracing.SetSpanCorrelationAttributes(ctx, span)
+	return ctx, span
 }
 
 func setExecuteSpanTemplate(span tracing.Span, templateName string, cron string, allowOverlap bool, timeout time.Duration) {

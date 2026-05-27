@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/queue"
-	"github.com/huwenlong92/sdkit/core/tracing"
 
 	natsgo "github.com/nats-io/nats.go"
 )
@@ -105,10 +104,7 @@ func (q *Queue) Enqueue(ctx context.Context, task queue.Task, opts ...queue.Opti
 	}
 	ctx, span := startEnqueueSpan(ctx, task.Type, applied)
 	defer func() {
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(tracing.StatusError, err.Error())
-		}
+		recordQueueSpanError(span, err)
 		span.End()
 	}()
 	queueName := firstNonEmpty(applied.Queue, queue.DefaultQueueName)
@@ -154,10 +150,7 @@ func (q *Queue) Enqueue(ctx context.Context, task queue.Task, opts ...queue.Opti
 		return nil, queue.ErrTaskDuplicated
 	}
 	now := time.Now()
-	span.SetAttributes(
-		tracing.String("messaging.message.id", env.ID),
-		tracing.String("messaging.destination.name", env.Queue),
-	)
+	setEnqueueEnvelopeAttributes(span, env)
 	return &queue.TaskInfo{
 		ID:        env.ID,
 		Type:      env.Type,
@@ -370,63 +363,18 @@ func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler queue.HandlerFun
 	ctx, span := startWorkerSpan(ctx, queueMsg)
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			span.RecordError(fmt.Errorf("panic: %v", recovered))
-			span.SetStatus(tracing.StatusError, "panic")
+			recordQueueSpanPanic(span, recovered)
 			span.End()
 			panic(recovered)
 		}
 		span.End()
 	}()
 	if err := handler(ctx, queueMsg); err != nil {
-		span.RecordError(err)
-		span.SetStatus(tracing.StatusError, err.Error())
+		recordQueueSpanError(span, err)
 		q.rejectMessage(msg, retryCount, env.MaxRetry, env.MaxRetrySet)
 		return
 	}
 	_ = msg.Ack()
-}
-
-func startWorkerSpan(ctx context.Context, msg *queue.Message) (context.Context, tracing.Span) {
-	attrs := []tracing.Attr{
-		tracing.String("messaging.system", "nats"),
-		tracing.String("messaging.operation", "process"),
-	}
-	spanName := "consumer::task"
-	if msg != nil {
-		spanName = "consumer::" + msg.Type
-		attrs = append(attrs,
-			tracing.String("messaging.destination.name", msg.Queue),
-			tracing.String("messaging.message.id", msg.ID),
-			tracing.String("messaging.message.type", msg.Type),
-			tracing.Int("messaging.message.retry_count", msg.RetryCount),
-			tracing.Int("messaging.message.max_retry", msg.MaxRetry),
-		)
-	}
-	ctx, span := tracing.StartSpanWithOptions(ctx, spanName, tracing.SpanOptions{
-		TracerName: "sdkitgo/core/queue",
-		Kind:       tracing.SpanKindConsumer,
-	}, attrs...)
-	queue.SetSpanCorrelationAttributes(ctx, span)
-	return ctx, span
-}
-
-func startEnqueueSpan(ctx context.Context, taskType string, opts queue.EnqueueOptions) (context.Context, tracing.Span) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	attrs := []tracing.Attr{
-		tracing.String("messaging.system", "nats"),
-		tracing.String("messaging.operation", "publish"),
-		tracing.String("messaging.destination.name", opts.Queue),
-		tracing.String("messaging.message.id", opts.TaskID),
-		tracing.String("messaging.message.type", taskType),
-	}
-	ctx, span := tracing.StartSpanWithOptions(ctx, "producer::"+taskType, tracing.SpanOptions{
-		TracerName: "sdkitgo/core/queue",
-		Kind:       tracing.SpanKindProducer,
-	}, attrs...)
-	queue.SetSpanCorrelationAttributes(ctx, span)
-	return ctx, span
 }
 
 func (q *Queue) rejectMessage(msg *natsgo.Msg, retryCount int, taskMaxRetry int, maxRetrySet bool) {

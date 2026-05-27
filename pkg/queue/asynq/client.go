@@ -8,7 +8,6 @@ import (
 
 	"github.com/huwenlong92/sdkit/core/logger"
 	"github.com/huwenlong92/sdkit/core/queue"
-	"github.com/huwenlong92/sdkit/core/tracing"
 
 	hibasynq "github.com/hibiken/asynq"
 )
@@ -79,10 +78,7 @@ func (q *Queue) Enqueue(ctx context.Context, task queue.Task, opts ...queue.Opti
 	}
 	ctx, span := startEnqueueSpan(ctx, task.Type, applied)
 	defer func() {
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(tracing.StatusError, err.Error())
-		}
+		recordQueueSpanError(span, err)
 		span.End()
 	}()
 
@@ -102,12 +98,7 @@ func (q *Queue) Enqueue(ctx context.Context, task queue.Task, opts ...queue.Opti
 		return nil, mapEnqueueError(err)
 	}
 	out := fromAsynqTaskInfo(info)
-	if out != nil {
-		span.SetAttributes(
-			tracing.String("messaging.message.id", out.ID),
-			tracing.String("messaging.destination.name", out.Queue),
-		)
-	}
+	setEnqueueResultAttributes(span, out)
 	return out, nil
 }
 
@@ -168,15 +159,11 @@ func handleAsynqTask(ctx context.Context, task *hibasynq.Task, handler queue.Han
 	ctx, span := startWorkerSpan(ctx, msg)
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			span.RecordError(fmt.Errorf("panic: %v", recovered))
-			span.SetStatus(tracing.StatusError, "panic")
+			recordQueueSpanPanic(span, recovered)
 			span.End()
 			panic(recovered)
 		}
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(tracing.StatusError, err.Error())
-		}
+		recordQueueSpanError(span, err)
 		span.End()
 	}()
 
@@ -202,53 +189,6 @@ func taskHeadersFromContext(ctx context.Context) map[string]string {
 
 func contextFromTaskHeaders(ctx context.Context, headers map[string]string) context.Context {
 	return queue.ContextFromCorrelationHeaders(ctx, headers)
-}
-
-func startWorkerSpan(ctx context.Context, msg *queue.Message) (context.Context, tracing.Span) {
-	attrs := []tracing.Attr{
-		tracing.String("messaging.system", "asynq"),
-		tracing.String("messaging.operation", "process"),
-	}
-	spanName := "consumer::task"
-	if msg != nil {
-		spanName = "consumer::" + msg.Type
-		attrs = append(attrs,
-			tracing.String("messaging.destination.name", msg.Queue),
-			tracing.String("messaging.message.id", msg.ID),
-			tracing.String("messaging.message.type", msg.Type),
-			tracing.Int("messaging.message.retry_count", msg.RetryCount),
-			tracing.Int("messaging.message.max_retry", msg.MaxRetry),
-		)
-	}
-	ctx, span := tracing.StartSpanWithOptions(ctx, spanName, tracing.SpanOptions{
-		TracerName: "sdkitgo/core/queue",
-		Kind:       tracing.SpanKindConsumer,
-	}, attrs...)
-	setQueueCorrelationAttributes(ctx, span)
-	return ctx, span
-}
-
-func startEnqueueSpan(ctx context.Context, taskType string, opts queue.EnqueueOptions) (context.Context, tracing.Span) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	attrs := []tracing.Attr{
-		tracing.String("messaging.system", "asynq"),
-		tracing.String("messaging.operation", "publish"),
-		tracing.String("messaging.destination.name", opts.Queue),
-		tracing.String("messaging.message.id", opts.TaskID),
-		tracing.String("messaging.message.type", taskType),
-	}
-	ctx, span := tracing.StartSpanWithOptions(ctx, "producer::"+taskType, tracing.SpanOptions{
-		TracerName: "sdkitgo/core/queue",
-		Kind:       tracing.SpanKindProducer,
-	}, attrs...)
-	setQueueCorrelationAttributes(ctx, span)
-	return ctx, span
-}
-
-func setQueueCorrelationAttributes(ctx context.Context, span tracing.Span) {
-	queue.SetSpanCorrelationAttributes(ctx, span)
 }
 
 func contextWithMessageFields(ctx context.Context, msg *queue.Message) context.Context {

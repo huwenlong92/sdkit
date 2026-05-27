@@ -6,12 +6,9 @@ import (
 	"runtime/debug"
 
 	"github.com/huwenlong92/sdkit/core/logger"
-	"github.com/huwenlong92/sdkit/core/tracing"
 
 	"go.uber.org/zap"
 )
-
-const eventbusTracerName = "sdkitgo/core/eventbus"
 
 type Middleware func(Handler) Handler
 
@@ -61,25 +58,6 @@ func Logger(log *zap.Logger) Middleware {
 	}
 }
 
-func Tracing() Middleware {
-	return func(next Handler) Handler {
-		return func(ctx context.Context, event *Event) (err error) {
-			ctx = ContextWithEvent(ctx, event)
-			ctx, span := startHandlerSpan(ctx, event)
-			defer func() {
-				if recovered := recover(); recovered != nil {
-					recordHandlerSpanError(span, fmt.Errorf("panic: %v", recovered))
-					span.End()
-					panic(recovered)
-				}
-				recordHandlerSpanError(span, err)
-				span.End()
-			}()
-			return next(ctx, event)
-		}
-	}
-}
-
 func SafeHandle(ctx context.Context, event *Event, handler Handler, log *zap.Logger) (err error) {
 	if handler == nil {
 		return ErrNilHandler
@@ -103,27 +81,6 @@ func SafeHandle(ctx context.Context, event *Event, handler Handler, log *zap.Log
 	return nil
 }
 
-func startHandlerSpan(ctx context.Context, event *Event) (context.Context, tracing.Span) {
-	attrs := []tracing.Attr{
-		tracing.String("messaging.system", "eventbus"),
-		tracing.String("messaging.destination.name", eventTopic(event)),
-		tracing.String("messaging.operation.name", "process"),
-	}
-	if eventID(event) != "" {
-		attrs = append(attrs, tracing.String("eventbus.event.id", eventID(event)))
-	}
-	name := "eventbus.handle"
-	if eventTopic(event) != "" {
-		name += " " + eventTopic(event)
-	}
-	ctx, span := tracing.StartSpanWithOptions(ctx, name, tracing.SpanOptions{
-		TracerName: eventbusTracerName,
-		Kind:       tracing.SpanKindConsumer,
-	}, attrs...)
-	tracing.SetSpanCorrelationAttributes(ctx, span)
-	return ctx, span
-}
-
 func eventID(event *Event) string {
 	if event == nil {
 		return ""
@@ -136,12 +93,4 @@ func eventTopic(event *Event) string {
 		return ""
 	}
 	return event.Topic
-}
-
-func recordHandlerSpanError(span tracing.Span, err error) {
-	if span == nil || err == nil {
-		return
-	}
-	span.RecordError(err)
-	span.SetStatus(tracing.StatusError, err.Error())
 }
