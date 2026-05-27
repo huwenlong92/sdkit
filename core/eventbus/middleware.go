@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 
 	"github.com/huwenlong92/sdkit/core/logger"
-	"github.com/huwenlong92/sdkit/core/tracing"
+	"github.com/huwenlong92/sdkit/core/tracecontext"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -126,7 +126,7 @@ func startHandlerSpan(ctx context.Context, event *Event) (context.Context, otelt
 		oteltrace.WithSpanKind(oteltrace.SpanKindConsumer),
 		oteltrace.WithAttributes(attrs...),
 	)
-	tracing.SetSpanCorrelationAttributes(ctx, span)
+	tracecontext.SetSpanCorrelationAttributes(ctx, span)
 	return ctx, span
 }
 

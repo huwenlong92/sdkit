@@ -10,7 +10,7 @@ import (
 
 	"github.com/huwenlong92/sdkit/core/realtime"
 	"github.com/huwenlong92/sdkit/core/requestid"
-	"github.com/huwenlong92/sdkit/core/tracing"
+	"github.com/huwenlong92/sdkit/core/tracecontext"
 	"github.com/huwenlong92/sdkit/core/tracking"
 	"github.com/huwenlong92/sdkit/pkg/realtime/transport"
 
@@ -260,14 +260,14 @@ func (a *Adapter) clientFromRequest(r *http.Request) *realtime.Client {
 func handshakeContext(r *http.Request) (context.Context, http.Header) {
 	ctx := context.Background()
 	if r != nil {
-		ctx = tracing.ExtractHTTPHeader(r.Context(), r.Header)
+		ctx = tracecontext.ExtractHTTPHeader(r.Context(), r.Header)
 	}
 	trackID := tracking.TrackID(ctx)
 	if trackID == "" {
 		trackID = tracking.NewTrackID()
 		ctx = tracking.WithTrackID(ctx, trackID)
 	}
-	reqID := tracing.RequestID(ctx)
+	reqID := tracecontext.RequestID(ctx)
 	if reqID == "" {
 		reqID = uuid.NewString()
 		ctx = requestid.WithRequestID(ctx, reqID)

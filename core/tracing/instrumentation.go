@@ -1,8 +1,13 @@
+//go:build sdkit_tracing
+
 package tracing
 
 import (
 	"context"
 	"errors"
+
+	"github.com/huwenlong92/sdkit/core/database"
+	"github.com/huwenlong92/sdkit/core/tracecontext"
 
 	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/multitracer"
@@ -13,6 +18,21 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 )
+
+func init() {
+	database.RegisterGormInstrumenter(func(db *gorm.DB) error {
+		if !Enabled() {
+			return nil
+		}
+		return InstrumentGorm(db)
+	})
+	database.RegisterPgxPoolConfigInstrumenter(func(cfg *pgxpool.Config) error {
+		if !Enabled() {
+			return nil
+		}
+		return InstrumentPgxPoolConfig(cfg)
+	})
+}
 
 func InstrumentGorm(db *gorm.DB) error {
 	if db == nil {
@@ -123,7 +143,7 @@ func beforeGorm(operation string) func(*gorm.DB) {
 
 		parent := ctx
 		ctx, span := otel.Tracer(tracerName).Start(parent, "gorm."+operation, oteltrace.WithAttributes(attrs...))
-		SetSpanCorrelationAttributes(ctx, span)
+		tracecontext.SetSpanCorrelationAttributes(ctx, span)
 		tx.Statement.Context = ctx
 		tx.InstanceSet(gormSpanKey, gormSpanState{parent: parent, span: span})
 	}
@@ -147,7 +167,7 @@ type correlationTracer struct {
 
 func (t correlationTracer) Start(ctx context.Context, name string, opts ...oteltrace.SpanStartOption) (context.Context, oteltrace.Span) {
 	ctx, span := t.Tracer.Start(ctx, name, opts...)
-	SetSpanCorrelationAttributes(ctx, span)
+	tracecontext.SetSpanCorrelationAttributes(ctx, span)
 	return ctx, span
 }
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/tracing"
+	"github.com/huwenlong92/sdkit/core/tracecontext"
 
 	"github.com/google/uuid"
 )
@@ -45,11 +45,11 @@ func ContextWithEvent(ctx context.Context, event *Event) context.Context {
 	if event == nil {
 		return ctx
 	}
-	return tracing.ContextFromHeaders(ctx, event.Headers)
+	return tracecontext.ContextFromHeaders(ctx, event.Headers)
 }
 
 func eventHeadersFromContext(ctx context.Context, headers map[string]string) map[string]string {
-	out := tracing.HeadersFromContext(ctx)
+	out := tracecontext.HeadersFromContext(ctx)
 	for key, value := range headers {
 		if out == nil {
 			out = map[string]string{}

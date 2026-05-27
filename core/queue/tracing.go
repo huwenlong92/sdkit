@@ -4,22 +4,22 @@ import (
 	"context"
 
 	"github.com/huwenlong92/sdkit/core/requestid"
-	"github.com/huwenlong92/sdkit/core/tracing"
+	"github.com/huwenlong92/sdkit/core/tracecontext"
 	"github.com/huwenlong92/sdkit/core/tracking"
 
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 func CorrelationHeadersFromContext(ctx context.Context) map[string]string {
-	return tracing.HeadersFromContext(ctx)
+	return tracecontext.HeadersFromContext(ctx)
 }
 
 func ContextFromCorrelationHeaders(ctx context.Context, headers map[string]string) context.Context {
-	return tracing.ContextFromHeaders(ctx, headers)
+	return tracecontext.ContextFromHeaders(ctx, headers)
 }
 
 func CorrelationHeaderValue(headers map[string]string, key string) string {
-	return tracing.HeaderValue(headers, key)
+	return tracecontext.HeaderValue(headers, key)
 }
 
 func TrackIDFromHeaders(headers map[string]string) string {
@@ -31,13 +31,13 @@ func RequestIDFromHeaders(headers map[string]string) string {
 }
 
 func TraceIDFromHeaders(headers map[string]string) string {
-	return tracing.TraceIDFromHeaders(headers)
+	return tracecontext.TraceIDFromHeaders(headers)
 }
 
 func SpanIDFromHeaders(headers map[string]string) string {
-	return tracing.SpanIDFromHeaders(headers)
+	return tracecontext.SpanIDFromHeaders(headers)
 }
 
 func SetSpanCorrelationAttributes(ctx context.Context, span oteltrace.Span) {
-	tracing.SetSpanCorrelationAttributes(ctx, span)
+	tracecontext.SetSpanCorrelationAttributes(ctx, span)
 }

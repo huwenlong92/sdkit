@@ -1,3 +1,5 @@
+//go:build sdkit_tracing
+
 package tests
 
 import (

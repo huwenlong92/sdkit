@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/tracing"
-
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/tracelog"
 )
@@ -31,10 +29,8 @@ func openPGX(ctx context.Context, cfg Config, mode string) (*pgxpool.Pool, error
 		Logger:   newPGXLogger(),
 		LogLevel: pgxLogLevel(cfg.LogLevel, mode),
 	}
-	if tracing.Enabled() {
-		if err := tracing.InstrumentPgxPoolConfig(poolCfg); err != nil {
-			return nil, err
-		}
+	if err := instrumentPgxPoolConfig(poolCfg); err != nil {
+		return nil, err
 	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)

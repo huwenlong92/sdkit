@@ -3,8 +3,6 @@ package database
 import (
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/tracing"
-
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
@@ -21,10 +19,8 @@ func openGORM(cfg Config, mode string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if tracing.Enabled() {
-		if err := tracing.InstrumentGorm(db); err != nil {
-			return nil, err
-		}
+	if err := instrumentGorm(db); err != nil {
+		return nil, err
 	}
 
 	sqlDB, err := db.DB()

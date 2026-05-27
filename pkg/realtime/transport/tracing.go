@@ -3,13 +3,13 @@ package transport
 import (
 	"context"
 
-	"github.com/huwenlong92/sdkit/core/tracing"
+	"github.com/huwenlong92/sdkit/core/tracecontext"
 )
 
 func TraceID(ctx context.Context) string {
-	return tracing.TraceID(ctx)
+	return tracecontext.TraceID(ctx)
 }
 
 func HeadersFromContext(ctx context.Context) map[string]string {
-	return tracing.HeadersFromContext(ctx)
+	return tracecontext.HeadersFromContext(ctx)
 }

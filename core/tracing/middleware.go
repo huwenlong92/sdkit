@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/huwenlong92/sdkit/core/tracecontext"
 	"github.com/huwenlong92/sdkit/core/tracking"
 
 	"github.com/gin-gonic/gin"
@@ -65,7 +66,7 @@ func Middleware(serviceName string) gin.HandlerFunc {
 }
 
 func setHTTPSpanCorrelationAttributes(ctx context.Context) {
-	setSpanCorrelationAttributes(ctx, oteltrace.SpanFromContext(ctx), true)
+	tracecontext.SetHTTPSpanCorrelationAttributes(ctx, oteltrace.SpanFromContext(ctx))
 }
 
 func recordPanic(span oteltrace.Span) {

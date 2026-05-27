@@ -13,7 +13,7 @@ import (
 
 	"github.com/huwenlong92/sdkit/core/jsonx"
 	"github.com/huwenlong92/sdkit/core/requestid"
-	"github.com/huwenlong92/sdkit/core/tracing"
+	"github.com/huwenlong92/sdkit/core/tracecontext"
 	"github.com/huwenlong92/sdkit/core/tracking"
 
 	"github.com/gin-gonic/gin"
@@ -212,7 +212,7 @@ func Middleware(source string, opts ...MiddlewareOption) gin.HandlerFunc {
 		entry := &Entry{
 			Source:     source,
 			TrackID:    tracking.Get(c),
-			TraceID:    tracing.TraceID(c.Request.Context()),
+			TraceID:    tracecontext.TraceID(c.Request.Context()),
 			RequestID:  requestid.Get(c),
 			UID:        resolveUID(c, cfg),
 			Method:     c.Request.Method,

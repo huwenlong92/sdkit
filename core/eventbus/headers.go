@@ -33,7 +33,7 @@ var eventFlowHeaderKeys = []string{
 // EventFlowHeaderKeys returns the correlation headers recognized by EventFlow.
 //
 // EventBus does not own these field semantics. Trace/span/request/track values
-// are injected and extracted through core/tracing, core/tracking and
+// are injected and extracted through core/tracecontext, core/tracking and
 // core/requestid helpers. Connection/session values are carried only as
 // headers and are intentionally not modeled as Event top-level fields.
 func EventFlowHeaderKeys() []string {

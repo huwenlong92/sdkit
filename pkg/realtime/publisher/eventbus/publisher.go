@@ -8,7 +8,7 @@ import (
 
 	coreeventbus "github.com/huwenlong92/sdkit/core/eventbus"
 	"github.com/huwenlong92/sdkit/core/realtime"
-	"github.com/huwenlong92/sdkit/core/tracing"
+	"github.com/huwenlong92/sdkit/core/tracecontext"
 )
 
 type Publisher struct {
@@ -70,9 +70,9 @@ func (p *Publisher) publish(ctx context.Context, evt *realtime.Event) error {
 	if evt.Time == 0 {
 		evt.Time = evt.Timestamp
 	}
-	evt.Headers = mergeHeaders(tracing.HeadersFromContext(ctx), evt.Headers)
+	evt.Headers = mergeHeaders(tracecontext.HeadersFromContext(ctx), evt.Headers)
 	if evt.TraceID == "" {
-		evt.TraceID = tracing.TraceID(ctx)
+		evt.TraceID = tracecontext.TraceID(ctx)
 	}
 	if len(evt.Payload) == 0 && evt.Data != nil {
 		payload, err := json.Marshal(evt.Data)

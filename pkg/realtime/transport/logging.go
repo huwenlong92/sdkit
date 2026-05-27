@@ -3,13 +3,13 @@ package transport
 import (
 	"context"
 
-	"github.com/huwenlong92/sdkit/core/tracing"
+	"github.com/huwenlong92/sdkit/core/tracecontext"
 )
 
 func Warn(ctx context.Context, log Logger, msg string, err error, fields ...any) {
 	log = NormalizeLogger(log)
 	values := make([]any, 0, len(fields)+4)
-	values = append(values, "trace_id", tracing.TraceID(ctx))
+	values = append(values, "trace_id", tracecontext.TraceID(ctx))
 	values = append(values, fields...)
 	if err != nil {
 		values = append(values, "err", err)

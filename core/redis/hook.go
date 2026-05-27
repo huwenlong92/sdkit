@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/logger"
-	"github.com/huwenlong92/sdkit/core/tracing"
+	"github.com/huwenlong92/sdkit/core/tracecontext"
 
 	goredis "github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
@@ -88,7 +88,7 @@ func startRedisSpan(ctx context.Context, name string, attrs ...attribute.KeyValu
 }
 
 func setRedisCorrelationAttributes(ctx context.Context, span oteltrace.Span) {
-	tracing.SetSpanCorrelationAttributes(ctx, span)
+	tracecontext.SetSpanCorrelationAttributes(ctx, span)
 }
 
 func recordRedisError(span oteltrace.Span, err error) {

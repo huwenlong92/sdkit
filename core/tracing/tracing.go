@@ -1,21 +1,15 @@
+//go:build sdkit_tracing
+
 package tracing
 
 import (
 	"context"
-	"sync"
-	"sync/atomic"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-)
-
-var (
-	shutdownMu     sync.Mutex
-	globalShutdown = noopShutdown
-	enabled        atomic.Bool
 )
 
 func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) {
@@ -79,30 +73,4 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 	enabled.Store(true)
 	setShutdown(provider.Shutdown)
 	return provider.Shutdown, nil
-}
-
-func Enabled() bool {
-	return enabled.Load()
-}
-
-func Shutdown(ctx context.Context) error {
-	shutdownMu.Lock()
-	shutdown := globalShutdown
-	globalShutdown = noopShutdown
-	shutdownMu.Unlock()
-	enabled.Store(false)
-	return shutdown(ctx)
-}
-
-func setShutdown(shutdown func(context.Context) error) {
-	if shutdown == nil {
-		shutdown = noopShutdown
-	}
-	shutdownMu.Lock()
-	globalShutdown = shutdown
-	shutdownMu.Unlock()
-}
-
-func noopShutdown(context.Context) error {
-	return nil
 }
