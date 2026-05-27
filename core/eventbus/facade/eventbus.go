@@ -9,16 +9,20 @@ import (
 	"sync"
 
 	coreeventbus "github.com/huwenlong92/sdkit/core/eventbus"
-	"github.com/huwenlong92/sdkit/pkg/eventbus/memory"
-	"github.com/huwenlong92/sdkit/pkg/eventbus/nats"
-	eventbusredis "github.com/huwenlong92/sdkit/pkg/eventbus/redis"
-	"github.com/huwenlong92/sdkit/pkg/eventbus/redisstream"
 
 	goredis "github.com/redis/go-redis/v9"
 )
 
 var ErrNotConfigured = errors.New("eventbus capability 未初始化")
 var ErrRedisClientRequired = errors.New("eventbus capability requires redis client for redis driver")
+var ErrDriverNotCompiled = errors.New("eventbus driver is not compiled")
+
+type driverFactory func(Config, options) (coreeventbus.Bus, error)
+
+var driverFactories = struct {
+	sync.RWMutex
+	values map[string]driverFactory
+}{values: map[string]driverFactory{}}
 
 type Service interface {
 	coreeventbus.Service
@@ -225,29 +229,36 @@ func attachBus(bus coreeventbus.Bus, driver string, setDefault bool, ownsBus boo
 }
 
 func buildBus(cfg Config, option options) (coreeventbus.Bus, error) {
-	switch cfg.Driver {
-	case DriverMemory:
-		return memory.New(), nil
-	case DriverRedis:
-		if option.redis == nil {
-			return nil, fmt.Errorf("%w: driver=%s", ErrRedisClientRequired, DriverRedis)
+	factory := resolveDriverFactory(cfg.Driver)
+	if factory == nil {
+		if err := ValidateConfig(Config{Driver: cfg.Driver}); err != nil {
+			return nil, err
 		}
-		return eventbusredis.New(option.redis, cfg.TopicPrefix), nil
-	case DriverRedisStream:
-		if option.redis == nil {
-			return nil, fmt.Errorf("%w: driver=%s", ErrRedisClientRequired, DriverRedisStream)
-		}
-		nodeName := eventBusNodeName(cfg)
-		return redisstream.New(option.redis, cfg.TopicPrefix, nodeName, nodeName, redisstream.WithMaxLen(cfg.StreamMaxLen)), nil
-	case DriverNATS:
-		subjectPrefix := cfg.SubjectPrefix
-		if subjectPrefix == "" {
-			subjectPrefix = strings.ReplaceAll(cfg.TopicPrefix, ":", ".")
-		}
-		return nats.New(cfg.Addr, subjectPrefix)
-	default:
-		return nil, fmt.Errorf("eventbus driver %q is invalid, want memory, redis, redis_stream, or nats", cfg.Driver)
+		return nil, fmt.Errorf("%w: driver=%s", ErrDriverNotCompiled, cfg.Driver)
 	}
+	return factory(cfg, option)
+}
+
+func registerDriverFactory(driver string, factory driverFactory) {
+	driver = normalizeDriver(driver)
+	if driver == "" || factory == nil {
+		return
+	}
+	driverFactories.Lock()
+	driverFactories.values[driver] = factory
+	driverFactories.Unlock()
+}
+
+func resolveDriverFactory(driver string) driverFactory {
+	driver = normalizeDriver(driver)
+	driverFactories.RLock()
+	factory := driverFactories.values[driver]
+	driverFactories.RUnlock()
+	return factory
+}
+
+func DriverCompiled(driver string) bool {
+	return resolveDriverFactory(driver) != nil
 }
 
 func eventBusNodeName(cfg Config) string {

@@ -159,6 +159,12 @@ func TestRedisDriversRequireExternalClient(t *testing.T) {
 	for _, driver := range []string{eventbuscap.DriverRedis, eventbuscap.DriverRedisStream} {
 		t.Run(driver, func(t *testing.T) {
 			_, err := eventbuscap.New(eventbuscap.Config{Driver: driver})
+			if !eventbuscap.DriverCompiled(driver) {
+				if !errors.Is(err, eventbuscap.ErrDriverNotCompiled) {
+					t.Fatalf("New: want ErrDriverNotCompiled, got %v", err)
+				}
+				return
+			}
 			if !errors.Is(err, eventbuscap.ErrRedisClientRequired) {
 				t.Fatalf("New: want ErrRedisClientRequired, got %v", err)
 			}
@@ -173,6 +179,9 @@ func TestRedisDriversUseProvidedClient(t *testing.T) {
 
 	for _, driver := range []string{eventbuscap.DriverRedis, eventbuscap.DriverRedisStream} {
 		t.Run(driver, func(t *testing.T) {
+			if !eventbuscap.DriverCompiled(driver) {
+				t.Skipf("%s driver not compiled", driver)
+			}
 			capability, err := eventbuscap.New(eventbuscap.Config{
 				Driver:      driver,
 				TopicPrefix: "test:",
@@ -201,6 +210,12 @@ func TestNATSDriverRequiresAddr(t *testing.T) {
 	resetDefault(t)
 
 	_, err := eventbuscap.New(eventbuscap.Config{Driver: eventbuscap.DriverNATS})
+	if !eventbuscap.DriverCompiled(eventbuscap.DriverNATS) {
+		if !errors.Is(err, eventbuscap.ErrDriverNotCompiled) {
+			t.Fatalf("New: want ErrDriverNotCompiled, got %v", err)
+		}
+		return
+	}
 	if err == nil || !strings.Contains(err.Error(), "nats addr") {
 		t.Fatalf("New: want nats addr error, got %v", err)
 	}
