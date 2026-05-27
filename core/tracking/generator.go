@@ -6,7 +6,7 @@ func NewTrackID() string {
 	return uuid.New().String()
 }
 
-func generateTrackID(generator string) string {
+func GenerateTrackID(generator string) string {
 	switch generator {
 	case "", generatorUUID:
 		return NewTrackID()

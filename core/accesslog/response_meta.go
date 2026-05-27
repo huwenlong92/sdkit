@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-func responseMeta(body []byte) (int, string) {
+func ResponseMeta(body []byte) (int, string) {
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	token, err := decoder.Token()

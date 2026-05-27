@@ -30,7 +30,7 @@ func FilterHeadersWithAdditionalSensitiveHeaders(h http.Header, headers ...strin
 	return filterHeaders(h, appendSensitiveValues(defaultSensitiveHeaders, headers...))
 }
 
-func filterHeaders(h http.Header, sensitiveHeaders []string) string {
+func FilterHeadersWithList(h http.Header, sensitiveHeaders []string) string {
 	if len(h) == 0 {
 		return ""
 	}
@@ -62,4 +62,8 @@ func filterHeaders(h http.Header, sensitiveHeaders []string) string {
 		return ""
 	}
 	return string(b)
+}
+
+func filterHeaders(h http.Header, sensitiveHeaders []string) string {
+	return FilterHeadersWithList(h, sensitiveHeaders)
 }

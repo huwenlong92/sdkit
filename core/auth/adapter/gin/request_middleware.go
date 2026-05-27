@@ -6,8 +6,8 @@ import (
 
 	"github.com/huwenlong92/sdkit/core/auth"
 	"github.com/huwenlong92/sdkit/core/errors"
-	"github.com/huwenlong92/sdkit/core/ginresponder"
-	"github.com/huwenlong92/sdkit/core/session"
+	ginresponder "github.com/huwenlong92/sdkit/core/gin/responder"
+	"github.com/huwenlong92/sdkit/core/gin/session"
 
 	"github.com/gin-gonic/gin"
 )

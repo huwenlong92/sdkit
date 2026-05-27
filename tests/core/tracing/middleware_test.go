@@ -7,6 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	ginrequestid "github.com/huwenlong92/sdkit/core/gin/requestid"
+	gintracing "github.com/huwenlong92/sdkit/core/gin/tracing"
+	gintracking "github.com/huwenlong92/sdkit/core/gin/tracking"
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
@@ -33,9 +36,9 @@ func TestMiddlewareCreatesHTTPRootSpanAndKeepsTrackID(t *testing.T) {
 	defer provider.Shutdown(context.Background())
 
 	r := gin.New()
-	r.Use(tracking.Middleware())
-	r.Use(tracing.Middleware("test-api"))
-	r.Use(requestid.Middleware())
+	r.Use(gintracking.Middleware())
+	r.Use(gintracing.Middleware("test-api"))
+	r.Use(ginrequestid.Middleware())
 	r.GET("/ping", func(c *gin.Context) {
 		if tracing.TraceID(c.Request.Context()) == "" {
 			t.Fatal("trace_id should not be empty")
@@ -91,7 +94,7 @@ func TestMiddlewareRecordsServerErrorStatus(t *testing.T) {
 	defer provider.Shutdown(context.Background())
 
 	r := gin.New()
-	r.Use(tracing.Middleware("test-api"))
+	r.Use(gintracing.Middleware("test-api"))
 	r.GET("/fail", func(c *gin.Context) {
 		c.Status(500)
 	})

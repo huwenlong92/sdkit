@@ -3,7 +3,7 @@ package ratelimit
 import (
 	"context"
 
-	"github.com/huwenlong92/sdkit/core/ratelimit/middleware"
+	coreratelimit "github.com/huwenlong92/sdkit/core/ratelimit"
 	redisfacade "github.com/huwenlong92/sdkit/core/redis/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit/store"
@@ -102,10 +102,10 @@ func Use(opts ...UseOption) runtime.Capability {
 			ownStore = true
 		}
 		runtimeStore = rateStore
-		middleware.SetStore(rateStore)
+		coreratelimit.SetStore(rateStore)
 		return app.Container().Bind(runtime.Key(Name), rateStore)
 	}, func(context.Context) error {
-		middleware.SetStore(nil)
+		coreratelimit.SetStore(nil)
 		if ownStore && runtimeStore != nil {
 			return runtimeStore.Close()
 		}

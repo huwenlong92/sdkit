@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/errors"
-	"github.com/huwenlong92/sdkit/core/ginresponder"
+	ginresponder "github.com/huwenlong92/sdkit/core/gin/responder"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 
 	"github.com/gin-gonic/gin"

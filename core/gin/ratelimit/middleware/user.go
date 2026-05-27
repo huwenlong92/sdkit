@@ -4,8 +4,9 @@ import (
 	"net/http"
 
 	"github.com/huwenlong92/sdkit/core/errors"
-	"github.com/huwenlong92/sdkit/core/ginresponder"
-	"github.com/huwenlong92/sdkit/core/ratelimit/keyer"
+	ginkeyer "github.com/huwenlong92/sdkit/core/gin/ratelimit/keyer"
+	ginresponder "github.com/huwenlong92/sdkit/core/gin/responder"
+	coreratelimit "github.com/huwenlong92/sdkit/core/ratelimit"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 
 	"github.com/gin-gonic/gin"
@@ -18,9 +19,9 @@ func LimiterPerUser(r float64, burst int) gin.HandlerFunc {
 
 func LimiterPerUserWithOptions(r float64, burst int, opts ...MiddlewareOption) gin.HandlerFunc {
 	cfg := newMiddlewareConfig(opts...)
-	tb := strategy.NewTokenBucket(r, burst, pickStore())
+	tb := strategy.NewTokenBucket(r, burst, coreratelimit.PickStore())
 	return func(c *gin.Context) {
-		key := keyer.User(c)
+		key := ginkeyer.User(c)
 		if key == "" {
 			c.Next()
 			return
@@ -49,9 +50,9 @@ func LimiterPerUserRoute(r float64, burst int) gin.HandlerFunc {
 
 func LimiterPerUserRouteWithOptions(r float64, burst int, opts ...MiddlewareOption) gin.HandlerFunc {
 	cfg := newMiddlewareConfig(opts...)
-	tb := strategy.NewTokenBucket(r, burst, pickStore())
+	tb := strategy.NewTokenBucket(r, burst, coreratelimit.PickStore())
 	return func(c *gin.Context) {
-		key := keyer.UserRoute(c)
+		key := ginkeyer.UserRoute(c)
 		if key == "" {
 			c.Next()
 			return

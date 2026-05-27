@@ -7,7 +7,7 @@ import (
 	"runtime/debug"
 
 	"github.com/huwenlong92/sdkit/core/errors"
-	"github.com/huwenlong92/sdkit/core/ginresponder"
+	ginresponder "github.com/huwenlong92/sdkit/core/gin/responder"
 	"github.com/huwenlong92/sdkit/core/logger"
 
 	"github.com/gin-gonic/gin"

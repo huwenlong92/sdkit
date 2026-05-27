@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/ratelimit/middleware"
+	"github.com/huwenlong92/sdkit/core/gin/ratelimit/middleware"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 
 	"github.com/gin-gonic/gin"

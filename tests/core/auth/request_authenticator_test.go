@@ -8,7 +8,7 @@ import (
 
 	"github.com/huwenlong92/sdkit/core/auth"
 	authgin "github.com/huwenlong92/sdkit/core/auth/adapter/gin"
-	"github.com/huwenlong92/sdkit/core/session"
+	"github.com/huwenlong92/sdkit/core/gin/session"
 
 	"github.com/gin-gonic/gin"
 )

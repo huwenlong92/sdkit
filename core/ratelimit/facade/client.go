@@ -1,14 +1,14 @@
 package ratelimit
 
 import (
-	"github.com/huwenlong92/sdkit/core/ratelimit/middleware"
+	coreratelimit "github.com/huwenlong92/sdkit/core/ratelimit"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit/store"
 
 	goredis "github.com/redis/go-redis/v9"
 )
 
 func SetStore(s Store) {
-	middleware.SetStore(s)
+	coreratelimit.SetStore(s)
 }
 
 func NewMemoryStore() Store {

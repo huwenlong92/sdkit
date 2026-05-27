@@ -11,21 +11,16 @@ import (
 	"strings"
 	"time"
 
+	coreaccesslog "github.com/huwenlong92/sdkit/core/accesslog"
+	ginrequestid "github.com/huwenlong92/sdkit/core/gin/requestid"
+	gintracking "github.com/huwenlong92/sdkit/core/gin/tracking"
 	"github.com/huwenlong92/sdkit/core/jsonx"
-	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracecontext"
-	"github.com/huwenlong92/sdkit/core/tracking"
 
 	"github.com/gin-gonic/gin"
 )
 
 const maxBodySize = 32 * 1024
-
-type Actor struct {
-	ID   string
-	Type string
-	Name string
-}
 
 type ActorResolver func(*gin.Context) Actor
 type Skipper func(*gin.Context) bool
@@ -208,19 +203,19 @@ func Middleware(source string, opts ...MiddlewareOption) gin.HandlerFunc {
 			return
 		}
 		respBody := respBodyBytes(c, bw)
-		errCode, errMsg := responseMeta(respBody)
+		errCode, errMsg := coreaccesslog.ResponseMeta(respBody)
 		entry := &Entry{
 			Source:     source,
-			TrackID:    tracking.Get(c),
+			TrackID:    gintracking.Get(c),
 			TraceID:    tracecontext.TraceID(c.Request.Context()),
-			RequestID:  requestid.Get(c),
+			RequestID:  ginrequestid.Get(c),
 			UID:        resolveUID(c, cfg),
 			Method:     c.Request.Method,
 			Path:       c.Request.URL.Path,
 			Query:      c.Request.URL.RawQuery,
 			IP:         c.ClientIP(),
 			UserAgent:  c.Request.UserAgent(),
-			Headers:    []byte(filterHeaders(c.Request.Header, cfg.sensitiveHeaders)),
+			Headers:    []byte(coreaccesslog.FilterHeadersWithList(c.Request.Header, cfg.sensitiveHeaders)),
 			ReqBody:    reqBody,
 			StatusCode: c.Writer.Status(),
 			ErrCode:    errCode,
@@ -252,7 +247,7 @@ func shouldSkip(c *gin.Context, cfg *middlewareConfig) bool {
 func defaultMiddlewareConfig() *middlewareConfig {
 	return &middlewareConfig{
 		sensitiveFieldKeywords: appendSensitiveValues(nil, defaultSensitiveFieldKeywords...),
-		sensitiveHeaders:       appendSensitiveValues(nil, defaultSensitiveHeaders...),
+		sensitiveHeaders:       coreaccesslog.DefaultSensitiveHeaders(),
 	}
 }
 

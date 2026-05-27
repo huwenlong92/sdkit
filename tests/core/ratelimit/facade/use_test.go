@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	coreratelimit "github.com/huwenlong92/sdkit/core/ratelimit"
 	ratelimit "github.com/huwenlong92/sdkit/core/ratelimit/facade"
-	"github.com/huwenlong92/sdkit/core/ratelimit/middleware"
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
@@ -23,7 +23,7 @@ func TestUseDefaultsToInternal(t *testing.T) {
 
 func TestUseWithoutRedisBindsMemoryStore(t *testing.T) {
 	t.Cleanup(func() {
-		middleware.SetStore(nil)
+		coreratelimit.SetStore(nil)
 	})
 
 	app := runtime.New()
@@ -36,14 +36,14 @@ func TestUseWithoutRedisBindsMemoryStore(t *testing.T) {
 	if got := ratelimit.From(app); got == nil {
 		t.Fatal("ratelimit.From(app) = nil, want store")
 	}
-	if middleware.CustomStore == nil {
+	if coreratelimit.CustomStore == nil {
 		t.Fatal("middleware store = nil, want store")
 	}
 }
 
 func TestUseWithStoreBindsInjectedStore(t *testing.T) {
 	t.Cleanup(func() {
-		middleware.SetStore(nil)
+		coreratelimit.SetStore(nil)
 	})
 
 	store := ratelimit.NewMemoryStore()

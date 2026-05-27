@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/huwenlong92/sdkit/core/ratelimit/keyer"
-	"github.com/huwenlong92/sdkit/core/ratelimit/middleware"
+	"github.com/huwenlong92/sdkit/core/gin/ratelimit/keyer"
+	"github.com/huwenlong92/sdkit/core/gin/ratelimit/middleware"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit/strategy"
 
 	"github.com/gin-gonic/gin"

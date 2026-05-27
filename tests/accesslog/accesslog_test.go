@@ -14,10 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/accesslog"
+	"github.com/huwenlong92/sdkit/core/gin/accesslog"
+	ginrequestid "github.com/huwenlong92/sdkit/core/gin/requestid"
+	gintracing "github.com/huwenlong92/sdkit/core/gin/tracing"
+	gintracking "github.com/huwenlong92/sdkit/core/gin/tracking"
 	"github.com/huwenlong92/sdkit/core/logger"
 	"github.com/huwenlong92/sdkit/core/requestid"
-	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
 
 	"github.com/gin-gonic/gin"
@@ -725,9 +727,9 @@ func TestMiddlewareSeparatesTrackIDAndTraceID(t *testing.T) {
 	defer stop()
 
 	r := gin.New()
-	r.Use(tracking.Middleware())
-	r.Use(tracing.Middleware("accesslog-test"))
-	r.Use(requestid.Middleware())
+	r.Use(gintracking.Middleware())
+	r.Use(gintracing.Middleware("accesslog-test"))
+	r.Use(ginrequestid.Middleware())
 	r.Use(accesslog.Middleware("test", accesslog.WithLogger(accessLogger)))
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})

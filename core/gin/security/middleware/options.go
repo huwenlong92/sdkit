@@ -1,6 +1,6 @@
 package middleware
 
-import "github.com/huwenlong92/sdkit/core/ginresponder"
+import ginresponder "github.com/huwenlong92/sdkit/core/gin/responder"
 
 type MiddlewareConfig struct {
 	Responder ginresponder.ErrorResponder

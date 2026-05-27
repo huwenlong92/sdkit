@@ -3,8 +3,9 @@ package casbin
 import (
 	"net/http"
 
+	corecasbin "github.com/huwenlong92/sdkit/core/casbin"
 	"github.com/huwenlong92/sdkit/core/errors"
-	"github.com/huwenlong92/sdkit/core/ginresponder"
+	ginresponder "github.com/huwenlong92/sdkit/core/gin/responder"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,7 +14,7 @@ type RoleResolver func(c *gin.Context) (string, bool)
 type ObjectResolver func(c *gin.Context) string
 
 type MiddlewareConfig struct {
-	Manager        *Manager
+	Manager        *corecasbin.Manager
 	RoleResolver   RoleResolver
 	ObjectResolver ObjectResolver
 	Responder      ginresponder.ErrorResponder
@@ -21,7 +22,7 @@ type MiddlewareConfig struct {
 
 type MiddlewareOption func(*MiddlewareConfig)
 
-func WithManager(manager *Manager) MiddlewareOption {
+func WithManager(manager *corecasbin.Manager) MiddlewareOption {
 	return func(cfg *MiddlewareConfig) {
 		cfg.Manager = manager
 	}
@@ -47,7 +48,7 @@ func WithResponder(responder ginresponder.ErrorResponder) MiddlewareOption {
 
 func Middleware(opts ...MiddlewareOption) gin.HandlerFunc {
 	cfg := &MiddlewareConfig{
-		Manager:        Default,
+		Manager:        corecasbin.Default,
 		ObjectResolver: defaultObjectResolver,
 	}
 	for _, opt := range opts {

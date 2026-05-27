@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/huwenlong92/sdkit/core/errors"
-	"github.com/huwenlong92/sdkit/core/ginresponder"
-	"github.com/huwenlong92/sdkit/core/ratelimit/keyer"
+	ginkeyer "github.com/huwenlong92/sdkit/core/gin/ratelimit/keyer"
+	ginresponder "github.com/huwenlong92/sdkit/core/gin/responder"
 	"github.com/huwenlong92/sdkit/pkg/ratelimit"
 
 	"github.com/gin-gonic/gin"
@@ -13,11 +13,11 @@ import (
 
 // Middleware 用 Limiter 对每个 IP 限流
 func Middleware(l ratelimit.Limiter) gin.HandlerFunc {
-	return MiddlewareWithKey(l, keyer.IP)
+	return MiddlewareWithKey(l, ginkeyer.IP)
 }
 
 func MiddlewareWithOptions(l ratelimit.Limiter, opts ...MiddlewareOption) gin.HandlerFunc {
-	return MiddlewareWithKeyOptions(l, keyer.IP, opts...)
+	return MiddlewareWithKeyOptions(l, ginkeyer.IP, opts...)
 }
 
 // MiddlewareWithKey 自定义 key 限流（如按用户ID）

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/huwenlong92/sdkit/core/session"
+	"github.com/huwenlong92/sdkit/core/gin/session"
 
 	"github.com/gin-gonic/gin"
 )

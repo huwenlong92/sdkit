@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/huwenlong92/sdkit/core/errors"
-	"github.com/huwenlong92/sdkit/core/ginresponder"
+	ginresponder "github.com/huwenlong92/sdkit/core/gin/responder"
 	"github.com/huwenlong92/sdkit/core/security"
 	"github.com/huwenlong92/sdkit/core/security/risk"
 	"github.com/huwenlong92/sdkit/pkg/security/fingerprint"

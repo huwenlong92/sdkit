@@ -25,7 +25,7 @@ func DefaultConfig() Config {
 	}
 }
 
-func normalizeConfig(cfg Config) Config {
+func NormalizeConfig(cfg Config) Config {
 	defaults := DefaultConfig()
 	if cfg.Header == "" {
 		cfg.Header = defaults.Header
