@@ -7,6 +7,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/queue"
 	redis "github.com/huwenlong92/sdkit/core/redis/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
+	queuedriver "github.com/huwenlong92/sdkit/pkg/queue/driver"
 )
 
 var ErrProducerConfigRequired = errors.New("queue producer facade: config or client required")
@@ -111,6 +112,9 @@ func Use(opts ...UseOption) runtime.Capability {
 
 		producer := o.producer
 		if producer == nil && hasConfig {
+			if err := queuedriver.Register(); err != nil {
+				return err
+			}
 			client, err := queue.NewClient(config)
 			if err != nil {
 				return err

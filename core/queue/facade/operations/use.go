@@ -7,6 +7,7 @@ import (
 	"github.com/huwenlong92/sdkit/core/queue"
 	redis "github.com/huwenlong92/sdkit/core/redis/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
+	queuedriver "github.com/huwenlong92/sdkit/pkg/queue/driver"
 )
 
 var ErrOperationsConfigRequired = errors.New("queue operations facade: config required")
@@ -99,6 +100,9 @@ func Use(opts ...UseOption) runtime.Capability {
 			return ErrOperationsConfigRequired
 		}
 		queueCfg := cfg.Queue
+		if err := queuedriver.Register(); err != nil {
+			return err
+		}
 		client, err := queue.NewClient(queueCfg)
 		if err != nil {
 			return err
