@@ -10,10 +10,6 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/pkg/storage/core"
-	"github.com/huwenlong92/sdkit/pkg/storage/driver/cos"
-	"github.com/huwenlong92/sdkit/pkg/storage/driver/local"
-	"github.com/huwenlong92/sdkit/pkg/storage/driver/oss"
-	"github.com/huwenlong92/sdkit/pkg/storage/driver/s3"
 )
 
 type FileSystem struct {
@@ -137,33 +133,16 @@ func (fs *FileSystem) DispatchHandler() error {
 	}
 	policy := fs.cfg.Policy
 	driver := firstNonEmpty(policy.Driver, fs.cfg.Driver)
-	switch driver {
-	case "local":
-		fs.handler = local.NewFromConfig(fs.cfg)
-		return nil
-	case "s3":
-		handler, err := s3.NewFromConfig(fs.cfg, false)
-		fs.handler = handler
-		return err
-	case "minio":
-		handler, err := s3.NewFromConfig(fs.cfg, true)
-		fs.handler = handler
-		return err
-	case "r2":
-		handler, err := s3.NewR2FromConfig(fs.cfg)
-		fs.handler = handler
-		return err
-	case "cos":
-		handler, err := cos.NewFromConfig(fs.cfg)
-		fs.handler = handler
-		return err
-	case "oss":
-		handler, err := oss.NewFromConfig(fs.cfg)
-		fs.handler = handler
-		return err
-	default:
+	factory := resolveDriver(driver)
+	if factory == nil {
 		return core.ErrUnknownDriver
 	}
+	handler, err := factory(fs.cfg)
+	if err != nil {
+		return err
+	}
+	fs.handler = handler
+	return nil
 }
 
 func NewFromPolicy(policy core.StoragePolicy, opts ...Option) (*FileSystem, error) {

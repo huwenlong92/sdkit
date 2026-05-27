@@ -17,6 +17,7 @@ import (
 
 	"github.com/huwenlong92/sdkit/pkg/storage"
 	"github.com/huwenlong92/sdkit/pkg/storage/core"
+	_ "github.com/huwenlong92/sdkit/pkg/storage/driver/s3"
 )
 
 var errAfterUpload = errors.New("after upload failed")

@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 
-	"github.com/huwenlong92/sdkit/core/config"
 	"github.com/huwenlong92/sdkit/core/runtime"
 	corestorage "github.com/huwenlong92/sdkit/core/storage"
 )
@@ -23,7 +22,6 @@ type useOptions struct {
 
 func defaultUseOptions() useOptions {
 	return useOptions{
-		configLoader: loadConfigFromCore,
 		dependencies: []runtime.Dependency{
 			runtime.OptionalBootstrap(),
 		},
@@ -114,18 +112,4 @@ func Use(opts ...UseOption) runtime.Capability {
 	}, func(context.Context) error {
 		return corestorage.Close()
 	})
-}
-
-func loadConfigFromCore(*runtime.App) (Config, error) {
-	if config.V == nil {
-		return DefaultConfig(), nil
-	}
-	if config.V.IsSet("storage") {
-		var cfg Config
-		if err := config.V.UnmarshalKey("storage", &cfg); err != nil {
-			return Config{}, err
-		}
-		return cfg, nil
-	}
-	return DefaultConfig(), nil
 }

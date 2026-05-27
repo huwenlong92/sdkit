@@ -109,7 +109,7 @@ Runtime 接入层统一放在 `core/storage/facade`：
 ```go
 import storagecap "github.com/huwenlong92/sdkit/core/storage/facade"
 
-app.RegisterCapabilities(storagecap.Use())
+app.RegisterCapabilities(storagecap.Use(storagecap.WithConfig(cfg.Storage)))
 ```
 
 `facade.Use()` 的初始化顺序：
@@ -117,8 +117,8 @@ app.RegisterCapabilities(storagecap.Use())
 1. 优先使用 `WithManager`
 2. 其次使用 `WithConfig`
 3. 其次使用 `WithConfigLoader`
-4. 最后从 `core/config.V` 读取 `storage`
-5. 未配置 `storage` 时使用 `DefaultConfig()`，即 `default/local/storage`
+
+没有传入 manager、config 或 config loader 时返回 `ErrNotConfigured`。facade 不读取 `core/config.V`，启动层必须通过 `WithConfig` 或 `WithConfigLoader` 显式注入配置。需要本地默认存储时，调用方显式传入 `DefaultConfig()`。
 
 注册成功后，manager 会写入 runtime container，也会成为包级默认 manager。
 

@@ -10,10 +10,21 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/huwenlong92/sdkit/pkg/storage"
 	"github.com/huwenlong92/sdkit/pkg/storage/core"
 
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
+
+func init() {
+	Register()
+}
+
+func Register() {
+	storage.RegisterDriver("cos", func(cfg core.Config) (core.Handler, error) {
+		return NewFromConfig(cfg)
+	})
+}
 
 type Driver struct {
 	cfg    Config

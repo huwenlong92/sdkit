@@ -18,8 +18,25 @@ import (
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 
+	"github.com/huwenlong92/sdkit/pkg/storage"
 	"github.com/huwenlong92/sdkit/pkg/storage/core"
 )
+
+func init() {
+	Register()
+}
+
+func Register() {
+	storage.RegisterDriver("s3", func(cfg core.Config) (core.Handler, error) {
+		return NewFromConfig(cfg, false)
+	})
+	storage.RegisterDriver("minio", func(cfg core.Config) (core.Handler, error) {
+		return NewFromConfig(cfg, true)
+	})
+	storage.RegisterDriver("r2", func(cfg core.Config) (core.Handler, error) {
+		return NewR2FromConfig(cfg)
+	})
+}
 
 type Driver struct {
 	cfg     Config

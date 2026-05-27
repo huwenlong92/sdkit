@@ -37,7 +37,7 @@ storage:
       secret_key: ${R2_SECRET_ACCESS_KEY}
 ```
 
-没有配置 `storage` 节点时，`facade.Use()` 会使用本地默认配置：`default` store，driver 为 `local`，目录为 `storage`。只要配置了 `storage` 节点，`default` 就必须显式配置，并且必须指向 `stores` 中存在的名称。业务需要把一部分资源放到其他存储时，通过 store 名称显式选择。
+启动层必须显式传入 storage 配置。`default` 必须显式配置，并且必须指向 `stores` 中存在的名称。业务需要把一部分资源放到其他存储时，通过 store 名称显式选择。
 
 ## 初始化
 
@@ -47,23 +47,15 @@ Runtime 接入层放在 `core/storage/facade`：
 import storagecap "github.com/huwenlong92/sdkit/core/storage/facade"
 
 app := runtime.New()
-if err := storagecap.Use().Register(app); err != nil {
+if err := storagecap.Use(storagecap.WithConfig(cfg.Storage)).Register(app); err != nil {
     return err
 }
 ```
 
-已经有配置对象时可以直接传入：
+独立命令或测试需要默认本地存储时，显式传入默认配置：
 
 ```go
-capability := storagecap.Use(storagecap.WithConfig(storagecap.Config{
-    Default: "local",
-    Stores: map[string]storagecap.StoreConfig{
-        "local": {
-            Driver:   "local",
-            LocalDir: "storage",
-        },
-    },
-}))
+capability := storagecap.Use(storagecap.WithConfig(storagecap.DefaultConfig()))
 ```
 
 ## 使用默认存储

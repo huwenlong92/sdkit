@@ -94,7 +94,7 @@ storagefacade.Use(
         if err != nil {
             return storagefacade.Config{}, err
         }
-        return cfg.FileSystem, nil
+        return cfg.Storage, nil
     }),
 )
 ```

@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/config"
 	"github.com/huwenlong92/sdkit/core/runtime"
 	corestorage "github.com/huwenlong92/sdkit/core/storage"
 	storagecap "github.com/huwenlong92/sdkit/core/storage/facade"
@@ -103,31 +102,40 @@ func TestManagerRequiresDefaultStore(t *testing.T) {
 	}
 }
 
-func TestFacadeLoadsStorageConfigFromCoreConfig(t *testing.T) {
+func TestRemoteDriverRequiresRegistration(t *testing.T) {
+	_, err := corestorage.New(corestorage.Policy{
+		Driver: "oss",
+	})
+	if !errors.Is(err, corestorage.ErrUnknownDriver) {
+		t.Fatalf("expected ErrUnknownDriver, got %v", err)
+	}
+}
+
+func TestFacadeLoadsStorageConfigFromConfigLoader(t *testing.T) {
 	t.Cleanup(func() {
 		_ = corestorage.Close()
-		config.V = nil
 	})
 
 	defaultDir := t.TempDir()
 	archiveDir := t.TempDir()
-	configPath := writeConfig(t, `
-storage:
-  default: primary
-  stores:
-    primary:
-      driver: local
-      local_dir: `+defaultDir+`
-    archive:
-      driver: local
-      local_dir: `+archiveDir+`
-`)
-	if _, err := config.New(configPath); err != nil {
-		t.Fatalf("load config: %v", err)
+	cfg := storagecap.Config{
+		Default: "primary",
+		Stores: map[string]storagecap.StoreConfig{
+			"primary": {
+				Driver:   "local",
+				LocalDir: defaultDir,
+			},
+			"archive": {
+				Driver:   "local",
+				LocalDir: archiveDir,
+			},
+		},
 	}
 
 	app := runtime.New()
-	capability := storagecap.Use()
+	capability := storagecap.Use(storagecap.WithConfigLoader(func(*runtime.App) (storagecap.Config, error) {
+		return cfg, nil
+	}))
 	if err := capability.Register(app); err != nil {
 		t.Fatalf("register storage: %v", err)
 	}
@@ -156,15 +164,13 @@ storage:
 	assertFileContent(t, filepath.Join(archiveDir, result.File.Path), "archive")
 }
 
-func TestFacadeUsesDefaultLocalConfig(t *testing.T) {
+func TestFacadeUsesExplicitDefaultLocalConfig(t *testing.T) {
 	t.Cleanup(func() {
 		_ = corestorage.Close()
-		config.V = nil
 	})
-	config.V = nil
 
 	app := runtime.New()
-	capability := storagecap.Use()
+	capability := storagecap.Use(storagecap.WithConfig(storagecap.DefaultConfig()))
 	if err := capability.Register(app); err != nil {
 		t.Fatalf("register storage: %v", err)
 	}
@@ -287,15 +293,6 @@ func TestLocalSourceRejectsInvalidSignature(t *testing.T) {
 	if resp.Code != http.StatusForbidden {
 		t.Fatalf("source handler status = %d, want %d", resp.Code, http.StatusForbidden)
 	}
-}
-
-func writeConfig(t *testing.T, content string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte(strings.TrimSpace(content)+"\n"), 0600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-	return path
 }
 
 func assertFileContent(t *testing.T, path string, expected string) {

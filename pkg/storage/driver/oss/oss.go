@@ -7,10 +7,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/huwenlong92/sdkit/pkg/storage"
 	"github.com/huwenlong92/sdkit/pkg/storage/core"
 
 	alioss "github.com/aliyun/aliyun-oss-go-sdk/oss"
 )
+
+func init() {
+	Register()
+}
+
+func Register() {
+	storage.RegisterDriver("oss", func(cfg core.Config) (core.Handler, error) {
+		return NewFromConfig(cfg)
+	})
+}
 
 type Driver struct {
 	cfg    Config
