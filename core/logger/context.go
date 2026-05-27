@@ -6,7 +6,6 @@ import (
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracking"
 
-	oteltrace "go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -74,23 +73,11 @@ func ContextFields(ctx context.Context) []zap.Field {
 	} else {
 		fields = appendStringContextField(ctx, fields, TrackIDKey)
 	}
-	hasTraceID := false
 	if traceID := Field(ctx, TraceIDKey); traceID != "" {
 		fields = append(fields, zap.String(TraceIDKey, traceID))
-		hasTraceID = true
 	}
-	hasSpanID := false
 	if spanID := Field(ctx, SpanIDKey); spanID != "" {
 		fields = append(fields, zap.String(SpanIDKey, spanID))
-		hasSpanID = true
-	}
-	if spanContext := oteltrace.SpanContextFromContext(ctx); spanContext.IsValid() {
-		if spanContext.HasTraceID() && !hasTraceID {
-			fields = append(fields, zap.String(TraceIDKey, spanContext.TraceID().String()))
-		}
-		if spanContext.HasSpanID() && !hasSpanID {
-			fields = append(fields, zap.String(SpanIDKey, spanContext.SpanID().String()))
-		}
 	}
 	if requestID := requestid.FromContext(ctx); requestID != "" {
 		fields = append(fields, zap.String(RequestIDKey, requestID))

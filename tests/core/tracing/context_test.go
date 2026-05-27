@@ -6,18 +6,9 @@ import (
 
 	"github.com/huwenlong92/sdkit/core/logger"
 	"github.com/huwenlong92/sdkit/core/tracing"
-
-	"go.opentelemetry.io/otel"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func TestTraceIDAndSpanID(t *testing.T) {
-	provider := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.AlwaysSample()))
-	oldProvider := otel.GetTracerProvider()
-	otel.SetTracerProvider(provider)
-	defer otel.SetTracerProvider(oldProvider)
-	defer provider.Shutdown(context.Background())
-
 	ctx, span := tracing.StartSpan(context.Background(), "test.context")
 	defer span.End()
 
@@ -30,12 +21,6 @@ func TestTraceIDAndSpanID(t *testing.T) {
 }
 
 func TestLoggerContextFieldsIncludeTraceAndSpan(t *testing.T) {
-	provider := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.AlwaysSample()))
-	oldProvider := otel.GetTracerProvider()
-	otel.SetTracerProvider(provider)
-	defer otel.SetTracerProvider(oldProvider)
-	defer provider.Shutdown(context.Background())
-
 	ctx, span := tracing.StartSpan(context.Background(), "test.logger")
 	defer span.End()
 

@@ -6,12 +6,8 @@ import (
 	"runtime/debug"
 
 	"github.com/huwenlong92/sdkit/core/logger"
-	"github.com/huwenlong92/sdkit/core/tracecontext"
+	"github.com/huwenlong92/sdkit/core/tracing"
 
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
-	oteltrace "go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -107,26 +103,24 @@ func SafeHandle(ctx context.Context, event *Event, handler Handler, log *zap.Log
 	return nil
 }
 
-func startHandlerSpan(ctx context.Context, event *Event) (context.Context, oteltrace.Span) {
-	attrs := []attribute.KeyValue{
-		attribute.String("messaging.system", "eventbus"),
-		attribute.String("messaging.destination.name", eventTopic(event)),
-		attribute.String("messaging.operation.name", "process"),
+func startHandlerSpan(ctx context.Context, event *Event) (context.Context, tracing.Span) {
+	attrs := []tracing.Attr{
+		tracing.String("messaging.system", "eventbus"),
+		tracing.String("messaging.destination.name", eventTopic(event)),
+		tracing.String("messaging.operation.name", "process"),
 	}
 	if eventID(event) != "" {
-		attrs = append(attrs, attribute.String("eventbus.event.id", eventID(event)))
+		attrs = append(attrs, tracing.String("eventbus.event.id", eventID(event)))
 	}
 	name := "eventbus.handle"
 	if eventTopic(event) != "" {
 		name += " " + eventTopic(event)
 	}
-	ctx, span := otel.Tracer(eventbusTracerName).Start(
-		ctx,
-		name,
-		oteltrace.WithSpanKind(oteltrace.SpanKindConsumer),
-		oteltrace.WithAttributes(attrs...),
-	)
-	tracecontext.SetSpanCorrelationAttributes(ctx, span)
+	ctx, span := tracing.StartSpanWithOptions(ctx, name, tracing.SpanOptions{
+		TracerName: eventbusTracerName,
+		Kind:       tracing.SpanKindConsumer,
+	}, attrs...)
+	tracing.SetSpanCorrelationAttributes(ctx, span)
 	return ctx, span
 }
 
@@ -144,10 +138,10 @@ func eventTopic(event *Event) string {
 	return event.Topic
 }
 
-func recordHandlerSpanError(span oteltrace.Span, err error) {
+func recordHandlerSpanError(span tracing.Span, err error) {
 	if span == nil || err == nil {
 		return
 	}
 	span.RecordError(err)
-	span.SetStatus(codes.Error, err.Error())
+	span.SetStatus(tracing.StatusError, err.Error())
 }

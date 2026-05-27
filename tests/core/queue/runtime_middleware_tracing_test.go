@@ -1,3 +1,5 @@
+//go:build sdkit_tracing
+
 package queue_test
 
 import (
@@ -14,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
-	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 func TestRuntimeMiddlewareTracingCreatesWorkerSpan(t *testing.T) {
@@ -26,15 +27,14 @@ func TestRuntimeMiddlewareTracingCreatesWorkerSpan(t *testing.T) {
 	oldProvider := otel.GetTracerProvider()
 	oldPropagator := otel.GetTextMapPropagator()
 	otel.SetTracerProvider(provider)
-	otel.SetTextMapPropagator(tracing.NewPropagator())
+	_, _ = tracing.Init(context.Background(), tracing.Config{})
 	defer otel.SetTracerProvider(oldProvider)
 	defer otel.SetTextMapPropagator(oldPropagator)
 	defer provider.Shutdown(context.Background())
 
 	wantErr := errors.New("worker error")
 	handler := middleware.Tracing()(func(ctx context.Context, _ *queue.Message) error {
-		spanContext := oteltrace.SpanContextFromContext(ctx)
-		if !spanContext.IsValid() {
+		if tracing.TraceID(ctx) == "" || tracing.SpanID(ctx) == "" {
 			t.Fatal("worker tracing middleware should pass span context to handler")
 		}
 		return wantErr

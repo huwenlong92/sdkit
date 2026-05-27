@@ -8,9 +8,9 @@ import (
 
 	"github.com/huwenlong92/sdkit/core/logger"
 	"github.com/huwenlong92/sdkit/core/sandbox/tracing"
+	coretracing "github.com/huwenlong92/sdkit/core/tracing"
 
 	"github.com/moby/moby/client"
-	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )
 
@@ -123,9 +123,9 @@ func (r *Runtime) cleanupWorkspace(spec *Spec) error {
 
 func (r *Runtime) runContainer(ctx context.Context, spec *Spec, phase string, cmd []string, stdin []byte) (*containerRunResult, error) {
 	ctx, span := tracing.StartStep(ctx, "sandbox."+phase,
-		attribute.String("image", spec.Image),
-		attribute.String("submission.id", spec.SubmissionID),
-		attribute.String("phase", phase),
+		coretracing.String("image", spec.Image),
+		coretracing.String("submission.id", spec.SubmissionID),
+		coretracing.String("phase", phase),
 	)
 	defer span.End()
 

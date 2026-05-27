@@ -7,19 +7,47 @@ import (
 	"github.com/huwenlong92/sdkit/core/logger"
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracking"
-
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/propagation"
-	oteltrace "go.opentelemetry.io/otel/trace"
 )
+
+const traceparentHeader = "traceparent"
+
+type Carrier interface {
+	Get(string) string
+	Set(string, string)
+}
+
+type KeyCarrier interface {
+	Carrier
+	Keys() []string
+}
+
+type MapCarrier map[string]string
+
+func (c MapCarrier) Get(key string) string {
+	return HeaderValue(c, key)
+}
+
+func (c MapCarrier) Set(key string, value string) {
+	if c == nil || key == "" || value == "" {
+		return
+	}
+	c[key] = value
+}
+
+func (c MapCarrier) Keys() []string {
+	keys := make([]string, 0, len(c))
+	for key := range c {
+		keys = append(keys, key)
+	}
+	return keys
+}
 
 func HeadersFromContext(ctx context.Context) map[string]string {
 	if ctx == nil {
 		return nil
 	}
 	headers := map[string]string{}
-	InjectCarrier(ctx, propagation.MapCarrier(headers))
+	InjectCarrier(ctx, MapCarrier(headers))
 	if len(headers) == 0 {
 		return nil
 	}
@@ -33,14 +61,22 @@ func ContextFromHeaders(ctx context.Context, headers map[string]string) context.
 	if len(headers) == 0 {
 		return ctx
 	}
-	return ExtractCarrier(ctx, propagation.MapCarrier(headers))
+	return ExtractCarrier(ctx, MapCarrier(headers))
 }
 
-func InjectCarrier(ctx context.Context, carrier propagation.TextMapCarrier) {
+func InjectCarrier(ctx context.Context, carrier Carrier) {
 	if ctx == nil || carrier == nil {
 		return
 	}
-	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	if traceparent := Traceparent(ctx); traceparent != "" {
+		carrier.Set(traceparentHeader, traceparent)
+	}
+	if traceID := TraceID(ctx); traceID != "" {
+		carrier.Set(logger.TraceIDKey, traceID)
+	}
+	if spanID := SpanID(ctx); spanID != "" {
+		carrier.Set(logger.SpanIDKey, spanID)
+	}
 	if trackID := tracking.TrackID(ctx); trackID != "" {
 		carrier.Set(tracking.Header, trackID)
 	}
@@ -49,14 +85,13 @@ func InjectCarrier(ctx context.Context, carrier propagation.TextMapCarrier) {
 	}
 }
 
-func ExtractCarrier(ctx context.Context, carrier propagation.TextMapCarrier) context.Context {
+func ExtractCarrier(ctx context.Context, carrier Carrier) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if carrier == nil {
 		return ctx
 	}
-	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 	if trackID := carrierValue(carrier, tracking.Header); trackID != "" {
 		ctx = tracking.WithTrackID(ctx, trackID)
 	}
@@ -64,10 +99,15 @@ func ExtractCarrier(ctx context.Context, carrier propagation.TextMapCarrier) con
 		ctx = requestid.WithRequestID(ctx, requestID)
 	}
 	headers := carrierFields(carrier)
-	if traceID := TraceIDFromHeaders(headers); traceID != "" {
+	traceID := TraceIDFromHeaders(headers)
+	spanID := SpanIDFromHeaders(headers)
+	if traceID != "" || spanID != "" {
+		ctx = ContextWithTrace(ctx, traceID, spanID)
+	}
+	if traceID != "" {
 		ctx = logger.WithField(ctx, logger.TraceIDKey, traceID)
 	}
-	if spanID := SpanIDFromHeaders(headers); spanID != "" {
+	if spanID != "" {
 		ctx = logger.WithField(ctx, logger.SpanIDKey, spanID)
 	}
 	return ctx
@@ -78,8 +118,12 @@ func RequestID(ctx context.Context) string {
 }
 
 func Traceparent(ctx context.Context) string {
-	headers := HeadersFromContext(ctx)
-	return HeaderValue(headers, "traceparent")
+	traceID := TraceID(ctx)
+	spanID := SpanID(ctx)
+	if traceID == "" || spanID == "" {
+		return ""
+	}
+	return "00-" + traceID + "-" + spanID + "-01"
 }
 
 func HeaderValue(headers map[string]string, key string) string {
@@ -101,7 +145,7 @@ func TraceIDFromHeaders(headers map[string]string) string {
 	if traceID := HeaderValue(headers, logger.TraceIDKey); traceID != "" {
 		return traceID
 	}
-	parts := strings.Split(HeaderValue(headers, "traceparent"), "-")
+	parts := strings.Split(HeaderValue(headers, traceparentHeader), "-")
 	if len(parts) >= 4 && len(parts[1]) == 32 {
 		return parts[1]
 	}
@@ -112,66 +156,21 @@ func SpanIDFromHeaders(headers map[string]string) string {
 	if spanID := HeaderValue(headers, logger.SpanIDKey); spanID != "" {
 		return spanID
 	}
-	parts := strings.Split(HeaderValue(headers, "traceparent"), "-")
+	parts := strings.Split(HeaderValue(headers, traceparentHeader), "-")
 	if len(parts) >= 4 && len(parts[2]) == 16 {
 		return parts[2]
 	}
 	return ""
 }
 
-func SetCorrelationAttributes(ctx context.Context) {
-	SetSpanCorrelationAttributes(ctx, oteltrace.SpanFromContext(ctx))
-}
-
-func SetSpanCorrelationAttributes(ctx context.Context, span oteltrace.Span) {
-	setSpanCorrelationAttributes(ctx, span, false)
-}
-
-func SetHTTPSpanCorrelationAttributes(ctx context.Context, span oteltrace.Span) {
-	setSpanCorrelationAttributes(ctx, span, true)
-}
-
-func setSpanCorrelationAttributes(ctx context.Context, span oteltrace.Span, includeLegacySD bool) {
-	if span == nil || !span.IsRecording() {
-		return
-	}
-	attrs := make([]attribute.KeyValue, 0, 8)
-	if spanCtx := span.SpanContext(); spanCtx.IsValid() {
-		if spanCtx.HasTraceID() {
-			attrs = append(attrs, attribute.String(logger.TraceIDKey, spanCtx.TraceID().String()))
-		}
-		if spanCtx.HasSpanID() {
-			attrs = append(attrs, attribute.String(logger.SpanIDKey, spanCtx.SpanID().String()))
-		}
-	}
-	if trackID := tracking.TrackID(ctx); trackID != "" {
-		attrs = append(attrs, attribute.String(logger.TrackIDKey, trackID))
-		if includeLegacySD {
-			attrs = append(attrs, attribute.String("sd."+logger.TrackIDKey, trackID))
-		}
-	}
-	if requestID := RequestID(ctx); requestID != "" {
-		attrs = append(attrs, attribute.String(logger.RequestIDKey, requestID))
-		if includeLegacySD {
-			attrs = append(attrs, attribute.String("sd."+logger.RequestIDKey, requestID))
-		}
-	}
-	if traceparent := Traceparent(ctx); traceparent != "" {
-		attrs = append(attrs, attribute.String("traceparent", traceparent))
-	}
-	if len(attrs) > 0 {
-		span.SetAttributes(attrs...)
-	}
-}
-
-func carrierValue(carrier propagation.TextMapCarrier, key string) string {
+func carrierValue(carrier Carrier, key string) string {
 	if carrier == nil || key == "" {
 		return ""
 	}
 	if value := carrier.Get(key); value != "" {
 		return value
 	}
-	keyCarrier, ok := carrier.(interface{ Keys() []string })
+	keyCarrier, ok := carrier.(KeyCarrier)
 	if !ok {
 		return ""
 	}
@@ -183,10 +182,10 @@ func carrierValue(carrier propagation.TextMapCarrier, key string) string {
 	return ""
 }
 
-func carrierFields(carrier propagation.TextMapCarrier) map[string]string {
-	keyCarrier, ok := carrier.(interface{ Keys() []string })
+func carrierFields(carrier Carrier) map[string]string {
+	keyCarrier, ok := carrier.(KeyCarrier)
 	if !ok {
-		fields := []string{"traceparent", logger.TraceIDKey, logger.SpanIDKey}
+		fields := []string{traceparentHeader, logger.TraceIDKey, logger.SpanIDKey, tracking.Header, requestid.Header}
 		headers := make(map[string]string, len(fields))
 		for _, field := range fields {
 			if value := carrier.Get(field); value != "" {

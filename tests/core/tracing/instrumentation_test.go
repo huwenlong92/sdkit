@@ -46,7 +46,7 @@ func TestInstrumentGormCreatesOperationSpan(t *testing.T) {
 	oldProvider := otel.GetTracerProvider()
 	oldPropagator := otel.GetTextMapPropagator()
 	otel.SetTracerProvider(provider)
-	otel.SetTextMapPropagator(tracing.NewPropagator())
+	_, _ = tracing.Init(context.Background(), tracing.Config{})
 	defer otel.SetTracerProvider(oldProvider)
 	defer otel.SetTextMapPropagator(oldPropagator)
 	defer provider.Shutdown(context.Background())
@@ -144,7 +144,7 @@ func TestInstrumentGormRestoresParentContext(t *testing.T) {
 		ID int64
 	}
 	ctx, parent := tracing.StartSpan(context.Background(), "test.gorm.parent")
-	parentID := parent.SpanContext().SpanID()
+	parentID := parent.SpanID()
 
 	query := db.WithContext(ctx).Session(&gorm.Session{DryRun: true}).Model(&user{})
 	var count int64
@@ -163,7 +163,7 @@ func TestInstrumentGormRestoresParentContext(t *testing.T) {
 			continue
 		}
 		children++
-		if span.Parent().SpanID() != parentID {
+		if span.Parent().SpanID().String() != parentID {
 			t.Fatalf("gorm span parent: want %s, got %s", parentID, span.Parent().SpanID())
 		}
 	}
@@ -200,7 +200,7 @@ func TestInstrumentPgxPoolConfigAddsCorrelationAttributes(t *testing.T) {
 	oldProvider := otel.GetTracerProvider()
 	oldPropagator := otel.GetTextMapPropagator()
 	otel.SetTracerProvider(provider)
-	otel.SetTextMapPropagator(tracing.NewPropagator())
+	_, _ = tracing.Init(context.Background(), tracing.Config{})
 	defer otel.SetTracerProvider(oldProvider)
 	defer otel.SetTextMapPropagator(oldPropagator)
 	defer provider.Shutdown(context.Background())

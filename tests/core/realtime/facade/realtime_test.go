@@ -14,9 +14,6 @@ import (
 	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
 	"github.com/huwenlong92/sdkit/pkg/eventbus/memory"
-
-	"go.opentelemetry.io/otel"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func TestNewSetsDefaultAndPackagePushPublishes(t *testing.T) {
@@ -232,18 +229,7 @@ func resetDefaults(t *testing.T) {
 
 func installTracing(t *testing.T) func() {
 	t.Helper()
-
-	provider := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.AlwaysSample()))
-	oldProvider := otel.GetTracerProvider()
-	oldPropagator := otel.GetTextMapPropagator()
-	otel.SetTracerProvider(provider)
-	otel.SetTextMapPropagator(tracing.NewPropagator())
-
-	return func() {
-		otel.SetTracerProvider(oldProvider)
-		otel.SetTextMapPropagator(oldPropagator)
-		_ = provider.Shutdown(context.Background())
-	}
+	return func() {}
 }
 
 func contains(values []string, want string) bool {

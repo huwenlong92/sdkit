@@ -1,3 +1,5 @@
+//go:build sdkit_tracing
+
 package tests
 
 import (
@@ -74,7 +76,7 @@ func installTracingRecorder(t *testing.T) (*tracetest.SpanRecorder, func()) {
 	oldProvider := otel.GetTracerProvider()
 	oldPropagator := otel.GetTextMapPropagator()
 	otel.SetTracerProvider(provider)
-	otel.SetTextMapPropagator(tracing.NewPropagator())
+	_, _ = tracing.Init(context.Background(), tracing.Config{})
 
 	return recorder, func() {
 		otel.SetTracerProvider(oldProvider)

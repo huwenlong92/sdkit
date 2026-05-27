@@ -16,8 +16,6 @@ import (
 	"github.com/huwenlong92/sdkit/pkg/queue/asynq"
 
 	goredis "github.com/redis/go-redis/v9"
-	"go.opentelemetry.io/otel"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func TestIntegrationManagerRetryArchiveRequeuePreserveHeaders(t *testing.T) {
@@ -25,17 +23,6 @@ func TestIntegrationManagerRetryArchiveRequeuePreserveHeaders(t *testing.T) {
 	queueName := integrationQueueName()
 	cfg.Queues = map[string]int{queueName: 1}
 	cleanupAsynqQueue(t, cfg, queueName)
-
-	provider := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.AlwaysSample()))
-	oldProvider := otel.GetTracerProvider()
-	oldPropagator := otel.GetTextMapPropagator()
-	otel.SetTracerProvider(provider)
-	otel.SetTextMapPropagator(tracing.NewPropagator())
-	t.Cleanup(func() {
-		otel.SetTracerProvider(oldProvider)
-		otel.SetTextMapPropagator(oldPropagator)
-		_ = provider.Shutdown(context.Background())
-	})
 
 	driver := asynq.New(cfg)
 	t.Cleanup(func() { _ = driver.Close() })
@@ -66,7 +53,7 @@ func TestIntegrationManagerRetryArchiveRequeuePreserveHeaders(t *testing.T) {
 	enqueueCtx := tracking.WithTrackID(ctx, trackID)
 	enqueueCtx = requestid.WithRequestID(enqueueCtx, requestID)
 	enqueueCtx, parent := tracing.StartSpan(enqueueCtx, "http.request")
-	traceID := parent.SpanContext().TraceID().String()
+	traceID := parent.TraceID()
 	taskID := fmt.Sprintf("headers-%d", time.Now().UnixNano())
 
 	_, err := driver.Enqueue(enqueueCtx,

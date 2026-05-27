@@ -7,13 +7,9 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/logger"
-	"github.com/huwenlong92/sdkit/core/tracecontext"
+	"github.com/huwenlong92/sdkit/core/tracing"
 
 	goredis "github.com/redis/go-redis/v9"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
-	oteltrace "go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -35,8 +31,8 @@ func (h Hook) DialHook(next goredis.DialHook) goredis.DialHook {
 func (h Hook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		ctx, span := startRedisSpan(ctx, "redis."+cmd.Name(),
-			attribute.String("db.system", "redis"),
-			attribute.String("db.operation", cmd.Name()),
+			tracing.String("db.system", "redis"),
+			tracing.String("db.operation", cmd.Name()),
 		)
 		defer span.End()
 
@@ -55,10 +51,10 @@ func (h Hook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.Proc
 			names = append(names, cmd.Name())
 		}
 		ctx, span := startRedisSpan(ctx, "redis.pipeline",
-			attribute.String("db.system", "redis"),
-			attribute.String("db.operation", "pipeline"),
-			attribute.Int("redis.pipeline.length", len(cmds)),
-			attribute.String("redis.pipeline.commands", strings.Join(names, ",")),
+			tracing.String("db.system", "redis"),
+			tracing.String("db.operation", "pipeline"),
+			tracing.Int("redis.pipeline.length", len(cmds)),
+			tracing.String("redis.pipeline.commands", strings.Join(names, ",")),
 		)
 		defer span.End()
 
@@ -75,28 +71,25 @@ func (h Hook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.Proc
 	}
 }
 
-func startRedisSpan(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, oteltrace.Span) {
+func startRedisSpan(ctx context.Context, name string, attrs ...tracing.Attr) (context.Context, tracing.Span) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if !oteltrace.SpanContextFromContext(ctx).IsValid() {
-		return ctx, oteltrace.SpanFromContext(ctx)
-	}
-	ctx, span := otel.Tracer("sdkitgo/core/redis").Start(ctx, name, oteltrace.WithAttributes(attrs...))
+	ctx, span := tracing.StartSpanWithOptions(ctx, name, tracing.SpanOptions{TracerName: "sdkitgo/core/redis"}, attrs...)
 	setRedisCorrelationAttributes(ctx, span)
 	return ctx, span
 }
 
-func setRedisCorrelationAttributes(ctx context.Context, span oteltrace.Span) {
-	tracecontext.SetSpanCorrelationAttributes(ctx, span)
+func setRedisCorrelationAttributes(ctx context.Context, span tracing.Span) {
+	tracing.SetSpanCorrelationAttributes(ctx, span)
 }
 
-func recordRedisError(span oteltrace.Span, err error) {
+func recordRedisError(span tracing.Span, err error) {
 	if err == nil || errors.Is(err, goredis.Nil) {
 		return
 	}
 	span.RecordError(err)
-	span.SetStatus(codes.Error, err.Error())
+	span.SetStatus(tracing.StatusError, err.Error())
 }
 
 func (h Hook) log(ctx context.Context, msg string, err error, fields ...zap.Field) {

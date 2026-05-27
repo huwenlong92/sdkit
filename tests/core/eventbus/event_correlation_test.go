@@ -11,9 +11,6 @@ import (
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
-
-	"go.opentelemetry.io/otel"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func TestEventFlowHeaderKeysUseSharedCorrelationConstants(t *testing.T) {
@@ -79,10 +76,6 @@ func TestConnectionAndSessionIDsStayInEventHeaders(t *testing.T) {
 }
 
 func TestNewEventUsesHeadersWithoutMixingTrackIDIntoTraceID(t *testing.T) {
-	oldPropagator := otel.GetTextMapPropagator()
-	otel.SetTextMapPropagator(tracing.NewPropagator())
-	defer otel.SetTextMapPropagator(oldPropagator)
-
 	ctx := tracking.WithTrackID(context.Background(), "track-event")
 	ctx = requestid.WithRequestID(ctx, "request-event")
 
@@ -157,16 +150,5 @@ func TestContextWithEventDoesNotInventTraceContext(t *testing.T) {
 
 func installTracing(t *testing.T) func() {
 	t.Helper()
-
-	provider := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.AlwaysSample()))
-	oldProvider := otel.GetTracerProvider()
-	oldPropagator := otel.GetTextMapPropagator()
-	otel.SetTracerProvider(provider)
-	otel.SetTextMapPropagator(tracing.NewPropagator())
-
-	return func() {
-		otel.SetTracerProvider(oldProvider)
-		otel.SetTextMapPropagator(oldPropagator)
-		_ = provider.Shutdown(context.Background())
-	}
+	return func() {}
 }

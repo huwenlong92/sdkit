@@ -11,12 +11,9 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/queue"
+	"github.com/huwenlong92/sdkit/core/tracing"
 
 	natsgo "github.com/nats-io/nats.go"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
-	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 type Queue struct {
@@ -110,7 +107,7 @@ func (q *Queue) Enqueue(ctx context.Context, task queue.Task, opts ...queue.Opti
 	defer func() {
 		if err != nil {
 			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
+			span.SetStatus(tracing.StatusError, err.Error())
 		}
 		span.End()
 	}()
@@ -158,8 +155,8 @@ func (q *Queue) Enqueue(ctx context.Context, task queue.Task, opts ...queue.Opti
 	}
 	now := time.Now()
 	span.SetAttributes(
-		attribute.String("messaging.message.id", env.ID),
-		attribute.String("messaging.destination.name", env.Queue),
+		tracing.String("messaging.message.id", env.ID),
+		tracing.String("messaging.destination.name", env.Queue),
 	)
 	return &queue.TaskInfo{
 		ID:        env.ID,
@@ -374,7 +371,7 @@ func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler queue.HandlerFun
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			span.RecordError(fmt.Errorf("panic: %v", recovered))
-			span.SetStatus(codes.Error, "panic")
+			span.SetStatus(tracing.StatusError, "panic")
 			span.End()
 			panic(recovered)
 		}
@@ -382,52 +379,52 @@ func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler queue.HandlerFun
 	}()
 	if err := handler(ctx, queueMsg); err != nil {
 		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		span.SetStatus(tracing.StatusError, err.Error())
 		q.rejectMessage(msg, retryCount, env.MaxRetry, env.MaxRetrySet)
 		return
 	}
 	_ = msg.Ack()
 }
 
-func startWorkerSpan(ctx context.Context, msg *queue.Message) (context.Context, oteltrace.Span) {
-	attrs := []attribute.KeyValue{
-		attribute.String("messaging.system", "nats"),
-		attribute.String("messaging.operation", "process"),
+func startWorkerSpan(ctx context.Context, msg *queue.Message) (context.Context, tracing.Span) {
+	attrs := []tracing.Attr{
+		tracing.String("messaging.system", "nats"),
+		tracing.String("messaging.operation", "process"),
 	}
 	spanName := "consumer::task"
 	if msg != nil {
 		spanName = "consumer::" + msg.Type
 		attrs = append(attrs,
-			attribute.String("messaging.destination.name", msg.Queue),
-			attribute.String("messaging.message.id", msg.ID),
-			attribute.String("messaging.message.type", msg.Type),
-			attribute.Int("messaging.message.retry_count", msg.RetryCount),
-			attribute.Int("messaging.message.max_retry", msg.MaxRetry),
+			tracing.String("messaging.destination.name", msg.Queue),
+			tracing.String("messaging.message.id", msg.ID),
+			tracing.String("messaging.message.type", msg.Type),
+			tracing.Int("messaging.message.retry_count", msg.RetryCount),
+			tracing.Int("messaging.message.max_retry", msg.MaxRetry),
 		)
 	}
-	ctx, span := otel.Tracer("sdkitgo/core/queue").Start(ctx, spanName,
-		oteltrace.WithSpanKind(oteltrace.SpanKindConsumer),
-		oteltrace.WithAttributes(attrs...),
-	)
+	ctx, span := tracing.StartSpanWithOptions(ctx, spanName, tracing.SpanOptions{
+		TracerName: "sdkitgo/core/queue",
+		Kind:       tracing.SpanKindConsumer,
+	}, attrs...)
 	queue.SetSpanCorrelationAttributes(ctx, span)
 	return ctx, span
 }
 
-func startEnqueueSpan(ctx context.Context, taskType string, opts queue.EnqueueOptions) (context.Context, oteltrace.Span) {
+func startEnqueueSpan(ctx context.Context, taskType string, opts queue.EnqueueOptions) (context.Context, tracing.Span) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	attrs := []attribute.KeyValue{
-		attribute.String("messaging.system", "nats"),
-		attribute.String("messaging.operation", "publish"),
-		attribute.String("messaging.destination.name", opts.Queue),
-		attribute.String("messaging.message.id", opts.TaskID),
-		attribute.String("messaging.message.type", taskType),
+	attrs := []tracing.Attr{
+		tracing.String("messaging.system", "nats"),
+		tracing.String("messaging.operation", "publish"),
+		tracing.String("messaging.destination.name", opts.Queue),
+		tracing.String("messaging.message.id", opts.TaskID),
+		tracing.String("messaging.message.type", taskType),
 	}
-	ctx, span := otel.Tracer("sdkitgo/core/queue").Start(ctx, "producer::"+taskType,
-		oteltrace.WithSpanKind(oteltrace.SpanKindProducer),
-		oteltrace.WithAttributes(attrs...),
-	)
+	ctx, span := tracing.StartSpanWithOptions(ctx, "producer::"+taskType, tracing.SpanOptions{
+		TracerName: "sdkitgo/core/queue",
+		Kind:       tracing.SpanKindProducer,
+	}, attrs...)
 	queue.SetSpanCorrelationAttributes(ctx, span)
 	return ctx, span
 }

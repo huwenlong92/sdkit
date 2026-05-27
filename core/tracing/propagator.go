@@ -5,8 +5,6 @@ import (
 	"net/http"
 
 	"github.com/huwenlong92/sdkit/core/tracecontext"
-
-	"go.opentelemetry.io/otel/propagation"
 )
 
 func InjectHTTPHeader(ctx context.Context, header http.Header) {
@@ -15,8 +13,4 @@ func InjectHTTPHeader(ctx context.Context, header http.Header) {
 
 func ExtractHTTPHeader(ctx context.Context, header http.Header) context.Context {
 	return tracecontext.ExtractHTTPHeader(ctx, header)
-}
-
-func NewPropagator() propagation.TextMapPropagator {
-	return tracecontext.NewPropagator()
 }

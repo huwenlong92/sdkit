@@ -4,11 +4,6 @@ import (
 	"context"
 
 	coretracing "github.com/huwenlong92/sdkit/core/tracing"
-
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
-	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 type runRequest interface {
@@ -28,36 +23,36 @@ type result interface {
 
 const tracerName = "sdkitgo/core/sandbox"
 
-func StartRun(ctx context.Context, req interface{}) (context.Context, oteltrace.Span) {
+func StartRun(ctx context.Context, req interface{}) (context.Context, coretracing.Span) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	attrs := runRequestAttrs(req)
-	ctx, span := otel.Tracer(tracerName).Start(ctx, "sandbox.run", oteltrace.WithAttributes(attrs...))
+	ctx, span := coretracing.StartSpanWithOptions(ctx, "sandbox.run", coretracing.SpanOptions{TracerName: tracerName}, attrs...)
 	coretracing.SetSpanCorrelationAttributes(ctx, span)
 	return ctx, span
 }
 
-func StartStep(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, oteltrace.Span) {
+func StartStep(ctx context.Context, name string, attrs ...coretracing.Attr) (context.Context, coretracing.Span) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if name == "" {
 		name = "sandbox.step"
 	}
-	ctx, span := otel.Tracer(tracerName).Start(ctx, name, oteltrace.WithAttributes(attrs...))
+	ctx, span := coretracing.StartSpanWithOptions(ctx, name, coretracing.SpanOptions{TracerName: tracerName}, attrs...)
 	coretracing.SetSpanCorrelationAttributes(ctx, span)
 	return ctx, span
 }
 
-func SetContainerID(span oteltrace.Span, containerID string) {
+func SetContainerID(span coretracing.Span, containerID string) {
 	if span == nil || containerID == "" {
 		return
 	}
-	span.SetAttributes(attribute.String("container.id", containerID))
+	span.SetAttributes(coretracing.String("container.id", containerID))
 }
 
-func SetRunRequest(span oteltrace.Span, req interface{}) {
+func SetRunRequest(span coretracing.Span, req interface{}) {
 	if span == nil {
 		return
 	}
@@ -66,7 +61,7 @@ func SetRunRequest(span oteltrace.Span, req interface{}) {
 	}
 }
 
-func SetRunResult(span oteltrace.Span, res interface{}) {
+func SetRunResult(span coretracing.Span, res interface{}) {
 	if span == nil || res == nil {
 		return
 	}
@@ -76,30 +71,30 @@ func SetRunResult(span oteltrace.Span, res interface{}) {
 	}
 	SetContainerID(span, r.GetContainerID())
 	span.SetAttributes(
-		attribute.Int("exit.code", r.GetExitCode()),
-		attribute.Bool("timed_out", r.GetTimedOut()),
-		attribute.Int64("memory.used", int64(r.GetMemoryUsed())),
-		attribute.Float64("cpu.used", r.GetCPUUsed()),
+		coretracing.Int("exit.code", r.GetExitCode()),
+		coretracing.Bool("timed_out", r.GetTimedOut()),
+		coretracing.Int64("memory.used", int64(r.GetMemoryUsed())),
+		coretracing.Float64("cpu.used", r.GetCPUUsed()),
 	)
 }
 
-func runRequestAttrs(req interface{}) []attribute.KeyValue {
+func runRequestAttrs(req interface{}) []coretracing.Attr {
 	r, ok := req.(runRequest)
 	if !ok || r == nil {
 		return nil
 	}
-	return []attribute.KeyValue{
-		attribute.String("submission.id", r.GetSubmissionID()),
-		attribute.String("image", r.GetImage()),
-		attribute.Float64("timeout", r.GetTimeoutSeconds()),
-		attribute.Int64("memory.limit", r.GetMemoryBytes()),
+	return []coretracing.Attr{
+		coretracing.String("submission.id", r.GetSubmissionID()),
+		coretracing.String("image", r.GetImage()),
+		coretracing.Float64("timeout", r.GetTimeoutSeconds()),
+		coretracing.Int64("memory.limit", r.GetMemoryBytes()),
 	}
 }
 
-func RecordError(span oteltrace.Span, err error) {
+func RecordError(span coretracing.Span, err error) {
 	if span == nil || err == nil {
 		return
 	}
 	span.RecordError(err)
-	span.SetStatus(codes.Error, err.Error())
+	span.SetStatus(coretracing.StatusError, err.Error())
 }

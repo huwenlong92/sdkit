@@ -2,38 +2,20 @@ package tracing
 
 import (
 	"context"
-	"sync"
-	"sync/atomic"
+
+	pkgtracing "github.com/huwenlong92/sdkit/pkg/tracing"
 )
 
-var (
-	shutdownMu     sync.Mutex
-	globalShutdown = noopShutdown
-	enabled        atomic.Bool
-)
+var ErrNotCompiled = pkgtracing.ErrNotCompiled
 
 func Enabled() bool {
-	return enabled.Load()
+	return pkgtracing.Enabled()
 }
 
 func Shutdown(ctx context.Context) error {
-	shutdownMu.Lock()
-	shutdown := globalShutdown
-	globalShutdown = noopShutdown
-	shutdownMu.Unlock()
-	enabled.Store(false)
-	return shutdown(ctx)
+	return pkgtracing.Shutdown(ctx)
 }
 
-func setShutdown(shutdown func(context.Context) error) {
-	if shutdown == nil {
-		shutdown = noopShutdown
-	}
-	shutdownMu.Lock()
-	globalShutdown = shutdown
-	shutdownMu.Unlock()
-}
-
-func noopShutdown(context.Context) error {
-	return nil
+func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) {
+	return pkgtracing.Init(ctx, cfg)
 }

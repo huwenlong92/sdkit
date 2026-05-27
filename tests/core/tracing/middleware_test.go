@@ -1,3 +1,5 @@
+//go:build sdkit_tracing
+
 package tests
 
 import (
@@ -25,7 +27,7 @@ func TestMiddlewareCreatesHTTPRootSpanAndKeepsTrackID(t *testing.T) {
 	oldProvider := otel.GetTracerProvider()
 	oldPropagator := otel.GetTextMapPropagator()
 	otel.SetTracerProvider(provider)
-	otel.SetTextMapPropagator(tracing.NewPropagator())
+	_, _ = tracing.Init(context.Background(), tracing.Config{})
 	defer otel.SetTracerProvider(oldProvider)
 	defer otel.SetTextMapPropagator(oldPropagator)
 	defer provider.Shutdown(context.Background())
@@ -84,6 +86,7 @@ func TestMiddlewareRecordsServerErrorStatus(t *testing.T) {
 	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
 	oldProvider := otel.GetTracerProvider()
 	otel.SetTracerProvider(provider)
+	_, _ = tracing.Init(context.Background(), tracing.Config{})
 	defer otel.SetTracerProvider(oldProvider)
 	defer provider.Shutdown(context.Background())
 

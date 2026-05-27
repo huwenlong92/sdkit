@@ -9,21 +9,9 @@ import (
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
-
-	"go.opentelemetry.io/otel"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func TestInjectAndExtractHTTPHeader(t *testing.T) {
-	provider := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.AlwaysSample()))
-	oldProvider := otel.GetTracerProvider()
-	oldPropagator := otel.GetTextMapPropagator()
-	otel.SetTracerProvider(provider)
-	otel.SetTextMapPropagator(tracing.NewPropagator())
-	defer otel.SetTracerProvider(oldProvider)
-	defer otel.SetTextMapPropagator(oldPropagator)
-	defer provider.Shutdown(context.Background())
-
 	ctx := tracking.WithTrackID(context.Background(), "track-propagation")
 	ctx = requestid.WithRequestID(ctx, "request-propagation")
 	ctx, span := tracing.StartSpan(ctx, "test.propagation")

@@ -11,7 +11,6 @@ import (
 	"github.com/huwenlong92/sdkit/core/logger"
 	"github.com/huwenlong92/sdkit/core/tracking"
 
-	oteltrace "go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -556,10 +555,6 @@ func failureTemplateKey(entry Entry, tpl Template) string {
 }
 
 func traceIDFromContext(ctx context.Context) string {
-	spanContext := oteltrace.SpanContextFromContext(ctx)
-	if spanContext.IsValid() && spanContext.HasTraceID() {
-		return spanContext.TraceID().String()
-	}
 	return logger.Field(ctx, logger.TraceIDKey)
 }
 
