@@ -6,6 +6,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/huwenlong92/sdkit/core/database"
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/tracing"
 	"github.com/huwenlong92/sdkit/core/tracking"
@@ -29,14 +30,14 @@ func TestInstrumentGormRegistersPlugin(t *testing.T) {
 		t.Fatalf("open gorm: %v", err)
 	}
 
-	if err := tracing.InstrumentGorm(db); err != nil {
+	if err := database.InstrumentGorm(db); err != nil {
 		t.Fatalf("instrument gorm: %v", err)
 	}
-	if err := tracing.InstrumentGorm(db); err != nil {
+	if err := database.InstrumentGorm(db); err != nil {
 		t.Fatalf("instrument gorm twice: %v", err)
 	}
-	if _, ok := db.Plugins["sdkitgo:otelgorm"]; !ok {
-		t.Fatal("sdkitgo otelgorm plugin should be registered")
+	if _, ok := db.Plugins["sdkitgo:database:gormtracing"]; !ok {
+		t.Fatal("database gorm tracing plugin should be registered")
 	}
 }
 
@@ -57,7 +58,7 @@ func TestInstrumentGormCreatesOperationSpan(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open gorm: %v", err)
 	}
-	if err := tracing.InstrumentGorm(db); err != nil {
+	if err := database.InstrumentGorm(db); err != nil {
 		t.Fatalf("instrument gorm: %v", err)
 	}
 
@@ -103,7 +104,7 @@ func TestInstrumentGormSkipsOperationSpanWithoutParent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open gorm: %v", err)
 	}
-	if err := tracing.InstrumentGorm(db); err != nil {
+	if err := database.InstrumentGorm(db); err != nil {
 		t.Fatalf("instrument gorm: %v", err)
 	}
 
@@ -136,7 +137,7 @@ func TestInstrumentGormRestoresParentContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open gorm: %v", err)
 	}
-	if err := tracing.InstrumentGorm(db); err != nil {
+	if err := database.InstrumentGorm(db); err != nil {
 		t.Fatalf("instrument gorm: %v", err)
 	}
 
@@ -179,7 +180,7 @@ func TestInstrumentPgxPoolConfigKeepsExistingTracer(t *testing.T) {
 	}
 	cfg.ConnConfig.Tracer = &tracelog.TraceLog{Logger: tracelog.LoggerFunc(func(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {})}
 
-	if err := tracing.InstrumentPgxPoolConfig(cfg); err != nil {
+	if err := database.InstrumentPgxPoolConfig(cfg); err != nil {
 		t.Fatalf("instrument pgx: %v", err)
 	}
 	tracer, ok := cfg.ConnConfig.Tracer.(*multitracer.Tracer)
@@ -209,7 +210,7 @@ func TestInstrumentPgxPoolConfigAddsCorrelationAttributes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse pgx config: %v", err)
 	}
-	if err := tracing.InstrumentPgxPoolConfig(cfg); err != nil {
+	if err := database.InstrumentPgxPoolConfig(cfg); err != nil {
 		t.Fatalf("instrument pgx: %v", err)
 	}
 
