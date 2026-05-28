@@ -31,7 +31,7 @@ func newGORMLogger(level string, mode string) gormLogger.Interface {
 		gormLogger.Config{
 			SlowThreshold:             time.Second,
 			LogLevel:                  logLevel,
-			IgnoreRecordNotFoundError: false,
+			IgnoreRecordNotFoundError: true,
 			Colorful:                  false,
 		},
 	)

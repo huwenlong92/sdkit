@@ -144,8 +144,11 @@ defer db.Close()
 
 DSN 必填。`MaxIdleConns` 大于 `MaxOpenConns` 时会被限制到 `MaxOpenConns`。
 
+GORM logger 默认忽略 `ErrRecordNotFound`，避免正常的未命中查询在 warn/error 日志级别刷屏；业务仍需按 GORM 返回错误自行处理未找到分支。
+
 ## 更新记录
 
+- 2026-05-28：GORM logger 开启 `IgnoreRecordNotFoundError`，未命中查询不再输出 `record not found` SQL 日志。
 - 2026-05-26：Database runtime facade 默认作为 internal 底座能力，新增 `WithExternal()` 显式对外展示；配置和 mode 必须通过 option 显式提供，移除 `core/config.V` 隐式读取。
 - 2026-05-16：`core/database/facade` 作为唯一 Runtime Capability 接入层；根包移除重复的 `Use/UseOption`，保留 `Bind/From/Gorm/PGX/Transaction` 等数据库本体 API；根包运行时绑定原语统一放在 `binding.go`。
 - 2026-05-15：新增 `database.Gorm(ctx)`、`database.PGX(ctx)`、`database.Transaction` 和 `database.PGXTransaction`，将 pgx 全局快捷变量重命名为 `PGXPool`。

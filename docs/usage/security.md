@@ -131,6 +131,109 @@ r.POST("/login/fail-demo",
 
 生产接口建议由 middleware 统一处理拦截和响应；handler 只负责业务成功路径。对于“登录密码校验失败”这类只有 handler 才知道的结果，可以在 handler 确认失败后直接调用 `manager.Check`，或拆成失败回调后再复用相同 checker。
 
+## 可配置风控 risk2
+
+`risk2` 用于应用侧后台可配置风控。core 只提供引擎和接口，应用实现 Store：
+
+```go
+engine := risk2.NewEngine(store)
+decision, err := engine.Evaluate(ctx, risk2.Event{
+    Service: "admin",
+    Scene:   "login",
+    Event:   "login_failed",
+    IP:      "127.0.0.1",
+    Extra: map[string]any{
+        "account": "admin",
+    },
+})
+```
+
+Gin 入口可以使用 `core/gin/security/risk2`：
+
+```go
+decision, err := riskgin.Evaluate(c, engine, risk2.Event{
+    Service: "admin",
+    Scene:   "login",
+    Event:   "login_failed",
+})
+if err != nil {
+    return err
+}
+if !decision.Passed {
+    riskgin.Abort(c, decision, riskgin.WithResponder(appResponder))
+    return nil
+}
+```
+
+前置拦截场景可直接使用 middleware：
+
+```go
+r.POST("/api/order/create",
+    riskgin.Middleware(engine, risk2.Event{
+        Service: "api",
+        Scene:   "order",
+        Event:   "create",
+    }, riskgin.WithResponder(appResponder)),
+    handler,
+)
+```
+
+Store 实现负责读取场景、黑白名单、频率规则并写入事件与命中记录。Gorm、业务表和 SQL 不进入 core。
+
+### 配置缓存与频率计数
+
+运行时风控检查通常会读取场景、黑白名单、频率规则，并更新频率统计。推荐分工：
+
+- 配置读取走 `core/cache` 短 TTL，减少每次 check 对 DB 的配置查询。
+- 频率统计走 Redis counter，避免按事件日志表做高频 `COUNT`。
+- 事件日志和命中记录继续写 DB，作为审计与后台查询数据；高频服务建议用 `risk2.Logger` 异步批量写。
+- Redis 不可用时可以不传 counter，Engine 会回退到 Store 的 DB `CountEvents`。
+
+示例：
+
+```go
+c := cache.Default()
+store := risk2.NewCachedStore(appStore, c, risk2.WithStoreCacheTTL(10*time.Second))
+
+var opts []risk2.Option
+if client := redis.Raw(); client != nil {
+    opts = append(opts, risk2.WithCounter(risk2.NewRedisCounter(client)))
+}
+engine := risk2.NewEngine(store, opts...)
+```
+
+`NewRedisCounter` 使用 Redis Lua + ZSET 做滑动窗口计数。每个统计维度由 service、scene、event、target_type、target_value、window_seconds 组成，适合类似“同账号 60 秒内登录失败 5 次”这类规则。Redis key 使用 hash tag，让 ZSET key 与序列 key 在 Redis Cluster 中落到同一个 slot。
+
+`NewCachedStore` 缓存的是 Store 查询结果，不改变业务配置来源。后台修改配置后，最迟在 TTL 到期后生效；如果业务需要立即生效，可以由应用层在配置变更后删除对应缓存 key，core 不内置业务侧失效逻辑。
+
+`NewCacheCounter` 仍然存在，但只建议用于测试或单进程临时场景。生产多实例不要用内存 cache 做频率统计，否则不同实例之间的窗口计数不一致。
+
+### 事件日志写入
+
+默认情况下，Engine 会调用 Store 的 `SaveDecision` 同步写入事件日志和命中记录。高频服务可以配置异步 logger：
+
+```go
+logger := risk2.NewLogger(appDecisionWriter, risk2.LoggerConfig{
+    QueueSize:     2048,
+    BatchSize:     100,
+    FlushInterval: 200 * time.Millisecond,
+})
+logger.Start(ctx)
+
+engine := risk2.NewEngine(store,
+    risk2.WithCounter(risk2.NewRedisCounter(redisClient)),
+    risk2.WithLogger(logger),
+)
+```
+
+配置 logger 后，请求路径只负责把 `DecisionRecord` 推入内存队列；后台 goroutine 按批次调用应用层 `DecisionWriter.WriteDecisionBatch`。如果 logger 未配置或队列已满，Engine 会同步回退到 Store 的 `SaveDecision`，避免直接丢失审计日志。
+
+注意：
+
+- core 只定义 `DecisionWriter` 接口，不知道业务表结构。
+- 异步写入成功前，返回给调用方的 `decision.event_id` 可能为空；如果接口必须立刻返回事件 ID，应使用同步 Store 写入。
+- 服务关闭时需要 cancel logger 的 context，让 logger drain 队列并 flush 剩余记录。
+
 触发风控时接口仍返回统一结构，前端应优先按 `err_code` 分支处理：
 
 | err_code | msg | 含义 | 前端建议 |

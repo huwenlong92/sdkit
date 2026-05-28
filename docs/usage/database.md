@@ -75,6 +75,8 @@ defer db.Close()
 
 `database.Init(cfg, mode)` 会维护全局快捷入口 `database.DB` 和 `database.PGXPool`。`cfg` 使用 `database.Config`，由应用或服务配置组合传入。
 
+GORM 日志会忽略 `ErrRecordNotFound`，正常未命中查询不会输出 `record not found` SQL 日志；业务代码仍应显式判断并处理 `gorm.ErrRecordNotFound`。
+
 ## 表名前缀
 
 表名前缀在 `configs/config.yaml` 的 `database.table_prefix` 配置：
