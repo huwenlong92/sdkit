@@ -14,6 +14,7 @@ type Manager struct {
 	fallback    []string
 	configs     map[string]pkgemail.ProviderConfig
 	providers   map[string]pkgemail.Provider
+	templates   pkgemail.TemplateRenderer
 	middleware  []Middleware
 }
 
@@ -38,6 +39,7 @@ func NewManager(cfg Config, middleware ...Middleware) (*Manager, error) {
 		fallback:    fallback,
 		configs:     configs,
 		providers:   make(map[string]pkgemail.Provider, len(configs)),
+		templates:   pkgemail.TemplateMap(cloneTemplates(cfg.Templates)),
 	}
 	manager.UseMiddleware(middleware...)
 	return manager, nil
@@ -159,6 +161,15 @@ func (m *Manager) Close() error {
 	return closeErr
 }
 
+func (m *Manager) TemplateRenderer() pkgemail.TemplateRenderer {
+	if m == nil {
+		return nil
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.templates
+}
+
 func (m *Manager) route() []string {
 	if m == nil {
 		return nil
@@ -178,13 +189,23 @@ func (m *Manager) route() []string {
 func (m *Manager) sendDirect(ctx context.Context, req Request) (*SendResult, error) {
 	providers := cleanProviderNames(req.Providers)
 	attempts := make([]AttemptResult, 0, len(providers))
+	if req.Message == nil {
+		return nil, ErrMessageRequired
+	}
+	m.mu.RLock()
+	templates := m.templates
+	m.mu.RUnlock()
+	payload, err := req.Message.Resolve(ctx, templates)
+	if err != nil {
+		return nil, err
+	}
 	for _, name := range providers {
 		provider, err := m.Use(name)
 		if err != nil {
 			attempts = append(attempts, AttemptResult{Provider: name, Error: err})
 			continue
 		}
-		result, err := provider.Send(ctx, req.Message)
+		result, err := provider.Send(ctx, payload)
 		attempt := AttemptResult{
 			Provider: name,
 			Result:   result,
@@ -193,9 +214,10 @@ func (m *Manager) sendDirect(ctx context.Context, req Request) (*SendResult, err
 		if err == nil {
 			attempt.Success = true
 			attempts = append(attempts, attempt)
-			return &SendResult{Provider: name, Attempts: attempts}, nil
+			return &SendResult{Provider: name, Result: result, Attempts: attempts}, nil
 		}
 		attempts = append(attempts, attempt)
 	}
-	return nil, &NoProviderAvailableError{Attempts: attempts}
+	sendErr := &NoProviderAvailableError{Attempts: attempts}
+	return &SendResult{Error: sendErr, Attempts: attempts}, sendErr
 }

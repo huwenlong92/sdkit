@@ -18,6 +18,10 @@ type Sender = pkgsms.Sender
 type SenderFunc = pkgsms.SenderFunc
 type Middleware = pkgsms.Middleware
 
+func ResolvePayload(provider string, payloads map[string]Payload) (Payload, error) {
+	return pkgsms.ResolvePayload(provider, payloads)
+}
+
 func RegisterDriver(driver string, factory pkgsms.DriverFactory) {
 	pkgsms.RegisterDriver(driver, factory)
 }

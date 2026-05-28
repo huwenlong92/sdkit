@@ -29,6 +29,11 @@ email:
       password: ${SMTP2_PASSWORD}
       from_address: noreply@example.com
       encryption: tls
+  templates:
+    verify_code:
+      subject: 验证码 {{.code}}
+      text_file: verify_code.txt
+      html_file: verify_code.html
 ```
 
 `default` 必须指向 `providers` 中存在的配置。`fallback` 只适合邮件这种内容通用的发送场景：默认发送方失败后，按顺序尝试备用发送方。
@@ -37,12 +42,19 @@ email:
 
 ```go
 import (
+    "os"
+
     emailcap "github.com/huwenlong92/sdkit/core/email/facade"
     "github.com/huwenlong92/sdkit/core/runtime"
 )
 
 if err := emailcap.Use(
     emailcap.WithConfigLoader(func(app *runtime.App) (emailcap.Config, error) {
+        templates, err := emailcap.LoadTemplates(os.DirFS("templates/email"), cfg.Email.Templates)
+        if err != nil {
+            return emailcap.Config{}, err
+        }
+        cfg.Email.Templates = templates
         return cfg.Email, nil
     }),
 ).Register(app); err != nil {
@@ -51,6 +63,15 @@ if err := emailcap.Use(
 ```
 
 facade 不会从 `core/config.V` 隐式读取配置。应用需要通过 `WithConfig` 或 `WithConfigLoader` 显式传入配置。
+
+模板文件只在初始化时读取一次。也可以使用 `embed.FS`：
+
+```go
+//go:embed templates/email/*
+var emailTemplates embed.FS
+
+templates, err := emailcap.LoadTemplates(emailTemplates, cfg.Email.Templates)
+```
 
 全局启动场景可以使用 `WithOptional()`：未显式传入配置时跳过绑定，配置存在但内容错误时仍返回错误。
 
@@ -75,8 +96,10 @@ capability := emailcap.Use(emailcap.WithConfig(emailcap.Config{
 
 ## 发送
 
+直接内容邮件：
+
 ```go
-result, err := email.Send(ctx, email.Message{
+result, err := email.Send(ctx, email.DirectMessage{
     To:      []string{"user@example.com"},
     Subject: "验证码",
     Text:    "您的验证码是 123456",
@@ -85,6 +108,26 @@ if err != nil {
     return err
 }
 _ = result.Provider
+_ = result.Result
+_ = result.Error
+```
+
+固定 HTML 模板邮件：
+
+```go
+result, err := email.Send(ctx, email.TemplateMessage{
+    To:       []string{"user@example.com"},
+    Template: "verify_code",
+    Data: map[string]any{
+        "code": "123456",
+    },
+})
+if err != nil {
+    return err
+}
+_ = result.Provider
+_ = result.Result
+_ = result.Error
 ```
 
 `Send` 使用默认发送方和 `fallback`。需要指定发送方时：

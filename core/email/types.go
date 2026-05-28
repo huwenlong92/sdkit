@@ -3,7 +3,14 @@ package email
 import pkgemail "github.com/huwenlong92/sdkit/pkg/email"
 
 type ProviderConfig = pkgemail.ProviderConfig
+type Payload = pkgemail.Payload
 type Message = pkgemail.Message
+type DirectMessage = pkgemail.DirectMessage
+type TemplateMessage = pkgemail.TemplateMessage
+type Template = pkgemail.Template
+type TemplateRenderer = pkgemail.TemplateRenderer
+type TemplateRendererFunc = pkgemail.TemplateRendererFunc
+type TemplateMap = pkgemail.TemplateMap
 type Provider = pkgemail.Provider
 type ProviderResult = pkgemail.ProviderResult
 type AttemptResult = pkgemail.AttemptResult

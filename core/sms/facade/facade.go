@@ -10,6 +10,7 @@ type ProviderConfig = coresms.ProviderConfig
 type Manager = coresms.Manager
 type Message = coresms.Message
 type TemplateMessage = coresms.TemplateMessage
+type Payload = coresms.Payload
 type Param = coresms.Param
 type SendResult = coresms.SendResult
 type Middleware = coresms.Middleware
@@ -24,4 +25,8 @@ func FromDefault() (*Manager, error) {
 
 func From(app *runtime.App) *Manager {
 	return coresms.From(app)
+}
+
+func ResolvePayload(provider string, payloads map[string]Payload) (Payload, error) {
+	return coresms.ResolvePayload(provider, payloads)
 }

@@ -38,8 +38,8 @@ func New(name string, cfg email.ProviderConfig) (email.Provider, error) {
 	return &Provider{name: name, config: cfg}, nil
 }
 
-func (p *Provider) Send(ctx context.Context, msg email.Message) (*email.ProviderResult, error) {
-	raw, recipients, err := p.message(msg)
+func (p *Provider) Send(ctx context.Context, payload email.Payload) (*email.ProviderResult, error) {
+	raw, recipients, err := p.message(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -119,17 +119,17 @@ func (p *Provider) send(ctx context.Context, recipients []string, raw []byte) er
 	return client.Quit()
 }
 
-func (p *Provider) message(msg email.Message) ([]byte, []string, error) {
+func (p *Provider) message(payload email.Payload) ([]byte, []string, error) {
 	from := mail.Address{Name: p.config.FromName, Address: p.config.FromAddress}
-	to, err := parseAddresses(msg.To)
+	to, err := parseAddresses(payload.To)
 	if err != nil {
 		return nil, nil, err
 	}
-	cc, err := parseAddresses(msg.Cc)
+	cc, err := parseAddresses(payload.Cc)
 	if err != nil {
 		return nil, nil, err
 	}
-	bcc, err := parseAddresses(msg.Bcc)
+	bcc, err := parseAddresses(payload.Bcc)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -145,7 +145,7 @@ func (p *Provider) message(msg email.Message) ([]byte, []string, error) {
 	headers := map[string]string{
 		"From":         from.String(),
 		"To":           joinAddresses(to),
-		"Subject":      mime.QEncoding.Encode("UTF-8", msg.Subject),
+		"Subject":      mime.QEncoding.Encode("UTF-8", payload.Subject),
 		"Date":         time.Now().Format(time.RFC1123Z),
 		"MIME-Version": "1.0",
 	}
@@ -155,31 +155,31 @@ func (p *Provider) message(msg email.Message) ([]byte, []string, error) {
 	if p.config.ReplyTo != "" {
 		headers["Reply-To"] = p.config.ReplyTo
 	}
-	for key, value := range msg.Headers {
+	for key, value := range payload.Headers {
 		headers[key] = value
 	}
-	if msg.HTML != "" && msg.Text != "" {
+	if payload.HTML != "" && payload.Text != "" {
 		writer := multipart.NewWriter(&body)
 		headers["Content-Type"] = `multipart/alternative; boundary="` + writer.Boundary() + `"`
-		if err := writePart(writer, "text/plain; charset=UTF-8", msg.Text); err != nil {
+		if err := writePart(writer, "text/plain; charset=UTF-8", payload.Text); err != nil {
 			return nil, nil, err
 		}
-		if err := writePart(writer, "text/html; charset=UTF-8", msg.HTML); err != nil {
+		if err := writePart(writer, "text/html; charset=UTF-8", payload.HTML); err != nil {
 			return nil, nil, err
 		}
 		if err := writer.Close(); err != nil {
 			return nil, nil, err
 		}
-	} else if msg.HTML != "" {
+	} else if payload.HTML != "" {
 		headers["Content-Type"] = "text/html; charset=UTF-8"
 		headers["Content-Transfer-Encoding"] = "quoted-printable"
-		if err := writeQuotedPrintable(&body, msg.HTML); err != nil {
+		if err := writeQuotedPrintable(&body, payload.HTML); err != nil {
 			return nil, nil, err
 		}
 	} else {
 		headers["Content-Type"] = "text/plain; charset=UTF-8"
 		headers["Content-Transfer-Encoding"] = "quoted-printable"
-		if err := writeQuotedPrintable(&body, msg.Text); err != nil {
+		if err := writeQuotedPrintable(&body, payload.Text); err != nil {
 			return nil, nil, err
 		}
 	}

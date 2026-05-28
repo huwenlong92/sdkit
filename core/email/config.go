@@ -12,6 +12,7 @@ type Config struct {
 	Default   string                             `mapstructure:"default" yaml:"default"`
 	Fallback  []string                           `mapstructure:"fallback" yaml:"fallback"`
 	Providers map[string]pkgemail.ProviderConfig `mapstructure:"providers" yaml:"providers"`
+	Templates map[string]pkgemail.Template       `mapstructure:"templates" yaml:"templates"`
 }
 
 func (c Config) providerConfigs() (string, []string, map[string]pkgemail.ProviderConfig) {
@@ -29,6 +30,17 @@ func cloneProviderConfigs(providers map[string]pkgemail.ProviderConfig) map[stri
 	clone := make(map[string]pkgemail.ProviderConfig, len(providers))
 	for name, cfg := range providers {
 		clone[name] = cfg.Clone()
+	}
+	return clone
+}
+
+func cloneTemplates(templates map[string]pkgemail.Template) map[string]pkgemail.Template {
+	if len(templates) == 0 {
+		return nil
+	}
+	clone := make(map[string]pkgemail.Template, len(templates))
+	for name, tpl := range templates {
+		clone[name] = tpl
 	}
 	return clone
 }

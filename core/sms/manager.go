@@ -200,9 +200,10 @@ func (m *Manager) sendDirect(ctx context.Context, req Request) (*SendResult, err
 		if err == nil {
 			attempt.Success = true
 			attempts = append(attempts, attempt)
-			return &SendResult{Provider: name, Attempts: attempts}, nil
+			return &SendResult{Provider: name, Result: result, Attempts: attempts}, nil
 		}
 		attempts = append(attempts, attempt)
 	}
-	return nil, &NoProviderAvailableError{Attempts: attempts}
+	sendErr := &NoProviderAvailableError{Attempts: attempts}
+	return &SendResult{Error: sendErr, Attempts: attempts}, sendErr
 }

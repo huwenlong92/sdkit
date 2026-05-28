@@ -2,23 +2,27 @@ package sms
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 )
 
 type ProviderConfig struct {
-	Driver          string        `mapstructure:"driver" yaml:"driver"`
-	Account         string        `mapstructure:"account" yaml:"account"`
-	Password        string        `mapstructure:"password" yaml:"password"`
-	AppKey          string        `mapstructure:"app_key" yaml:"app_key"`
-	AppSecret       string        `mapstructure:"app_secret" yaml:"app_secret"`
-	AccessKeyID     string        `mapstructure:"access_key_id" yaml:"access_key_id"`
-	AccessKeySecret string        `mapstructure:"access_key_secret" yaml:"access_key_secret"`
-	RegionID        string        `mapstructure:"region_id" yaml:"region_id"`
-	SignID          string        `mapstructure:"sign_id" yaml:"sign_id"`
-	SignName        string        `mapstructure:"sign_name" yaml:"sign_name"`
-	Endpoint        string        `mapstructure:"endpoint" yaml:"endpoint"`
-	Timeout         time.Duration `mapstructure:"timeout" yaml:"timeout"`
+	Driver              string        `mapstructure:"driver" yaml:"driver"`
+	Account             string        `mapstructure:"account" yaml:"account"`
+	Password            string        `mapstructure:"password" yaml:"password"`
+	AppKey              string        `mapstructure:"app_key" yaml:"app_key"`
+	AppSecret           string        `mapstructure:"app_secret" yaml:"app_secret"`
+	AccessKeyID         string        `mapstructure:"access_key_id" yaml:"access_key_id"`
+	AccessKeySecret     string        `mapstructure:"access_key_secret" yaml:"access_key_secret"`
+	RegionID            string        `mapstructure:"region_id" yaml:"region_id"`
+	SignID              string        `mapstructure:"sign_id" yaml:"sign_id"`
+	SignName            string        `mapstructure:"sign_name" yaml:"sign_name"`
+	Sender              string        `mapstructure:"sender" yaml:"sender"`
+	MessagingServiceSID string        `mapstructure:"messaging_service_sid" yaml:"messaging_service_sid"`
+	SmsSdkAppID         string        `mapstructure:"sms_sdk_app_id" yaml:"sms_sdk_app_id"`
+	Endpoint            string        `mapstructure:"endpoint" yaml:"endpoint"`
+	Timeout             time.Duration `mapstructure:"timeout" yaml:"timeout"`
 
 	Name string `mapstructure:"-" yaml:"-"`
 }
@@ -81,6 +85,15 @@ func (p Payload) DataValues() []any {
 	return values
 }
 
+func ResolvePayload(provider string, payloads map[string]Payload) (Payload, error) {
+	provider = strings.TrimSpace(provider)
+	payload, ok := payloads[provider]
+	if !ok {
+		return Payload{}, fmt.Errorf("sms: unsupported provider: %s", provider)
+	}
+	return payload, nil
+}
+
 type Message interface {
 	Resolve(ctx context.Context, provider ProviderConfig) (Payload, error)
 }
@@ -139,6 +152,8 @@ type AttemptResult struct {
 
 type SendResult struct {
 	Provider string
+	Result   *ProviderResult
+	Error    error
 	Attempts []AttemptResult
 }
 

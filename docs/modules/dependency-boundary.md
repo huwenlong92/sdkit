@@ -31,6 +31,9 @@ sdkit_tracing_otel
 
 sdkit_sms_aliyun
 sdkit_sms_feige
+sdkit_sms_twilio
+sdkit_sms_tencentcloud
+sdkit_sms_huawei
 
 sdkit_payment_alipay
 sdkit_payment_wechat

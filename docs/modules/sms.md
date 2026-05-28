@@ -69,7 +69,7 @@ func Use(name string) (Provider, error)
 func Close() error
 ```
 
-全部 provider 失败时返回 `NoProviderAvailableError`，其中包含所有 `AttemptResult`。
+`SendResult.Provider` 和 `SendResult.Result` 记录最终成功的 provider 及结果。`SendResult.Error` 记录最终错误。全部 provider 失败时第二返回值为 `NoProviderAvailableError`，同时返回的 `SendResult` 里也会保留 `Error` 和 `Attempts`。
 
 ## Message
 
@@ -90,6 +90,22 @@ type ProviderMessage interface {
 
 `Payload.Data` 使用有序参数列表，兼容飞鸽这类按变量顺序拼接的接口；阿里云 driver 会转换成 JSON map。
 
+复杂业务短信推荐由业务侧定义模板结构体实现 `Message` / `ProviderMessage`。core 只提供 `ResolvePayload` 这类小 helper，帮助业务按 provider 名称选择 `Payload`：
+
+```go
+return sms.ResolvePayload(provider.Name, map[string]sms.Payload{
+    "aliyun_main": {
+        Template: "SMS_001",
+        Data: []sms.Param{{Key: "code", Value: code}},
+    },
+    "debug_text": {
+        Content: "您的验证码是 " + code,
+    },
+})
+```
+
+`core/sms` 不提供模板文件配置中心。短信模板 ID、变量名、变量顺序和直发文本由业务模板结构体维护。
+
 ## Driver 与 Build Tag
 
 内置 driver：
@@ -98,6 +114,9 @@ type ProviderMessage interface {
 | --- | --- | --- |
 | `aliyun` | `pkg/sms/driver/aliyun` | `sdkit_sms_aliyun` |
 | `feige` | `pkg/sms/driver/feige` | `sdkit_sms_feige` |
+| `twilio` | `pkg/sms/driver/twilio` | `sdkit_sms_twilio` |
+| `tencentcloud` | `pkg/sms/driver/tencentcloud` | `sdkit_sms_tencentcloud` |
+| `huawei` | `pkg/sms/driver/huawei` | `sdkit_sms_huawei` |
 
 `core/sms` 和 `core/sms/facade` 不 blank import 任何 driver。应用需要某个 driver 时，必须：
 
@@ -109,6 +128,12 @@ type ProviderMessage interface {
 ```go
 import _ "github.com/huwenlong92/sdkit/pkg/sms/driver/aliyun"
 ```
+
+Twilio driver 面向国际短信，使用 `Payload.Content` 作为短信正文，不处理 `Payload.Template`。
+
+TencentCloud driver 使用腾讯云 SendSms API 和 TC3-HMAC-SHA256 签名，支持国内短信与国际/港澳台短信。`ProviderConfig.SmsSdkAppID` 对应短信应用 ID，`SignName` 对应签名，`Sender` 对应国际/港澳台 Sender ID。
+
+Huawei driver 使用华为云消息&短信发送短信 API 和 X-WSSE 鉴权，国内和国际/港澳台通过不同短信应用接入地址、通道号和模板配置为不同 provider。`Sender` 对应华为云通道号，`Endpoint` 对应 APP 接入地址。
 
 学校或业务定制 provider 不放进 core，应用可通过 `RegisterDriver` 注入，例如 `cqu`、`nuaa`。
 
@@ -124,5 +149,8 @@ type RateLimiter interface {
 
 ## 更新记录
 
+- 2026-05-28：新增 TencentCloud、Huawei 短信 driver，build tag 分别为 `sdkit_sms_tencentcloud`、`sdkit_sms_huawei`。
+- 2026-05-28：新增 Twilio 短信 driver，build tag 为 `sdkit_sms_twilio`。
+- 2026-05-28：新增 `ResolvePayload` helper，推荐业务侧表驱动实现短信模板。
 - 2026-05-27：短信 driver 改为 build tag 按需编译；`core/sms/facade` 不再默认引入 aliyun、feige。
 - 2026-05-26：facade 移除 `core/config.V` 隐式配置读取，默认内部注册；新增 `WithExternal()`，全局启动通过显式 `WithConfigLoader` 注入配置。

@@ -11,6 +11,7 @@ var (
 	ErrNotConfigured       = errors.New("email: not configured")
 	ErrDefaultRequired     = errors.New("email: default provider is required")
 	ErrProviderNotFound    = errors.New("email: provider not found")
+	ErrMessageRequired     = pkgemail.ErrMessageRequired
 	ErrDriverRequired      = pkgemail.ErrDriverRequired
 	ErrUnknownDriver       = pkgemail.ErrUnknownDriver
 	ErrNoProviderAvailable = errors.New("email: no provider available")

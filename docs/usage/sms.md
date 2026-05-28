@@ -10,6 +10,9 @@
 | --- | --- |
 | aliyun | `sdkit_sms_aliyun` |
 | feige | `sdkit_sms_feige` |
+| twilio | `sdkit_sms_twilio` |
+| tencentcloud | `sdkit_sms_tencentcloud` |
+| huawei | `sdkit_sms_huawei` |
 
 示例：
 
@@ -40,6 +43,24 @@ sms:
       account: ${FEIGE_ACCOUNT}
       password: ${FEIGE_PASSWORD}
       sign_id: ${FEIGE_SIGN_ID}
+    twilio_global:
+      driver: twilio
+      account: ${TWILIO_ACCOUNT_SID}
+      password: ${TWILIO_AUTH_TOKEN}
+      sender: ${TWILIO_FROM}
+    tencent_cn:
+      driver: tencentcloud
+      access_key_id: ${TENCENT_SECRET_ID}
+      access_key_secret: ${TENCENT_SECRET_KEY}
+      sms_sdk_app_id: ${TENCENT_SMS_SDK_APP_ID}
+      sign_name: 腾讯云
+    huawei_cn:
+      driver: huawei
+      app_key: ${HUAWEI_APP_KEY}
+      app_secret: ${HUAWEI_APP_SECRET}
+      endpoint: ${HUAWEI_SMS_ENDPOINT}
+      sender: ${HUAWEI_CHANNEL_NO}
+      sign_name: 华为云
 ```
 
 短信不提供全局 `fallback`。不同平台模板需要单独审核，变量规则也不同。只有消息本身明确声明支持哪些 provider 时，才会按声明顺序失败转移。
@@ -90,34 +111,49 @@ msg := sms.TemplateMessage{
 }
 ```
 
-复杂场景可以实现 `Message` 接口，根据 provider 返回不同模板和变量：
+复杂场景可以实现 `Message` 接口，根据 provider 返回不同模板和变量。推荐在业务侧用模板结构体表达业务参数，再用表驱动方式声明各 provider 的 payload，避免把短信模板做成 core 配置中心：
 
 ```go
-type CodeMessage struct {
+type CaptchaTemplate struct {
     Code string
 }
 
-func (m CodeMessage) Providers(context.Context) []string {
-    return []string{"aliyun_main", "feige_backup"}
+func (t CaptchaTemplate) Providers(context.Context) []string {
+    return []string{"aliyun_main", "feige_backup", "debug_text"}
 }
 
-func (m CodeMessage) Resolve(ctx context.Context, provider sms.ProviderConfig) (sms.Payload, error) {
-    switch provider.Name {
-    case "aliyun_main":
-        return sms.Payload{
-            Template: "SMS_001",
-            Data: []sms.Param{{Key: "code", Value: m.Code}},
-        }, nil
-    case "feige_backup":
-        return sms.Payload{
-            Template: "122949",
-            Data: []sms.Param{{Key: "value", Value: m.Code}},
-        }, nil
-    default:
-        return sms.Payload{}, errors.New("unsupported provider")
+func (t CaptchaTemplate) Resolve(ctx context.Context, provider sms.ProviderConfig) (sms.Payload, error) {
+    if err := ctx.Err(); err != nil {
+        return sms.Payload{}, err
     }
+    return sms.ResolvePayload(provider.Name, map[string]sms.Payload{
+        "aliyun_main": {
+            Template: "SMS_001",
+            Data: []sms.Param{{Key: "code", Value: t.Code}},
+        },
+        "feige_backup": {
+            Template: "122949",
+            Data: []sms.Param{{Key: "value", Value: t.Code}},
+        },
+        "debug_text": {
+            Content: "您的验证码是 " + t.Code,
+        },
+        "twilio_global": {
+            Content: "Your verification code is " + t.Code,
+        },
+        "tencent_cn": {
+            Template: "1110",
+            Data: []sms.Param{{Key: "code", Value: t.Code}},
+        },
+        "huawei_cn": {
+            Template: "TPL001",
+            Data: []sms.Param{{Key: "code", Value: t.Code}},
+        },
+    })
 }
 ```
+
+`Payload.Template + Data` 用于服务商模板短信；`Payload.Content` 用于支持直发文本的 provider。不同 provider 的模板 ID、变量名和变量顺序都放在业务模板结构体里维护。
 
 ## 发送
 
@@ -127,6 +163,8 @@ if err != nil {
     return err
 }
 _ = result.Provider
+_ = result.Result
+_ = result.Error
 ```
 
 `Send` 的 provider 选择规则：

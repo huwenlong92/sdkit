@@ -51,15 +51,21 @@ func TestSMSDefaultProviderDoesNotFallbackImplicitly(t *testing.T) {
 		t.Fatalf("new manager: %v", err)
 	}
 
-	_, err = manager.Send(context.Background(), []string{"13800138000"}, sms.TemplateMessage{
+	result, err := manager.Send(context.Background(), []string{"13800138000"}, sms.TemplateMessage{
 		Content: "hello",
 	})
 	var noProvider *sms.NoProviderAvailableError
 	if !errors.As(err, &noProvider) {
 		t.Fatalf("expected no provider available, got %v", err)
 	}
+	if result == nil || result.Error == nil {
+		t.Fatalf("expected failed send result, got %+v", result)
+	}
 	if len(noProvider.Attempts) != 1 || noProvider.Attempts[0].Provider != "primary" {
 		t.Fatalf("unexpected attempts: %+v", noProvider.Attempts)
+	}
+	if len(result.Attempts) != 1 || result.Attempts[0].Provider != "primary" {
+		t.Fatalf("unexpected result attempts: %+v", result.Attempts)
 	}
 }
 
@@ -84,6 +90,9 @@ func TestSMSMessageProvidersEnableFallback(t *testing.T) {
 	}
 	if result.Provider != "backup" {
 		t.Fatalf("provider = %q, want backup", result.Provider)
+	}
+	if result.Result == nil || result.Result.MessageNo != "backup-message" {
+		t.Fatalf("result = %+v, want backup-message", result.Result)
 	}
 	if len(result.Attempts) != 2 || result.Attempts[0].Success || !result.Attempts[1].Success {
 		t.Fatalf("unexpected attempts: %+v", result.Attempts)
