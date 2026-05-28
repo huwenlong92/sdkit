@@ -66,6 +66,7 @@ casbin.Reload()
 ```go
 casbin.EnsurePolicyTable(ctx, db)
 casbin.ListPolicyRules(ctx, db, filter)
+casbin.PolicyRuleCountsByV0(ctx, db, filter, keyFunc)
 casbin.InsertPolicyRules(ctx, db, rules)
 casbin.DeletePolicyRules(ctx, db, filter)
 casbin.ReplacePolicyRules(ctx, db, filter, rules)
@@ -108,6 +109,7 @@ Gin middleware 不持有业务角色逻辑，只调用服务传入的 `RoleResol
 ## 更新记录
 
 - 2026-05-28：新增 policy rule store API，默认策略表名收敛到 `core/casbin.DefaultRuleTable`；应用层通过 API 维护策略，不直接操作 `casbin_rule`。
+- 2026-05-28：新增 `PolicyRuleCountsByV0`，支持应用层按角色/主体统计策略数量，同时由应用层通过 `keyFunc` 定义业务去重口径。
 - 2026-05-26：facade 默认内部注册，新增 `WithExternal()`；移除 `Use` 内无实际分支意义的 `hasConfig` 状态。
 - 2026-05-27：Gin middleware 拆到 `core/gin/casbin`，`core/casbin` 根包只保留通用 manager 和 runtime facade。
 - 2026-05-16：新增 `core/casbin/facade` capability facade；服务启动层可通过 facade 注册 Casbin；新增 `InitContext/NewContext/ReloadContext` 和 `Bind/From` 以支持 runtime context 透传与容器绑定。

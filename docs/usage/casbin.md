@@ -139,10 +139,23 @@ casbin.ReplacePolicyRules(ctx, db, casbin.RuleFilter{
 
 - `EnsurePolicyTable(ctx, db)`
 - `ListPolicyRules(ctx, db, filter)`
+- `PolicyRuleCountsByV0(ctx, db, filter, keyFunc)`
 - `InsertPolicyRules(ctx, db, rules)`
 - `DeletePolicyRules(ctx, db, filter)`
 - `ReplacePolicyRules(ctx, db, filter, rules)`
 - `DeletePolicyTuples(ctx, db, rules)`
+
+需要按角色/主体统计策略时，使用 `PolicyRuleCountsByV0`，不要在业务层直接查询 `casbin_rule`：
+
+```go
+counts, err := casbin.PolicyRuleCountsByV0(ctx, db, casbin.RuleFilter{
+    PType:    "p",
+    V0In:     []string{"admin", "role:2"},
+    V1Prefix: "admin:",
+}, func(rule casbin.Rule) string {
+    return rule.V1 + ":" + rule.V2
+})
+```
 
 ## 自定义策略
 

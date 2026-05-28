@@ -26,6 +26,7 @@ func (Rule) TableName() string {
 type RuleFilter struct {
 	PType    string
 	V0       string
+	V0In     []string
 	V1       string
 	V1Prefix string
 	V2       string
@@ -59,6 +60,33 @@ func ListPolicyRules(ctx context.Context, db *gorm.DB, filter RuleFilter) ([]Rul
 		Select("ptype", "v0", "v1", "v2", "v3", "v4", "v5").
 		Find(&rules).Error
 	return rules, err
+}
+
+func PolicyRuleCountsByV0(ctx context.Context, db *gorm.DB, filter RuleFilter, keyFunc func(Rule) string) (map[string]int64, error) {
+	counts := make(map[string]int64)
+	rules, err := ListPolicyRules(ctx, db, filter)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]map[string]struct{})
+	for _, rule := range rules {
+		key := ruleKey(rule)
+		if keyFunc != nil {
+			key = keyFunc(rule)
+		}
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[rule.V0]; !ok {
+			seen[rule.V0] = make(map[string]struct{})
+		}
+		if _, ok := seen[rule.V0][key]; ok {
+			continue
+		}
+		seen[rule.V0][key] = struct{}{}
+		counts[rule.V0]++
+	}
+	return counts, nil
 }
 
 func InsertPolicyRules(ctx context.Context, db *gorm.DB, rules []Rule) error {
@@ -170,6 +198,9 @@ func applyRuleFilter(db *gorm.DB, filter RuleFilter) *gorm.DB {
 	if filter.V0 != "" {
 		db = db.Where("v0 = ?", filter.V0)
 	}
+	if values := compactStrings(filter.V0In); len(values) > 0 {
+		db = db.Where("v0 IN ?", values)
+	}
 	if filter.V1 != "" {
 		db = db.Where("v1 = ?", filter.V1)
 	}
@@ -189,6 +220,27 @@ func applyRuleFilter(db *gorm.DB, filter RuleFilter) *gorm.DB {
 		db = db.Where("v5 = ?", filter.V5)
 	}
 	return db
+}
+
+func ruleKey(rule Rule) string {
+	return strings.Join([]string{rule.V1, rule.V2, rule.V3, rule.V4, rule.V5}, "\x00")
+}
+
+func compactStrings(items []string) []string {
+	result := make([]string, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		result = append(result, item)
+	}
+	return result
 }
 
 func escapeLike(value string) string {
