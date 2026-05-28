@@ -245,7 +245,7 @@ type Capability struct {
 - `WithBus()` 注入外部 bus，默认不关闭外部 bus；`WithOwnedBus()` 表示把注入 bus 的生命周期交给 capability。
 - `Close` 会关闭 capability 自己创建或显式托管的 bus；复用已有 default 时不会关闭外部实例。
 
-该 facade 不 import app、worker、crontab 服务包；服务私有配置必须在服务侧通过 mapper 映射为 facade `Config`。
+该 facade 不 import app、worker、crontab 服务包，不读取 `core/config.V`，也不假设业务项目的配置文件结构；服务私有配置必须在服务侧通过 mapper 映射为 facade `Config`。
 
 ## 与 Queue 的边界
 
@@ -317,6 +317,7 @@ crontab.finished
 
 ## 更新记录
 
+- 2026-05-28：EventBus facade 移除 `core/config.V` 隐式配置读取；业务项目必须通过 `WithConfig` / `WithConfigLoader` 显式传入配置。
 - 2026-05-16：通用 EventBus runtime capability 从原 bootstrap 装配包下沉到 `core/eventbus/facade`；`core/eventbus` 根包只保留 `KeyEventBus`、`From`、`Bind` 等最小原语，统一放在 `binding.go`，避免 root 与 facade 同时实现 `Use`。
 - 2026-05-22：新增 `pkg/eventbus/nats` 普通 PubSub driver，eventbus facade 支持 `driver=nats`、`addr` 和 `subject_prefix`。
 - 2026-05-14：第三阶段 realtime runtime breaking refactor 后，删除独立 capability 文件，`Capability` 并入核心 bus 契约；driver 能力字段改为 `Fanout`，避免 eventbus 暴露实时推送语义。

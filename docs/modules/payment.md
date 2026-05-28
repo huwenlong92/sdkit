@@ -374,6 +374,8 @@ type Config struct {
 
 这些配置由业务的 `ClientLoader` 按真实 `merchant_key` 加载。
 
+Payment facade 不读取 `core/config.V`，也不假设业务项目的 `payment` 配置结构。启动层必须通过 `WithConfig` / `WithConfigLoader` 显式传入 channel 映射；如果配置来自数据库、远端配置或项目 YAML，由业务 adapter 负责读取并映射到 `paymentfacade.Config`。
+
 ## 回调约束
 
 回调验签必须使用正确商户配置。常见做法：
@@ -390,6 +392,7 @@ Braintree 当前没有官方 Go server SDK。本模块不引入非官方 `braint
 
 ## 更新记录
 
+- 2026-05-28：Payment facade 移除 `core/config.V` 隐式配置读取；channel 映射必须由业务侧显式注入。
 - 新增统一 `payment.CreatePayment` 等全局入口。
 - 新增 `ChannelSelector` 和 `payment.ReloadChannels`。
 - 新增微信、支付宝、Stripe、PayPal adapter。

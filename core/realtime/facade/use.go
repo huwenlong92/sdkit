@@ -3,7 +3,6 @@ package realtime
 import (
 	"context"
 
-	coreconfig "github.com/huwenlong92/sdkit/core/config"
 	eventbus "github.com/huwenlong92/sdkit/core/eventbus/facade"
 	corerealtime "github.com/huwenlong92/sdkit/core/realtime"
 	"github.com/huwenlong92/sdkit/core/runtime"
@@ -15,7 +14,6 @@ type UseOption func(*useOptions)
 
 type useOptions struct {
 	config       Config
-	hasConfig    bool
 	configLoader ConfigLoader
 	service      Service
 	dependencies []runtime.Dependency
@@ -25,7 +23,6 @@ type useOptions struct {
 func WithConfig(cfg Config) UseOption {
 	return func(o *useOptions) {
 		o.config = cfg
-		o.hasConfig = true
 	}
 }
 
@@ -76,28 +73,12 @@ func Use(opts ...UseOption) runtime.Capability {
 		Internal:    o.internal,
 	}, dependencies, func(app *runtime.App) error {
 		config := o.config
-		hasConfig := o.hasConfig
 		if o.configLoader != nil {
 			loaded, err := o.configLoader(app)
 			if err != nil {
 				return err
 			}
 			config = loaded
-			hasConfig = true
-		}
-		if !hasConfig && coreconfig.V != nil {
-			if !coreconfig.V.IsSet("eventbus") {
-				return corerealtime.ValidatePublisherConfig(corerealtime.PublisherConfig{})
-			}
-			var publisherConfig corerealtime.PublisherConfig
-			if err := coreconfig.V.UnmarshalKey("eventbus", &publisherConfig); err != nil {
-				return err
-			}
-			if err := corerealtime.ValidatePublisherConfig(publisherConfig); err != nil {
-				return err
-			}
-			config.Topic = publisherConfig.Topic
-			hasConfig = true
 		}
 
 		service := o.service

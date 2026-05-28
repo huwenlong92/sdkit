@@ -107,14 +107,16 @@ capability, err := eventbuscap.New(eventbuscap.Config{
 
 `eventbuscap.New` 默认会设置 `core/eventbus` default bus。需要临时或局部 bus 时使用 `WithoutDefault()`；需要把外部注入 bus 的生命周期交给 capability 时使用 `WithOwnedBus()`。
 
-runtime app 中使用 `Use` 时，facade 会从 `eventbus` 配置段加载配置，并从 `core/redis/facade` 复用 Redis client：
+runtime app 中使用 `Use` 时，配置必须由启动层显式传入。facade 不读取 `core/config.V`，只会从 `core/redis/facade` 复用已注册的 Redis client：
 
 ```go
 app.RegisterCapabilities(
-    rediscap.Use(),
-    eventbuscap.Use(),
+    rediscap.Use(rediscap.WithConfig(redisCfg)),
+    eventbuscap.Use(eventbuscap.WithConfig(eventbusCfg)),
 )
 ```
+
+如果配置来自业务项目自己的文件结构，在业务侧用 `WithConfigLoader` 读取并映射为 `eventbuscap.Config`。
 
 低层手动初始化仍可用于测试或特殊装配：
 

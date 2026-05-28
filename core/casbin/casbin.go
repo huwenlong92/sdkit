@@ -13,7 +13,13 @@ import (
 	"go.uber.org/zap"
 )
 
-const KeyCasbin runtime.Key = "casbin"
+const (
+	KeyCasbin runtime.Key = "casbin"
+
+	DefaultModelPath = "configs/rbac_model.conf"
+	DefaultSuperRole = "admin"
+	DefaultRuleTable = "casbin_rule"
+)
 
 type Config struct {
 	ModelPath       string `mapstructure:"model_path" yaml:"model_path"`
@@ -52,13 +58,13 @@ func NewContext(ctx context.Context, db *database.Database, cfg Config) (*Manage
 		ctx = context.Background()
 	}
 	if cfg.ModelPath == "" {
-		cfg.ModelPath = "configs/rbac_model.conf"
+		cfg.ModelPath = DefaultModelPath
 	}
 	if cfg.SuperRole == "" {
-		cfg.SuperRole = "admin"
+		cfg.SuperRole = DefaultSuperRole
 	}
 	if cfg.RuleTable == "" {
-		cfg.RuleTable = "casbin_rule"
+		cfg.RuleTable = DefaultRuleTable
 	}
 
 	m, err := model.NewModelFromFile(cfg.ModelPath)
@@ -68,7 +74,7 @@ func NewContext(ctx context.Context, db *database.Database, cfg Config) (*Manage
 	}
 
 	if db != nil && db.PGX != nil && cfg.AutoCreateTable {
-		if err := createRuleTable(ctx, db, cfg.RuleTable); err != nil {
+		if err := ensureRuleTable(ctx, db, cfg.RuleTable); err != nil {
 			logger.Default().Warn("Casbin规则表创建失败", zap.String(logger.TraceIDKey, ""), zap.Error(err))
 			return nil, err
 		}
@@ -107,21 +113,6 @@ func Bind(app *runtime.App, manager *Manager) error {
 
 func setDefault(manager *Manager) {
 	Default = manager
-}
-
-func createRuleTable(ctx context.Context, db *database.Database, table string) error {
-	_, err := db.PGX.Exec(ctx, `CREATE TABLE IF NOT EXISTS `+quoteTable(table)+` (
-		id SERIAL PRIMARY KEY,
-		ptype VARCHAR(100) NOT NULL DEFAULT '',
-		v0 VARCHAR(100) NOT NULL DEFAULT '',
-		v1 VARCHAR(100) NOT NULL DEFAULT '',
-		v2 VARCHAR(100) NOT NULL DEFAULT '',
-		v3 VARCHAR(100) NOT NULL DEFAULT '',
-		v4 VARCHAR(100) NOT NULL DEFAULT '',
-		v5 VARCHAR(100) NOT NULL DEFAULT '',
-		UNIQUE (ptype, v0, v1, v2, v3, v4, v5)
-	)`)
-	return err
 }
 
 func (m *Manager) Enforcer() *gocasbin.Enforcer {

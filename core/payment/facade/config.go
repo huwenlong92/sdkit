@@ -1,7 +1,6 @@
 package payment
 
 import (
-	"github.com/huwenlong92/sdkit/core/config"
 	"github.com/huwenlong92/sdkit/core/runtime"
 )
 
@@ -21,15 +20,4 @@ func (c Config) channelBindings() []ChannelBinding {
 	bindings = append(bindings, c.Channels...)
 	bindings = append(bindings, c.ChannelBindings...)
 	return bindings
-}
-
-func loadConfigFromCore(*runtime.App) (Config, error) {
-	if config.V == nil || !config.V.IsSet("payment") {
-		return Config{}, nil
-	}
-	var cfg Config
-	if err := config.V.UnmarshalKey("payment", &cfg); err != nil {
-		return Config{}, err
-	}
-	return cfg, nil
 }

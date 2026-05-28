@@ -18,7 +18,7 @@ m = r.sub == p.sub && keyMatch2(r.obj, p.obj) && keyMatch2(r.act, p.act)
 
 ## 策略存储
 
-策略保存在 `casbin_rule` 表（自动建表）：
+策略默认保存在 `casbin_rule` 表（自动建表）。表名由 `core/casbin.DefaultRuleTable` 统一维护，业务代码不要直接拼接表名：
 
 | ptype | v0（角色code） | v1（路径） | v2（方法） |
 |-------|---------------|-----------|-----------|
@@ -69,11 +69,11 @@ authz.Use(adminmiddleware.Casbin())
 
 ## 初始化
 
-`sdkitgo serve` 和 `bootstrap.Init` 会在 `DB: true` 时自动注册 `core/casbin/facade` capability。默认配置：
+需要接口鉴权的服务在启动层通过 `core/casbin/facade` 注册 capability。`core/casbin` 自身默认配置：
 
 ```go
 casbinfacade.Config{
-    ModelPath:       "configs/rbac_model.conf",
+    ModelPath:       casbin.DefaultModelPath,
     SuperRole:       "admin",
     AutoCreateTable: true,
 }
@@ -120,6 +120,29 @@ casbin.InitContext(ctx, database.Default, casbin.Config{
     AutoCreateTable: true,
 })
 ```
+
+## 策略规则 API
+
+应用层需要维护策略时，使用 `core/casbin` 提供的规则 API，不直接操作 `casbin_rule` 表名：
+
+```go
+casbin.ReplacePolicyRules(ctx, db, casbin.RuleFilter{
+    PType:    "p",
+    V0:       roleCode,
+    V1Prefix: "admin:",
+}, []casbin.Rule{
+    {PType: "p", V0: roleCode, V1: "admin:/system/user", V2: "GET"},
+})
+```
+
+常用入口：
+
+- `EnsurePolicyTable(ctx, db)`
+- `ListPolicyRules(ctx, db, filter)`
+- `InsertPolicyRules(ctx, db, rules)`
+- `DeletePolicyRules(ctx, db, filter)`
+- `ReplacePolicyRules(ctx, db, filter, rules)`
+- `DeletePolicyTuples(ctx, db, rules)`
 
 ## 自定义策略
 

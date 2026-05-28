@@ -28,7 +28,6 @@ type SetupFunc func(app *runtime.App, registry *Registry) error
 
 func defaultUseOptions() useOptions {
 	return useOptions{
-		configLoader: loadConfigFromCore,
 		dependencies: []runtime.Dependency{
 			runtime.OptionalBootstrap(),
 		},

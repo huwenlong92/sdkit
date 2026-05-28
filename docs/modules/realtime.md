@@ -305,6 +305,8 @@ client
 
 `pkg/realtime/publisher/eventbus` 把 realtime event 编码为 `core/eventbus.Event` payload。eventbus 只识别 topic、payload、headers、publish、subscribe，不解释 user、room、client、gateway 或 transport。
 
+`core/realtime/facade` 不读取 `core/config.V`，也不假设业务项目的 eventbus 配置结构。启动层必须通过 `WithConfig` / `WithConfigLoader` 显式传入 realtime publisher 配置，或通过 `WithService` 注入已构造服务。
+
 ## 测试约束
 
 新增或调整测试放在：
@@ -335,6 +337,7 @@ pkg/realtime/*/tests/
 
 ## 更新记录
 
+- 2026-05-28：Realtime facade 移除 `core/config.V` 隐式配置读取；业务项目必须显式注入 publisher 配置或服务实例。
 - 2026-05-14：新增 `app/im` minimal realtime IM demo。业务 action 通过 runtime router 注册，消息先发布 IM domain event，再由 IM consumer 通过 notify infra 推送 realtime room event；补充 `examples/realtime/im-demo.html` 和 `app/realtime/tests/im`。
 - 2026-05-16：新增 `core/realtime/facade` runtime capability 和 `core/realtime/binding.go`，实时推送统一通过 `realtime` capability 初始化，服务侧只保留 `infra/realtime` adapter。
 - 2026-05-14：第六阶段第一步 gateway state runtime。新增 `app/realtime/internal/state/{connection,presence,room,session,heartbeat}`；registry 收敛为 connection index；WS/SSE 通过 lifecycle 触发 connect/disconnect/activity；disconnect cleanup 统一由 state runtime 处理；status 增加 heartbeat timeout、reconnect 和 dispatch latency 指标。

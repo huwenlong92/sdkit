@@ -140,7 +140,7 @@ func loadPaymentConfig(*runtime.App) (paymentfacade.Config, error) {
 }
 ```
 
-如果直接使用 `core/config` 的 `payment` 节点，可以不传 `WithConfigLoader`，facade 默认会读 `payment.channels`。
+Payment facade 不读取 `core/config.V`，也不知道业务项目的配置文件结构。即使业务项目使用 `payment.channels` 作为配置节点，也必须在业务侧通过 `WithConfig` 或 `WithConfigLoader` 显式传入。
 
 ## 注册 Adapter
 

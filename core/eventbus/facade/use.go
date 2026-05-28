@@ -3,7 +3,6 @@ package eventbus
 import (
 	"context"
 
-	coreconfig "github.com/huwenlong92/sdkit/core/config"
 	coreeventbus "github.com/huwenlong92/sdkit/core/eventbus"
 	redisfacade "github.com/huwenlong92/sdkit/core/redis/facade"
 	"github.com/huwenlong92/sdkit/core/runtime"
@@ -15,7 +14,6 @@ type UseOption func(*useOptions)
 
 type useOptions struct {
 	config       Config
-	hasConfig    bool
 	configLoader ConfigLoader
 	service      Service
 	redis        *goredis.Client
@@ -26,7 +24,6 @@ type useOptions struct {
 func WithConfig(cfg Config) UseOption {
 	return func(o *useOptions) {
 		o.config = cfg
-		o.hasConfig = true
 	}
 }
 
@@ -83,23 +80,16 @@ func Use(opts ...UseOption) runtime.Capability {
 		Internal:    o.internal,
 	}, dependencies, func(app *runtime.App) error {
 		config := o.config
-		hasConfig := o.hasConfig
 		if o.configLoader != nil {
 			loaded, err := o.configLoader(app)
 			if err != nil {
 				return err
 			}
 			config = loaded
-			hasConfig = true
 		}
 
 		service := o.service
 		if service == nil {
-			if !hasConfig && coreconfig.V != nil {
-				if err := coreconfig.V.UnmarshalKey("eventbus", &config); err != nil {
-					return err
-				}
-			}
 			redisClient := o.redis
 			if redisClient == nil {
 				if client := redisfacade.From(app); client != nil {
