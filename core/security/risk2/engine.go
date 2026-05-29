@@ -83,13 +83,18 @@ func (e *Engine) Evaluate(ctx context.Context, event Event) (*Decision, error) {
 		return nil, err
 	} else if hit != nil {
 		applyHit(decision, HitDecision{
-			RuleID:   hit.ID,
-			RuleCode: "white_list",
-			RuleName: "白名单",
-			RuleType: RuleTypeList,
-			Level:    LevelLow,
-			Score:    0,
-			Action:   ActionAllow,
+			RuleID:          hit.ID,
+			RuleCode:        "white_list",
+			RuleName:        "白名单",
+			RuleType:        RuleTypeList,
+			Level:           LevelLow,
+			Score:           0,
+			Action:          ActionAllow,
+			ResponseCode:    hit.ResponseCode,
+			ResponseMessage: hit.ResponseMessage,
+			ResponseAction:  hit.ResponseAction,
+			ResponsePayload: hit.ResponsePayload,
+			HTTPStatus:      hit.HTTPStatus,
 			Reason: map[string]any{
 				"list_type":    hit.ListType,
 				"target_type":  hit.TargetType,
@@ -105,13 +110,18 @@ func (e *Engine) Evaluate(ctx context.Context, event Event) (*Decision, error) {
 		return nil, err
 	} else if hit != nil {
 		applyHit(decision, HitDecision{
-			RuleID:   hit.ID,
-			RuleCode: "black_list",
-			RuleName: "黑名单",
-			RuleType: RuleTypeList,
-			Level:    LevelHigh,
-			Score:    100,
-			Action:   ActionDeny,
+			RuleID:          hit.ID,
+			RuleCode:        "black_list",
+			RuleName:        "黑名单",
+			RuleType:        RuleTypeList,
+			Level:           LevelHigh,
+			Score:           100,
+			Action:          ActionDeny,
+			ResponseCode:    hit.ResponseCode,
+			ResponseMessage: hit.ResponseMessage,
+			ResponseAction:  hit.ResponseAction,
+			ResponsePayload: hit.ResponsePayload,
+			HTTPStatus:      hit.HTTPStatus,
 			Reason: map[string]any{
 				"list_type":    hit.ListType,
 				"target_type":  hit.TargetType,
@@ -155,13 +165,18 @@ func (e *Engine) evaluateFrequencyRules(ctx context.Context, event Event, now ti
 		}
 
 		applyHit(decision, HitDecision{
-			RuleID:   rule.ID,
-			RuleCode: rule.Code,
-			RuleName: rule.Name,
-			RuleType: RuleTypeFrequency,
-			Level:    firstNonEmpty(rule.Level, LevelMedium),
-			Score:    rule.Score,
-			Action:   rule.Action,
+			RuleID:          rule.ID,
+			RuleCode:        rule.Code,
+			RuleName:        rule.Name,
+			RuleType:        RuleTypeFrequency,
+			Level:           firstNonEmpty(rule.Level, LevelMedium),
+			Score:           rule.Score,
+			Action:          rule.Action,
+			ResponseCode:    rule.ResponseCode,
+			ResponseMessage: rule.ResponseMessage,
+			ResponseAction:  rule.ResponseAction,
+			ResponsePayload: rule.ResponsePayload,
+			HTTPStatus:      rule.HTTPStatus,
 			Reason: map[string]any{
 				"target_type":   rule.TargetType,
 				"target_value":  targetValue,
@@ -254,6 +269,13 @@ func applyHit(decision *Decision, hit HitDecision) {
 	if hit.Snapshot == nil {
 		hit.Snapshot = map[string]any{}
 	}
+	if shouldUseHitResponse(decision, hit) {
+		decision.ResponseCode = hit.ResponseCode
+		decision.ResponseMessage = hit.ResponseMessage
+		decision.ResponseAction = hit.ResponseAction
+		decision.ResponsePayload = cloneMap(hit.ResponsePayload)
+		decision.HTTPStatus = hit.HTTPStatus
+	}
 	decision.Reasons = append(decision.Reasons, hit.Reason)
 	decision.Hits = append(decision.Hits, hit)
 	if hit.Score > decision.Score {
@@ -272,6 +294,18 @@ func applyHit(decision *Decision, hit HitDecision) {
 	}
 	decision.Passed = false
 	decision.Status = StatusBlocked
+}
+
+func shouldUseHitResponse(decision *Decision, hit HitDecision) bool {
+	currentActionPriority := actionPriority(decision.Action)
+	hitActionPriority := actionPriority(hit.Action)
+	if hitActionPriority > currentActionPriority {
+		return true
+	}
+	if hitActionPriority < currentActionPriority {
+		return false
+	}
+	return len(decision.Hits) == 0 || hit.Score > decision.Score
 }
 
 func TargetValues(event Event) map[string]string {

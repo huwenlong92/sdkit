@@ -21,6 +21,13 @@ const (
 
 	RuleTypeList      = "list"
 	RuleTypeFrequency = "frequency"
+
+	ResponseActionNone       = "none"
+	ResponseActionToast      = "toast"
+	ResponseActionCaptcha    = "captcha"
+	ResponseActionAppeal     = "appeal"
+	ResponseActionRetryLater = "retry_later"
+	ResponseActionContact    = "contact"
 )
 
 type Event struct {
@@ -50,25 +57,35 @@ type Scene struct {
 }
 
 type ListRule struct {
-	ID          int64  `json:"id"`
-	ListType    string `json:"list_type"`
-	TargetType  string `json:"target_type"`
-	TargetValue string `json:"target_value"`
-	Scene       string `json:"scene"`
-	Reason      string `json:"reason"`
+	ID              int64          `json:"id"`
+	ListType        string         `json:"list_type"`
+	TargetType      string         `json:"target_type"`
+	TargetValue     string         `json:"target_value"`
+	Scene           string         `json:"scene"`
+	Reason          string         `json:"reason"`
+	ResponseCode    int            `json:"response_code"`
+	ResponseMessage string         `json:"response_message"`
+	ResponseAction  string         `json:"response_action"`
+	ResponsePayload map[string]any `json:"response_payload"`
+	HTTPStatus      int            `json:"http_status"`
 }
 
 type FrequencyRule struct {
-	ID            int64  `json:"id"`
-	Code          string `json:"code"`
-	Name          string `json:"name"`
-	Event         string `json:"event"`
-	TargetType    string `json:"target_type"`
-	WindowSeconds int    `json:"window_seconds"`
-	LimitCount    int    `json:"limit_count"`
-	Level         string `json:"level"`
-	Action        string `json:"action"`
-	Score         int    `json:"score"`
+	ID              int64          `json:"id"`
+	Code            string         `json:"code"`
+	Name            string         `json:"name"`
+	Event           string         `json:"event"`
+	TargetType      string         `json:"target_type"`
+	WindowSeconds   int            `json:"window_seconds"`
+	LimitCount      int            `json:"limit_count"`
+	Level           string         `json:"level"`
+	Action          string         `json:"action"`
+	Score           int            `json:"score"`
+	ResponseCode    int            `json:"response_code"`
+	ResponseMessage string         `json:"response_message"`
+	ResponseAction  string         `json:"response_action"`
+	ResponsePayload map[string]any `json:"response_payload"`
+	HTTPStatus      int            `json:"http_status"`
 }
 
 type EventCountQuery struct {
@@ -90,29 +107,39 @@ type CounterKey struct {
 }
 
 type Decision struct {
-	Passed    bool             `json:"passed"`
-	EventID   int64            `json:"event_id"`
-	Service   string           `json:"service"`
-	Scene     string           `json:"scene"`
-	Event     string           `json:"event"`
-	Level     string           `json:"level"`
-	Score     int              `json:"score"`
-	Action    string           `json:"action"`
-	Status    string           `json:"status"`
-	Reasons   []map[string]any `json:"reasons"`
-	Hits      []HitDecision    `json:"hits"`
-	CreatedAt time.Time        `json:"created_at"`
+	Passed          bool             `json:"passed"`
+	EventID         int64            `json:"event_id"`
+	Service         string           `json:"service"`
+	Scene           string           `json:"scene"`
+	Event           string           `json:"event"`
+	Level           string           `json:"level"`
+	Score           int              `json:"score"`
+	Action          string           `json:"action"`
+	Status          string           `json:"status"`
+	ResponseCode    int              `json:"response_code"`
+	ResponseMessage string           `json:"response_message"`
+	ResponseAction  string           `json:"response_action"`
+	ResponsePayload map[string]any   `json:"response_payload"`
+	HTTPStatus      int              `json:"http_status"`
+	Reasons         []map[string]any `json:"reasons"`
+	Hits            []HitDecision    `json:"hits"`
+	CreatedAt       time.Time        `json:"created_at"`
 }
 
 type HitDecision struct {
-	ID       int64          `json:"id"`
-	RuleID   int64          `json:"rule_id"`
-	RuleCode string         `json:"rule_code"`
-	RuleName string         `json:"rule_name"`
-	RuleType string         `json:"rule_type"`
-	Level    string         `json:"level"`
-	Score    int            `json:"score"`
-	Action   string         `json:"action"`
-	Reason   map[string]any `json:"reason"`
-	Snapshot map[string]any `json:"snapshot"`
+	ID              int64          `json:"id"`
+	RuleID          int64          `json:"rule_id"`
+	RuleCode        string         `json:"rule_code"`
+	RuleName        string         `json:"rule_name"`
+	RuleType        string         `json:"rule_type"`
+	Level           string         `json:"level"`
+	Score           int            `json:"score"`
+	Action          string         `json:"action"`
+	ResponseCode    int            `json:"response_code"`
+	ResponseMessage string         `json:"response_message"`
+	ResponseAction  string         `json:"response_action"`
+	ResponsePayload map[string]any `json:"response_payload"`
+	HTTPStatus      int            `json:"http_status"`
+	Reason          map[string]any `json:"reason"`
+	Snapshot        map[string]any `json:"snapshot"`
 }

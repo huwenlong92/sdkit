@@ -180,6 +180,27 @@ r.POST("/api/order/create",
 
 Store 实现负责读取场景、黑白名单、频率规则并写入事件与命中记录。Gorm、业务表和 SQL 不进入 core。
 
+名单和频率规则可以携带前台处置配置：
+
+```go
+risk2.FrequencyRule{
+    Code:            "login_failed_account_limit",
+    Event:           "login_failed",
+    TargetType:      "account",
+    WindowSeconds:   300,
+    LimitCount:      5,
+    Action:          risk2.ActionLimit,
+    Score:           80,
+    ResponseCode:    410101,
+    ResponseMessage: "账号登录失败次数过多，请 5 分钟后再试",
+    ResponseAction:  risk2.ResponseActionRetryLater,
+    ResponsePayload: map[string]any{"retry_after": 300},
+    HTTPStatus:      429,
+}
+```
+
+一次命中多个规则时，Engine 会按 `action` 严重程度选择主规则；`action` 一样时取 `score` 更高的规则；再一样时保留先命中规则。最终 `Decision` 上的 `response_code`、`response_message`、`response_action`、`response_payload`、`http_status` 来自主规则。
+
 ### 配置缓存与频率计数
 
 运行时风控检查通常会读取场景、黑白名单、频率规则，并更新频率统计。推荐分工：
@@ -234,7 +255,7 @@ engine := risk2.NewEngine(store,
 - 异步写入成功前，返回给调用方的 `decision.event_id` 可能为空；如果接口必须立刻返回事件 ID，应使用同步 Store 写入。
 - 服务关闭时需要 cancel logger 的 context，让 logger drain 队列并 flush 剩余记录。
 
-触发风控时接口仍返回统一结构，前端应优先按 `err_code` 分支处理：
+触发风控时接口仍返回统一结构。`risk2` 默认使用 `4601/security blocked`，如果规则配置了 `ResponseCode` 或 `ResponseMessage`，Gin 适配会优先使用规则配置：
 
 | err_code | msg | 含义 | 前端建议 |
 |---:|---|---|---|
@@ -250,16 +271,19 @@ engine := risk2.NewEngine(store,
 
 ```json
 {
-  "err_code": 4602,
-  "msg": "captcha required",
+  "err_code": 410101,
+  "msg": "账号登录失败次数过多，请 5 分钟后再试",
   "data": {
-    "Passed": false,
-    "Score": 50,
-    "Actions": ["captcha"],
-    "Reasons": [],
-    "NeedCaptcha": true,
-    "NeedVerify": false,
-    "Blocked": false
+    "passed": false,
+    "service": "admin",
+    "scene": "login",
+    "event": "login_failed",
+    "action": "limit",
+    "response_action": "retry_later",
+    "response_payload": {
+      "retry_after": 300
+    },
+    "hits": []
   }
 }
 ```

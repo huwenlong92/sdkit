@@ -106,10 +106,23 @@ func Abort(c *gin.Context, decision *corerisk.Decision, opts ...Option) {
 	if decision != nil && decision.Action == corerisk.ActionLimit {
 		status = http.StatusTooManyRequests
 	}
+	code := security.ErrCodeRiskBlocked
+	message := "请求触发风控规则"
+	if decision != nil {
+		if decision.HTTPStatus > 0 {
+			status = decision.HTTPStatus
+		}
+		if decision.ResponseCode > 0 {
+			code = decision.ResponseCode
+		}
+		if decision.ResponseMessage != "" {
+			message = decision.ResponseMessage
+		}
+	}
 	ginresponder.RespondError(cfg.responder, c, status, apperrors.NewWithData(
-		security.ErrCodeRiskBlocked,
+		code,
 		security.MsgRiskBlocked,
-		"请求触发风控规则",
+		message,
 		decision,
 	))
 }
