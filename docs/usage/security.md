@@ -232,6 +232,16 @@ captchaManager.Register(captcha.NewClickProvider(
 
 如果需要使用图片素材，给 Provider 配置 `captcha.NewFileBackgroundSource("resources/captcha/slider")` 或 `captcha.NewFileBackgroundSource("resources/captcha/click")`；未配置时使用内置生成背景。
 
+过渡期如果仍需要前端自行完成滑块或点选交互，可以注册一次性客户端通过型 Provider。它们使用独立 kind，不会占用正式后端校验的 `slider` / `click`：
+
+```go
+clientSliderStore := captchastore.NewPrefixedStore(challengeStore, "captcha:client-slider:")
+captchaManager.Register(captcha.NewClientSliderProvider(clientSliderStore, 5*time.Minute))
+
+challenge, err := captchaManager.Generate(ctx, captcha.KindClientSlider, captcha.GenerateOptions{})
+err = captchaManager.Verify(ctx, captcha.KindClientSlider, challenge.ID, "passed")
+```
+
 ## 安全响应头
 
 ```go

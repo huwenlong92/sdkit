@@ -31,11 +31,11 @@ func newClientTokenProvider(kind Kind, name string, store store.Store, ttl time.
 }
 
 func NewClientSliderProvider(store store.Store, ttl time.Duration) *ClientTokenProvider {
-	return newClientTokenProvider(KindSlider, "client-slider", store, ttl)
+	return newClientTokenProvider(KindClientSlider, "client-slider", store, ttl)
 }
 
 func NewClientClickProvider(store store.Store, ttl time.Duration) *ClientTokenProvider {
-	return newClientTokenProvider(KindClick, "client-click", store, ttl)
+	return newClientTokenProvider(KindClientClick, "client-click", store, ttl)
 }
 
 func (p *ClientTokenProvider) Name() string { return p.name }

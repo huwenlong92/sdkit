@@ -8,9 +8,11 @@ import (
 type Kind string
 
 const (
-	KindImage  Kind = "image"
-	KindSlider Kind = "slider"
-	KindClick  Kind = "click"
+	KindImage        Kind = "image"
+	KindSlider       Kind = "slider"
+	KindClientSlider Kind = "client-slider"
+	KindClick        Kind = "click"
+	KindClientClick  Kind = "client-click"
 )
 
 type Challenge struct {

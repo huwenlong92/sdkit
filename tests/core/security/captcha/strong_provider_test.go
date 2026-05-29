@@ -103,3 +103,35 @@ func TestClickProviderVerify(t *testing.T) {
 		t.Fatalf("click state should be deleted: ok=%v err=%v", ok, err)
 	}
 }
+
+func TestClientTokenProviderKinds(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	sliderStore := captchastore.NewMemoryStore()
+	clickStore := captchastore.NewMemoryStore()
+	sliderProvider := captcha.NewClientSliderProvider(sliderStore, time.Minute)
+	clickProvider := captcha.NewClientClickProvider(clickStore, time.Minute)
+
+	sliderChallenge, err := sliderProvider.Generate(ctx, captcha.GenerateOptions{})
+	if err != nil {
+		t.Fatalf("generate client slider failed: %v", err)
+	}
+	if sliderChallenge.Kind != captcha.KindClientSlider {
+		t.Fatalf("slider kind = %s, want %s", sliderChallenge.Kind, captcha.KindClientSlider)
+	}
+	if err := sliderProvider.Verify(ctx, sliderChallenge.ID, "passed"); err != nil {
+		t.Fatalf("verify client slider failed: %v", err)
+	}
+
+	clickChallenge, err := clickProvider.Generate(ctx, captcha.GenerateOptions{})
+	if err != nil {
+		t.Fatalf("generate client click failed: %v", err)
+	}
+	if clickChallenge.Kind != captcha.KindClientClick {
+		t.Fatalf("click kind = %s, want %s", clickChallenge.Kind, captcha.KindClientClick)
+	}
+	if err := clickProvider.Verify(ctx, clickChallenge.ID, "passed"); err != nil {
+		t.Fatalf("verify client click failed: %v", err)
+	}
+}
