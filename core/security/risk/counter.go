@@ -1,4 +1,4 @@
-package risk2
+package risk
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-const defaultCounterPrefix = "security:risk2:freq:"
+const defaultCounterPrefix = "security:risk:freq:"
 
-var ErrCounterUnavailable = errors.New("risk2: counter unavailable")
+var ErrCounterUnavailable = errors.New("risk: counter unavailable")
 
 type Counter interface {
 	Incr(ctx context.Context, key CounterKey) (int64, error)

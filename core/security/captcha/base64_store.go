@@ -4,29 +4,29 @@ import (
 	"context"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/security/state"
+	"github.com/huwenlong92/sdkit/core/security/captcha/store"
 )
 
-type StateStore struct {
-	store state.Store
+type Base64Store struct {
+	store store.Store
 	ttl   time.Duration
 }
 
-func NewStateStore(store state.Store, ttl time.Duration) *StateStore {
+func NewBase64Store(store store.Store, ttl time.Duration) *Base64Store {
 	if ttl <= 0 {
 		ttl = 5 * time.Minute
 	}
-	return &StateStore{store: store, ttl: ttl}
+	return &Base64Store{store: store, ttl: ttl}
 }
 
-func (s *StateStore) Set(id string, value string) error {
+func (s *Base64Store) Set(id string, value string) error {
 	if s == nil || s.store == nil {
 		return ErrInvalidToken
 	}
 	return s.store.Set(context.Background(), id, value, s.ttl)
 }
 
-func (s *StateStore) Get(id string, clear bool) string {
+func (s *Base64Store) Get(id string, clear bool) string {
 	if s == nil || s.store == nil {
 		return ""
 	}
@@ -40,6 +40,6 @@ func (s *StateStore) Get(id string, clear bool) string {
 	return value
 }
 
-func (s *StateStore) Verify(id string, answer string, clear bool) bool {
+func (s *Base64Store) Verify(id string, answer string, clear bool) bool {
 	return s.Get(id, clear) == answer
 }

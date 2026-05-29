@@ -1,4 +1,4 @@
-package risk2
+package risk
 
 import "time"
 

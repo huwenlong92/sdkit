@@ -1,10 +1,12 @@
-package risk2
+package risk
 
 import (
 	"context"
-	"log"
 	"sync"
 	"time"
+
+	"github.com/huwenlong92/sdkit/core/logger"
+	"go.uber.org/zap"
 )
 
 const (
@@ -89,7 +91,7 @@ func (l *Logger) run(ctx context.Context) {
 		copy(records, batch)
 		batch = batch[:0]
 		if err := l.writer.WriteDecisionBatch(flushCtx, records); err != nil {
-			log.Printf("risk2 decision write batch failed: count=%d err=%v", len(records), err)
+			logDecisionWriteError(flushCtx, len(records), err)
 		}
 	}
 
@@ -172,4 +174,22 @@ func cloneMap(values map[string]any) map[string]any {
 		out[key] = value
 	}
 	return out
+}
+
+func logDecisionWriteError(ctx context.Context, count int, err error) {
+	fields := logger.ContextFields(ctx)
+	if !hasLogField(fields, logger.TraceIDKey) {
+		fields = append([]zap.Field{zap.String(logger.TraceIDKey, "")}, fields...)
+	}
+	fields = append(fields, zap.Int("count", count), zap.Error(err))
+	logger.Named("security-risk").Error("risk decision write batch failed", fields...)
+}
+
+func hasLogField(fields []zap.Field, key string) bool {
+	for _, field := range fields {
+		if field.Key == key {
+			return true
+		}
+	}
+	return false
 }

@@ -1,4 +1,4 @@
-package risk2_test
+package risk_test
 
 import (
 	"context"
@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/huwenlong92/sdkit/core/cache"
-	corerisk "github.com/huwenlong92/sdkit/core/security/risk2"
+	corerisk "github.com/huwenlong92/sdkit/core/security/risk"
+	riskcache "github.com/huwenlong92/sdkit/core/security/risk/cache"
 )
 
 func TestCacheCounterIncrementsWithTTL(t *testing.T) {
@@ -112,7 +113,7 @@ func TestEngineUsesCounterForFrequencyRules(t *testing.T) {
 	}
 }
 
-func TestCachedStoreCachesRuntimeConfig(t *testing.T) {
+func TestCacheStoreCachesRuntimeConfig(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -132,7 +133,7 @@ func TestCachedStoreCachesRuntimeConfig(t *testing.T) {
 		},
 		rules: []corerisk.FrequencyRule{{ID: 2, Code: "rule"}},
 	}
-	cached := corerisk.NewCachedStore(store, c, corerisk.WithStoreCacheTTL(time.Minute))
+	cached := riskcache.New(store, c, riskcache.WithTTL(time.Minute))
 	event := corerisk.Event{
 		Service: "admin",
 		Scene:   "login",

@@ -1,25 +1,29 @@
-package risk2
+package cache
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/huwenlong92/sdkit/core/security/risk"
 )
 
-const defaultStoreCacheTTL = 10 * time.Second
+const defaultTTL = 10 * time.Second
 
-type StoreCache interface {
+type Backend interface {
 	Get(ctx context.Context, key string) (string, error)
 	Set(ctx context.Context, key, value string, ttl time.Duration) error
 }
 
-type StoreCacheOption func(*cachedStore)
+type Option func(*store)
 
-type cachedStore struct {
-	next  Store
-	cache StoreCache
+type store struct {
+	next  risk.Store
+	cache Backend
 	ttl   time.Duration
 }
 
@@ -28,22 +32,22 @@ type cachedValue[T any] struct {
 	Value T    `json:"value,omitempty"`
 }
 
-func WithStoreCacheTTL(ttl time.Duration) StoreCacheOption {
-	return func(s *cachedStore) {
+func WithTTL(ttl time.Duration) Option {
+	return func(s *store) {
 		if ttl > 0 {
 			s.ttl = ttl
 		}
 	}
 }
 
-func NewCachedStore(next Store, cache StoreCache, opts ...StoreCacheOption) Store {
+func New(next risk.Store, cache Backend, opts ...Option) risk.Store {
 	if next == nil || cache == nil {
 		return next
 	}
-	s := &cachedStore{
+	s := &store{
 		next:  next,
 		cache: cache,
-		ttl:   defaultStoreCacheTTL,
+		ttl:   defaultTTL,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -53,9 +57,9 @@ func NewCachedStore(next Store, cache StoreCache, opts ...StoreCacheOption) Stor
 	return s
 }
 
-func (s *cachedStore) LoadScene(ctx context.Context, service string, scene string) (*Scene, error) {
+func (s *store) LoadScene(ctx context.Context, service string, scene string) (*risk.Scene, error) {
 	key := riskCacheKey("scene", service, scene)
-	if cached, ok := cacheRead[*Scene](ctx, s.cache, key); ok {
+	if cached, ok := cacheRead[*risk.Scene](ctx, s.cache, key); ok {
 		if !cached.Hit {
 			return nil, nil
 		}
@@ -66,13 +70,13 @@ func (s *cachedStore) LoadScene(ctx context.Context, service string, scene strin
 	if err != nil {
 		return nil, err
 	}
-	cacheWrite(ctx, s.cache, key, cachedValue[*Scene]{Hit: value != nil, Value: value}, s.ttl)
+	cacheWrite(ctx, s.cache, key, cachedValue[*risk.Scene]{Hit: value != nil, Value: value}, s.ttl)
 	return value, nil
 }
 
-func (s *cachedStore) MatchList(ctx context.Context, event Event, listType string) (*ListRule, error) {
+func (s *store) MatchList(ctx context.Context, event risk.Event, listType string) (*risk.ListRule, error) {
 	key := riskCacheKey("list", event.Service, event.Scene, listType, targetSignature(event))
-	if cached, ok := cacheRead[*ListRule](ctx, s.cache, key); ok {
+	if cached, ok := cacheRead[*risk.ListRule](ctx, s.cache, key); ok {
 		if !cached.Hit {
 			return nil, nil
 		}
@@ -83,15 +87,15 @@ func (s *cachedStore) MatchList(ctx context.Context, event Event, listType strin
 	if err != nil {
 		return nil, err
 	}
-	cacheWrite(ctx, s.cache, key, cachedValue[*ListRule]{Hit: value != nil, Value: value}, s.ttl)
+	cacheWrite(ctx, s.cache, key, cachedValue[*risk.ListRule]{Hit: value != nil, Value: value}, s.ttl)
 	return value, nil
 }
 
-func (s *cachedStore) ListFrequencyRules(ctx context.Context, event Event) ([]FrequencyRule, error) {
+func (s *store) ListFrequencyRules(ctx context.Context, event risk.Event) ([]risk.FrequencyRule, error) {
 	key := riskCacheKey("frequency", event.Service, event.Scene, event.Event)
-	if cached, ok := cacheRead[[]FrequencyRule](ctx, s.cache, key); ok {
+	if cached, ok := cacheRead[[]risk.FrequencyRule](ctx, s.cache, key); ok {
 		if cached.Value == nil {
-			return []FrequencyRule{}, nil
+			return []risk.FrequencyRule{}, nil
 		}
 		return cached.Value, nil
 	}
@@ -100,19 +104,19 @@ func (s *cachedStore) ListFrequencyRules(ctx context.Context, event Event) ([]Fr
 	if err != nil {
 		return nil, err
 	}
-	cacheWrite(ctx, s.cache, key, cachedValue[[]FrequencyRule]{Hit: true, Value: value}, s.ttl)
+	cacheWrite(ctx, s.cache, key, cachedValue[[]risk.FrequencyRule]{Hit: true, Value: value}, s.ttl)
 	return value, nil
 }
 
-func (s *cachedStore) CountEvents(ctx context.Context, query EventCountQuery) (int64, error) {
+func (s *store) CountEvents(ctx context.Context, query risk.EventCountQuery) (int64, error) {
 	return s.next.CountEvents(ctx, query)
 }
 
-func (s *cachedStore) SaveDecision(ctx context.Context, event Event, decision *Decision) error {
+func (s *store) SaveDecision(ctx context.Context, event risk.Event, decision *risk.Decision) error {
 	return s.next.SaveDecision(ctx, event, decision)
 }
 
-func cacheRead[T any](ctx context.Context, cache StoreCache, key string) (cachedValue[T], bool) {
+func cacheRead[T any](ctx context.Context, cache Backend, key string) (cachedValue[T], bool) {
 	var value cachedValue[T]
 	raw, err := cache.Get(ctx, key)
 	if err != nil || raw == "" {
@@ -124,7 +128,7 @@ func cacheRead[T any](ctx context.Context, cache StoreCache, key string) (cached
 	return value, true
 }
 
-func cacheWrite[T any](ctx context.Context, cache StoreCache, key string, value cachedValue[T], ttl time.Duration) {
+func cacheWrite[T any](ctx context.Context, cache Backend, key string, value cachedValue[T], ttl time.Duration) {
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return
@@ -133,11 +137,11 @@ func cacheWrite[T any](ctx context.Context, cache StoreCache, key string, value 
 }
 
 func riskCacheKey(kind string, parts ...string) string {
-	return "security:risk2:config:" + kind + ":" + hashParts(parts...)
+	return "security:risk:config:" + kind + ":" + hashParts(parts...)
 }
 
-func targetSignature(event Event) string {
-	targets := TargetValues(event)
+func targetSignature(event risk.Event) string {
+	targets := risk.TargetValues(event)
 	if len(targets) == 0 {
 		return ""
 	}
@@ -154,4 +158,13 @@ func targetSignature(event Event) string {
 	return strconv.Itoa(len(keys)) + ":" + hashParts(parts...)
 }
 
-var _ Store = (*cachedStore)(nil)
+func hashParts(parts ...string) string {
+	h := sha256.New()
+	for _, part := range parts {
+		_, _ = h.Write([]byte(part))
+		_, _ = h.Write([]byte{0})
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+var _ risk.Store = (*store)(nil)

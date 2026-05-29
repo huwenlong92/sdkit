@@ -10,6 +10,7 @@ type Kind string
 const (
 	KindImage  Kind = "image"
 	KindSlider Kind = "slider"
+	KindClick  Kind = "click"
 )
 
 type Challenge struct {

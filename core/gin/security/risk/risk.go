@@ -1,4 +1,4 @@
-package risk2
+package risk
 
 import (
 	"net/http"
@@ -9,7 +9,7 @@ import (
 	ginresponder "github.com/huwenlong92/sdkit/core/gin/responder"
 	"github.com/huwenlong92/sdkit/core/requestid"
 	"github.com/huwenlong92/sdkit/core/security"
-	corerisk "github.com/huwenlong92/sdkit/core/security/risk2"
+	corerisk "github.com/huwenlong92/sdkit/core/security/risk"
 	"github.com/huwenlong92/sdkit/core/tracking"
 
 	"github.com/gin-gonic/gin"
