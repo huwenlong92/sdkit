@@ -5,8 +5,8 @@
 `core/casbin` 提供通用 RBAC manager；Gin middleware 位于 `core/gin/casbin`：
 
 - 加载 Casbin model
-- 按 `casbin_rule` 表加载策略
-- 统一维护默认策略表和通用 rule store API
+- 按配置的策略表加载策略
+- 维护默认策略表名和通用 rule store API
 - 自动补充超级角色通配策略
 - 提供 `Manager.Enforce`
 - 提供服务可组合的 Gin middleware adapter
@@ -103,12 +103,14 @@ Gin middleware 不持有业务角色逻辑，只调用服务传入的 `RoleResol
 - 默认 manager 通过 `casbin.Default` 保留兼容。
 - runtime capability 注册成功后会把 manager 绑定到容器 key `casbin`。
 - `RuleTable` 会通过 pgx identifier 转义，禁止拼接未转义表名。
-- `DefaultRuleTable` 是默认策略表名的唯一来源；业务应用不直接声明 `casbin_rule`。
+- `DefaultRuleTable` 是默认策略表名的唯一来源；业务应用可以声明自己的策略表模型，并通过 `Config.RuleTable` 传入解析后的表名。
+- `Init/New` 设置 `RuleTable` 后，包级 rule store API 会使用该表名。
 - Gin 相关依赖只允许出现在 `core/gin/casbin`。
 
 ## 更新记录
 
 - 2026-05-28：新增 policy rule store API，默认策略表名收敛到 `core/casbin.DefaultRuleTable`；应用层通过 API 维护策略，不直接操作 `casbin_rule`。
+- 2026-05-29：`Config.RuleTable` 会同步到包级 rule store API，支持业务应用用自己的模型/迁移管理 Casbin 策略表。
 - 2026-05-28：新增 `PolicyRuleCountsByV0`，支持应用层按角色/主体统计策略数量，同时由应用层通过 `keyFunc` 定义业务去重口径。
 - 2026-05-26：facade 默认内部注册，新增 `WithExternal()`；移除 `Use` 内无实际分支意义的 `hasConfig` 状态。
 - 2026-05-27：Gin middleware 拆到 `core/gin/casbin`，`core/casbin` 根包只保留通用 manager 和 runtime facade。

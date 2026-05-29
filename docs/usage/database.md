@@ -93,7 +93,7 @@ database:
 
 改为空字符串即为无前缀。
 
-`schema` 会用于 pgxpool 的 `search_path`，并影响 `database.Table()` 返回的原生 SQL 标识符；为空时不限定 schema。
+`schema` 会用于 pgxpool 的 `search_path`，并作为未声明模型 schema 时 `database.Table()` 的默认 schema；为空时不限定 schema。模型通过 GORM `TableName(schema.Namer) string` 显式返回 `schema.table` 时，模型 schema 优先。
 
 连接池配置使用 `max_open_conns` 和 `max_idle_conns`。`conn_max_lifetime` 单位为秒。
 
@@ -197,17 +197,29 @@ models.InitTableNames()
 
 ### 2. `database.TableName()` / `database.Table()`
 
-运行时根据模型解析表名。`TableName()` 返回未加 SQL 引号的表名，适合日志、GORM `Table()` 或已有可信拼接场景；`Table()` 返回 pgx 安全转义后的标识符，适合原生 SQL 的表名位置。
+运行时根据模型解析表名。`TableName()` 返回未加 SQL 引号、且不带 schema 的表名，适合日志、索引名或分区名拼接；`Table()` 返回 pgx 安全转义后的标识符，适合原生 SQL 的表名位置。
 
 ```go
 name := database.TableName(&models.SystemUser{}) // sd_system_user
 table := database.Table(&models.SystemUser{})    // "sd_system_user"
 ```
 
-如果配置了 `database.schema`，`Table()` 会返回 schema-qualified 标识符：
+如果配置了 `database.schema`，或模型自身声明了 schema，`Table()` 会返回 schema-qualified 标识符：
 
 ```go
 table := database.Table(&models.SystemUser{}) // "public"."sd_system_user"
+```
+
+需要不带 SQL 引号的完整表路径时使用 `TablePath()`：
+
+```go
+path := database.TablePath(&models.SystemUser{}) // public.sd_system_user
+```
+
+分区子表或同 schema 下的派生表使用 `TableWithName()`，不要手写 schema：
+
+```go
+partition := database.TableWithName(&models.SystemAccessLog{}, "sd_system_access_log_202605")
 ```
 
 对象方法也可用：

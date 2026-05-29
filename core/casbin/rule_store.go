@@ -3,6 +3,7 @@ package casbin
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/huwenlong92/sdkit/core/database"
 	"gorm.io/gorm"
@@ -20,7 +21,14 @@ type Rule struct {
 }
 
 func (Rule) TableName() string {
-	return DefaultRuleTable
+	return currentRuleTable()
+}
+
+var ruleTableState = struct {
+	sync.RWMutex
+	name string
+}{
+	name: DefaultRuleTable,
 }
 
 type RuleFilter struct {
@@ -42,7 +50,7 @@ func EnsurePolicyTable(ctx context.Context, db *gorm.DB) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return db.WithContext(ctx).Exec(ruleTableDDL(DefaultRuleTable)).Error
+	return db.WithContext(ctx).Exec(ruleTableDDL(currentRuleTable())).Error
 }
 
 func ListPolicyRules(ctx context.Context, db *gorm.DB, filter RuleFilter) ([]Rule, error) {
@@ -162,8 +170,28 @@ func DeletePolicyTuples(ctx context.Context, db *gorm.DB, rules []Rule) error {
 		return nil
 	}
 
-	sql := "DELETE FROM " + quoteTable(DefaultRuleTable) + " WHERE ptype = ? AND (v1, v2) IN (" + strings.Join(values, ",") + ")"
+	sql := "DELETE FROM " + quoteTable(currentRuleTable()) + " WHERE ptype = ? AND (v1, v2) IN (" + strings.Join(values, ",") + ")"
 	return db.WithContext(ctx).Exec(sql, args...).Error
+}
+
+func setRuleTable(table string) {
+	table = strings.TrimSpace(table)
+	if table == "" {
+		table = DefaultRuleTable
+	}
+	ruleTableState.Lock()
+	ruleTableState.name = table
+	ruleTableState.Unlock()
+}
+
+func currentRuleTable() string {
+	ruleTableState.RLock()
+	table := ruleTableState.name
+	ruleTableState.RUnlock()
+	if strings.TrimSpace(table) == "" {
+		return DefaultRuleTable
+	}
+	return table
 }
 
 func ensureRuleTable(ctx context.Context, db *database.Database, table string) error {

@@ -2,6 +2,7 @@ package casbin
 
 import (
 	"context"
+	"strings"
 
 	"github.com/huwenlong92/sdkit/core/database"
 	"github.com/huwenlong92/sdkit/core/logger"
@@ -66,6 +67,7 @@ func NewContext(ctx context.Context, db *database.Database, cfg Config) (*Manage
 	if cfg.RuleTable == "" {
 		cfg.RuleTable = DefaultRuleTable
 	}
+	setRuleTable(cfg.RuleTable)
 
 	m, err := model.NewModelFromFile(cfg.ModelPath)
 	if err != nil {
@@ -209,5 +211,12 @@ func (m *Manager) loadPolicies(ctx context.Context) {
 }
 
 func quoteTable(table string) string {
+	parts := strings.Split(strings.TrimSpace(table), ".")
+	if len(parts) == 2 {
+		return pgx.Identifier{parts[0], parts[1]}.Sanitize()
+	}
+	if strings.TrimSpace(table) == "" {
+		table = DefaultRuleTable
+	}
 	return pgx.Identifier{table}.Sanitize()
 }

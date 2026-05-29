@@ -18,7 +18,7 @@ m = r.sub == p.sub && keyMatch2(r.obj, p.obj) && keyMatch2(r.act, p.act)
 
 ## 策略存储
 
-策略默认保存在 `casbin_rule` 表（自动建表）。表名由 `core/casbin.DefaultRuleTable` 统一维护，业务代码不要直接拼接表名：
+策略默认保存在 `casbin_rule` 表。表名由 `Config.RuleTable` 指定；未指定时使用 `core/casbin.DefaultRuleTable`。业务应用可以在自己的 models/migrations 中声明策略表，再把解析后的表名传给 `core/casbin`：
 
 | ptype | v0（角色code） | v1（路径） | v2（方法） |
 |-------|---------------|-----------|-----------|
@@ -76,6 +76,7 @@ casbinfacade.Config{
     ModelPath:       casbin.DefaultModelPath,
     SuperRole:       "admin",
     AutoCreateTable: true,
+    RuleTable:       casbin.DefaultRuleTable,
 }
 ```
 
@@ -92,6 +93,7 @@ app.RegisterCapabilities(
             ModelPath:       "configs/rbac_model.conf",
             SuperRole:       "admin",
             AutoCreateTable: true,
+            RuleTable:       "casbin_rule",
         }),
     ),
 )
@@ -106,6 +108,7 @@ casbinfacade.Use(
             ModelPath:       "configs/rbac_model.conf",
             SuperRole:       "admin",
             AutoCreateTable: true,
+            RuleTable:       "casbin_rule",
         }, nil
     }),
 )
@@ -118,12 +121,13 @@ casbin.InitContext(ctx, database.Default, casbin.Config{
     ModelPath:       "configs/rbac_model.conf",
     SuperRole:       "admin",
     AutoCreateTable: true,
+    RuleTable:       "casbin_rule",
 })
 ```
 
 ## 策略规则 API
 
-应用层需要维护策略时，使用 `core/casbin` 提供的规则 API，不直接操作 `casbin_rule` 表名：
+应用层需要维护策略时，使用 `core/casbin` 提供的规则 API，不直接操作 `casbin_rule` 表名。`Init/New` 使用非默认 `RuleTable` 初始化后，规则 API 会复用该表名：
 
 ```go
 casbin.ReplacePolicyRules(ctx, db, casbin.RuleFilter{

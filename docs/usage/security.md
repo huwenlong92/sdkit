@@ -189,17 +189,48 @@ challenge, err := captchaManager.Generate(ctx, captcha.KindImage, captcha.Genera
 err = captchaManager.Verify(ctx, captcha.KindImage, challenge.ID, inputCode)
 ```
 
-前端滑块或点选验证码可使用 client token Provider：
+正式滑块 Provider 会生成带缺口背景图、滑块图，并把正确偏移量写入短期 store：
 
 ```go
 sliderStore := captchastore.NewPrefixedStore(challengeStore, "captcha:slider:")
-captchaManager.Register(captcha.NewClientSliderProvider(sliderStore, 5*time.Minute))
-
-clickStore := captchastore.NewPrefixedStore(challengeStore, "captcha:click:")
-captchaManager.Register(captcha.NewClientClickProvider(clickStore, 5*time.Minute))
+captchaManager.Register(captcha.NewSliderProvider(
+    sliderStore,
+    5*time.Minute,
+    captcha.WithSliderSize(320, 160),
+    captcha.WithSliderPieceSize(42),
+    captcha.WithSliderTolerance(6),
+    captcha.WithSliderMaxAttempts(3),
+    captcha.WithSliderMinDuration(250*time.Millisecond),
+))
 ```
 
-强校验滑块或点选后续可通过新的 Provider 返回背景图、滑块图、点选目标、容错参数等 `Payload`。
+滑块 challenge 的 `image` 是带缺口背景图，`payload.piece` 是滑块图。校验时 `answer` 使用 JSON：
+
+```json
+{"x":123,"y":45,"duration_ms":820}
+```
+
+点选 Provider 会生成点选图，并把正确点位顺序写入短期 store：
+
+```go
+clickStore := captchastore.NewPrefixedStore(challengeStore, "captcha:click:")
+captchaManager.Register(captcha.NewClickProvider(
+    clickStore,
+    5*time.Minute,
+    captcha.WithClickSize(320, 160),
+    captcha.WithClickTargets(3),
+    captcha.WithClickTolerance(12),
+    captcha.WithClickMaxAttempts(3),
+))
+```
+
+点选 challenge 的 `payload.targets` 是前端需要提示用户依次点击的目标。校验时 `answer` 使用 JSON：
+
+```json
+{"points":[{"x":81,"y":44},{"x":142,"y":90},{"x":210,"y":72}]}
+```
+
+如果需要使用图片素材，给 Provider 配置 `captcha.NewFileBackgroundSource("resources/captcha/slider")` 或 `captcha.NewFileBackgroundSource("resources/captcha/click")`；未配置时使用内置生成背景。
 
 ## 安全响应头
 

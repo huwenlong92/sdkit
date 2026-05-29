@@ -34,6 +34,23 @@
 - 封装具体业务 SQL
 - 规定所有 GORM 使用场景必须改成 pgx
 
+## 表名与 schema
+
+`core/database` 只负责解析模型提供的表名，不定义业务 schema。业务模型如果需要进入非默认 schema，可以实现 GORM 的 `TableName(schema.Namer) string`，返回 `schema.table` 形式；未声明 schema 的模型继续使用配置中的默认 schema 或 PostgreSQL 默认 `public`。
+
+表名辅助函数的语义：
+
+| 函数 | 返回值 |
+|------|--------|
+| `TableName(model)` | 不带 schema、不带 SQL 引号的表名，例如 `sd_user` |
+| `SchemaName(model)` | 模型声明的 schema，未声明时返回 `Config.Schema` |
+| `TablePath(model)` | 不带 SQL 引号的完整表路径，例如 `system.sd_system_admin` |
+| `Table(model)` | 可直接拼接到 SQL 标识符位置的安全表名，例如 `"system"."sd_system_admin"` |
+| `TablePathWithName(model, table)` | 使用模型 schema 和指定表名生成完整表路径，适合分区子表 |
+| `TableWithName(model, table)` | `TablePathWithName` 的 SQL 安全转义形式 |
+
+`Config.Schema` 仍用于 pgx `search_path` 和未声明 schema 模型的原生 SQL 表名补全；模型显式声明 schema 时，模型 schema 优先。
+
 ## 当前目录
 
 ```txt
@@ -148,6 +165,7 @@ GORM logger 默认忽略 `ErrRecordNotFound`，避免正常的未命中查询在
 
 ## 更新记录
 
+- 2026-05-29：表名解析支持模型级 schema，新增 `SchemaName`、`TablePath`、`TablePathWithName`、`TableWithName`，`TableName` 保持返回裸表名。
 - 2026-05-28：GORM logger 开启 `IgnoreRecordNotFoundError`，未命中查询不再输出 `record not found` SQL 日志。
 - 2026-05-26：Database runtime facade 默认作为 internal 底座能力，新增 `WithExternal()` 显式对外展示；配置和 mode 必须通过 option 显式提供，移除 `core/config.V` 隐式读取。
 - 2026-05-16：`core/database/facade` 作为唯一 Runtime Capability 接入层；根包移除重复的 `Use/UseOption`，保留 `Bind/From/Gorm/PGX/Transaction` 等数据库本体 API；根包运行时绑定原语统一放在 `binding.go`。
