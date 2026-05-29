@@ -65,7 +65,7 @@ Asynq task headers 负责透传 `traceparent`、`tracestate`、`baggage`、`X-Tr
 | Redis 限流器 | 任务注册时可通过 `workermiddleware.RateLimit(limit, window)` 接入 `queue.RateLimiter` |
 | App 服务投递链路 | API/Admin 投递 `queue:mechanism_demo`，Jaeger 可看到 HTTP -> producer -> consumer -> event handler |
 | 唯一任务 | `queue.Unique` 在 TTL 内重复投递返回 `ErrTaskDuplicated` |
-| Outbox | 任务先写 `system_queue_outbox`，再 flush 到真实队列 |
+| Outbox | 任务先写业务侧 outbox 表，再 flush 到真实队列 |
 | 固定 TaskID | 失败后必须先 `DeleteTask`，再用同一 TaskID 重投 |
 | tracing | enqueue/worker span 自动生成，执行记录保留 trace 字段 |
 
@@ -97,7 +97,7 @@ Asynq task headers 负责透传 `traceparent`、`tracestate`、`baggage`、`X-Tr
 - 2026-05-22：移除旧 `system_queue_failure_log` 链路，任务错误统一来源改为 `system_queue_task_run` / `system_queue_task_run_log`。
 - 2026-05-16：worker 任务级 tracing/rate-limit 接线收敛到 `worker/middleware`，`worker/registry.go` 只保留事件注册。
 - 2026-05-15：Queue Runtime Kernel ownership 收敛，worker bootstrap 仅注入宿主依赖，outbox poller、dispatcher middleware pipeline 由 `core/queue` 持有。
-- 2026-05-12：补充 Outbox 性能取舍、适用场景和剩余缺口。
+- 2026-05-12：补充 Outbox 性能取舍、适用场景和剩余缺口；DB 表模型和 store 实现由业务侧提供。
 - 2026-05-12：实现 Outbox 常驻 poller、独立 command 和 queue rate limit middleware，真实 demo 改为 poller 自动 flush。
 - 2026-05-12：真实 demo 增加 Redis 限流器和 DB Outbox flush 覆盖，并记录剩余未实现项。
 - 2026-05-12：新增 worker 真实集成 demo，覆盖重试、限流、唯一任务、固定 TaskID 删除后重投、执行记录入库和 tracing。

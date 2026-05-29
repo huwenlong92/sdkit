@@ -86,17 +86,17 @@ func Trace() queue.Middleware {
 
 ## Outbox
 
-需要业务事务和队列投递一致时，使用 `pkg/queue/outbox/gorm`：
+需要业务事务和队列投递一致时，业务侧实现 `queue.Outbox` 并注入 worker runtime。`core/queue` 不提供固定 DB 表模型或 Gorm store。
 
 ```go
-import gormoutbox "github.com/huwenlong92/sdkit/pkg/queue/outbox/gorm"
+import appqueueoutbox "your-app/app/infra/component/queue/outbox"
 
 runtime := queue.Runtime(ctx)
 if runtime == nil {
     return queue.ErrNotInitialized
 }
 
-outbox := gormoutbox.NewGormOutbox(tx, runtime.Client())
+outbox := appqueueoutbox.NewStore(tx, runtime.Client())
 err := outbox.Save(ctx,
     queue.NewTask(taskdef.TypeUserSync, payload),
     queue.Queue("critical"),
@@ -108,11 +108,11 @@ err := outbox.Save(ctx,
 
 ```go
 runtime := workerbootstrap.Runtime()
-outbox := gormoutbox.NewGormOutbox(database.DB, runtime.Client())
+outbox := appqueueoutbox.NewStore(database.DB, runtime.Client())
 err := outbox.Flush(ctx, 100)
 ```
 
-真实 demo 会验证：Outbox 记录写入 DB、flush 后进入队列、worker 消费失败后写入 `system_queue_task_run`，并保留 trace/tracking 字段。
+真实 demo 应验证：Outbox 记录写入业务侧 DB 表、flush 后进入队列、worker 消费失败后写入 `system_queue_task_run`，并保留 trace/tracking 字段。
 
 Worker 可通过配置启动常驻 poller：
 

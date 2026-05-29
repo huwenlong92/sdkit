@@ -638,9 +638,11 @@ HTTP API 约束：
 
 ## Outbox
 
-`core/queue` 提供 `Outbox` 接口、`OutboxTask` 和 `OutboxPoller`；Gorm 实现位于 `pkg/queue/outbox/gorm`，用于“业务数据库事务成功后再投递队列”的场景，避免业务数据已提交但队列投递失败导致状态不一致。
+`core/queue` 提供 `Outbox` 接口、`OutboxTask` 和 `OutboxPoller`，用于“业务数据库事务成功后再投递队列”的场景，避免业务数据已提交但队列投递失败导致状态不一致。
 
-表结构由 `gormoutbox.MigrateOutbox(ctx, db)` 迁移。项目如果需要通过统一模型迁移管理该表，应在自己的 migrate 命令中显式调用对应迁移；bootstrap 不再隐式执行业务 `models.AutoMigrate()`。表名为 `system_queue_outbox`，保存：
+Outbox 是业务一致性能力，`core/queue` 不内置 DB 表模型和 Gorm store。业务侧应在应用仓库实现 `queue.Outbox`，并用自己的模型迁移管理表结构。表名、前缀、索引、分区和清理策略都归业务侧决定。
+
+建议保存字段：
 
 - `task_id`、`queue`、`type`
 - `payload`、`headers`、`options`
@@ -651,10 +653,8 @@ HTTP API 约束：
 用法：
 
 ```go
-import gormoutbox "github.com/huwenlong92/sdkit/pkg/queue/outbox/gorm"
-
 runtime := queue.Runtime(ctx)
-outbox := gormoutbox.NewGormOutbox(tx, runtime.Client())
+outbox := appqueueoutbox.NewStore(tx, runtime.Client())
 err := outbox.Save(ctx,
     queue.NewTask(taskdef.TypeUserSync, payload),
     queue.Queue("critical"),
@@ -690,10 +690,10 @@ err := outbox.Flush(ctx, 100)
 
 性能与适用场景：
 
-- Outbox 会在业务事务内多写 `system_queue_outbox`，带来额外行写入、索引写入和 WAL 压力。
+- Outbox 会在业务事务内多写业务侧 outbox 表，带来额外行写入、索引写入和 WAL 压力。
 - 一次 `SaveBatch` 会写多条记录，适合强一致副作用，不适合无边界拆成大量渠道任务。
 - poller 查询依赖 `status + available_at` 索引，并使用 `FOR UPDATE SKIP LOCKED`；`batch_size` 和 `flush_interval` 必须按业务量保守配置。
-- `sent` 记录会持续增长，生产环境需要清理/归档策略。
+- `pending` / `failed` 记录有排障和补偿价值；`sent` 记录只是投递一致性缓冲，通常只保留短期审计窗口，生产环境需要清理/归档策略。
 - 强一致场景使用 Outbox，例如订单创建后必须触发下游任务；普通可丢通知可以直接 `queue.Enqueue`。
 - 多渠道通知量大时，优先投递一个 `notification:fanout` 聚合任务，由 worker 内部拆渠道，避免单个业务事务写入过多 outbox 行。
 - `notification:fanout` 当前只保留为文档示例，不作为内置模板；更直接的方式仍然是 `SaveBatch` 写多条独立 outbox 记录。
@@ -795,7 +795,7 @@ Middleware 使用边界：
 - 2026-05-15：新增 `queue.Dispatcher` 和 `queue.RuntimeKernel`，把 registry middleware pipeline、retry option、rate limit state 和 outbox poller 生命周期从 worker bootstrap 收敛到 Queue Runtime Kernel。
 - 2026-05-15：新增 `queue.Registry` 和 typed payload handler 适配，worker 注册入口收敛为 `worker.RegisterEvents`，业务事件目录改为 `worker/event`。
 - 2026-05-15：新增 `queue.Push` 和 `queue.Delay`，作为默认实例迁移期 helper；`queue.Unique(ttl)` 保持为唯一任务投递选项。
-- 2026-05-13：新增 `pkg/queue/outbox/gorm` 作为 DB Outbox Gorm 实现，`core/queue` 仅保留 Outbox 标准接口、`OutboxTask` 和 poller；worker/bootstrap、queue command、models migration 和 worker 集成测试切到新路径。
+- 2026-05-13：Outbox 收口为 `core/queue` 标准接口、`OutboxTask` 和 poller；DB 表模型和 store 实现由业务侧提供。
 - 2026-05-13：真实 worker demo 覆盖任务错误记录和 tracing 链路。
 - 2026-05-13：队列标准 API 统一收敛到 `core/queue` 根包，具体 driver 位于 `pkg/queue/*`。
 - 2026-05-13：完成标准层收口，`Task`、`Message`、`Client`、`Manager`、`Driver`、`Config`、`Option`、`RuntimeOption`、状态和错误模型改由 `core/queue` 根包直接定义。
