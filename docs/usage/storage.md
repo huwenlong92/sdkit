@@ -121,7 +121,7 @@ if err != nil {
 - `oss`：生成 GET 签名 URL
 - `cos`：生成 GET 签名 URL
 
-`s3`、`minio`、`r2` 底层使用 AWS SDK for Go v2。配置自建 S3 兼容服务时，`endpoint` 建议带上 `http://` 或 `https://`；未带协议时默认按 `https://` 处理。
+`s3`、`minio`、`r2` 底层使用 AWS SDK for Go v2。配置自建 S3 兼容服务时，`endpoint` 建议带上 `http://` 或 `https://`；未带协议时默认按 `https://` 处理。`endpoint_inner` 只给服务端 SDK 请求使用，客户端直传、完成分片和临时访问的 presigned URL 固定使用外网 `endpoint`。
 
 `local` driver 没有对象存储签名能力，会生成带 `path`、`expires`、`signature` 的应用访问链接。需要配置签名密钥，并在应用路由中挂载校验 handler：
 
@@ -248,4 +248,5 @@ case storage.UploadModeMultipartPut:
 - 业务代码需要跨 driver 时通过 `storage.Use(name)` 显式选择
 - 配置入口只使用 `storage`，不要再新增 `filesystem` 配置
 - Cloudflare R2 使用 `driver: r2`，`endpoint` 为 `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`，region 默认按 R2 要求使用 `auto`
+- S3 / MinIO / R2 删除对象时逐个调用 `DeleteObject`，兼容要求批量删除请求携带 `Content-MD5` 的自建 S3 服务
 - 新增 driver 时必须在上传凭证中补齐 `mode`

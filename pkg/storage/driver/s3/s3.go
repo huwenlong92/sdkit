@@ -18,7 +18,8 @@ import (
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
-	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 
 	"github.com/huwenlong92/sdkit/pkg/storage"
 	"github.com/huwenlong92/sdkit/pkg/storage/core"
@@ -61,11 +62,19 @@ type Config struct {
 func New(cfg Config, minio bool) (*Driver, error) {
 	creds := aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, ""))
 	awsCfg := aws.Config{
-		Region:      cfg.Region,
-		Credentials: creds,
+		Region:                     cfg.Region,
+		Credentials:                creds,
+		RequestChecksumCalculation: aws.RequestChecksumCalculationWhenRequired,
+		ResponseChecksumValidation: aws.ResponseChecksumValidationWhenRequired,
 	}
 	client := awss3.NewFromConfig(awsCfg, func(opts *awss3.Options) {
-		if endpoint := s3Endpoint(cfg); endpoint != "" {
+		if endpoint := serverEndpoint(cfg); endpoint != "" {
+			opts.BaseEndpoint = aws.String(endpoint)
+		}
+		opts.UsePathStyle = minio
+	})
+	presignClient := awss3.NewFromConfig(awsCfg, func(opts *awss3.Options) {
+		if endpoint := publicEndpoint(cfg); endpoint != "" {
 			opts.BaseEndpoint = aws.String(endpoint)
 		}
 		opts.UsePathStyle = minio
@@ -73,7 +82,7 @@ func New(cfg Config, minio bool) (*Driver, error) {
 	return &Driver{
 		cfg:     cfg,
 		svc:     client,
-		presign: awss3.NewPresignClient(client),
+		presign: awss3.NewPresignClient(presignClient),
 		creds:   creds,
 		path:    minio,
 	}, nil
@@ -120,8 +129,15 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func s3Endpoint(cfg Config) string {
-	endpoint := firstNonEmpty(cfg.EndpointInner, cfg.Endpoint)
+func serverEndpoint(cfg Config) string {
+	return normalizeEndpoint(firstNonEmpty(cfg.EndpointInner, cfg.Endpoint))
+}
+
+func publicEndpoint(cfg Config) string {
+	return normalizeEndpoint(cfg.Endpoint)
+}
+
+func normalizeEndpoint(endpoint string) string {
 	if endpoint == "" || strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
 		return endpoint
 	}
@@ -130,20 +146,65 @@ func s3Endpoint(cfg Config) string {
 
 func (d *Driver) Put(file core.FileHeader) error {
 	info := file.Info()
-	_, err := d.svc.PutObject(context.Background(), &awss3.PutObjectInput{
-		Bucket:      aws.String(d.cfg.Bucket),
-		Key:         aws.String(info.Path),
-		Body:        file,
-		ContentType: aws.String(info.MIMEType),
-	})
+	input := &awss3.PutObjectInput{
+		Bucket:        aws.String(d.cfg.Bucket),
+		Key:           aws.String(info.Path),
+		Body:          file,
+		ContentLength: aws.Int64(info.Size),
+	}
+	if info.MIMEType != "" {
+		input.ContentType = aws.String(info.MIMEType)
+	}
+	opts := []func(*awss3.Options){withCompactSigningHeaders}
+	if info.MIMEType == "" {
+		opts = append(opts, withEmptyContentTypeRemoved)
+	}
+	_, err := d.svc.PutObject(context.Background(), input, opts...)
 	return err
+}
+
+func withEmptyContentTypeRemoved(options *awss3.Options) {
+	options.APIOptions = append(options.APIOptions, removeContentTypeHeader)
+}
+
+func withCompactSigningHeaders(options *awss3.Options) {
+	options.APIOptions = append(options.APIOptions, removeSDKSigningHeaders)
+}
+
+func removeContentTypeHeader(stack *middleware.Stack) error {
+	return stack.Build.Add(middleware.BuildMiddlewareFunc("RemoveContentTypeHeader", func(ctx context.Context, in middleware.BuildInput, next middleware.BuildHandler) (
+		middleware.BuildOutput, middleware.Metadata, error,
+	) {
+		if req, ok := in.Request.(*smithyhttp.Request); ok {
+			req.Header.Del("content-type")
+		}
+		return next.HandleBuild(ctx, in)
+	}), middleware.After)
+}
+
+func removeSDKSigningHeaders(stack *middleware.Stack) error {
+	return stack.Finalize.Insert(middleware.FinalizeMiddlewareFunc("RemoveSDKSigningHeaders", func(ctx context.Context, in middleware.FinalizeInput, next middleware.FinalizeHandler) (
+		middleware.FinalizeOutput, middleware.Metadata, error,
+	) {
+		switch req := in.Request.(type) {
+		case *http.Request:
+			req.Header.Del("accept-encoding")
+			req.Header.Del("amz-sdk-invocation-id")
+			req.Header.Del("amz-sdk-request")
+		case *smithyhttp.Request:
+			req.Header.Del("accept-encoding")
+			req.Header.Del("amz-sdk-invocation-id")
+			req.Header.Del("amz-sdk-request")
+		}
+		return next.HandleFinalize(ctx, in)
+	}), "Signing", middleware.Before)
 }
 
 func (d *Driver) Get(path string) (io.ReadCloser, error) {
 	out, err := d.svc.GetObject(context.Background(), &awss3.GetObjectInput{
 		Bucket: aws.String(d.cfg.Bucket),
 		Key:    aws.String(path),
-	})
+	}, withCompactSigningHeaders)
 	if err != nil {
 		return nil, err
 	}
@@ -151,15 +212,16 @@ func (d *Driver) Get(path string) (io.ReadCloser, error) {
 }
 
 func (d *Driver) Delete(paths ...string) error {
-	objs := make([]s3types.ObjectIdentifier, len(paths))
-	for i, p := range paths {
-		objs[i] = s3types.ObjectIdentifier{Key: aws.String(p)}
+	for _, p := range paths {
+		_, err := d.svc.DeleteObject(context.Background(), &awss3.DeleteObjectInput{
+			Bucket: aws.String(d.cfg.Bucket),
+			Key:    aws.String(p),
+		}, withCompactSigningHeaders)
+		if err != nil {
+			return err
+		}
 	}
-	_, err := d.svc.DeleteObjects(context.Background(), &awss3.DeleteObjectsInput{
-		Bucket: aws.String(d.cfg.Bucket),
-		Delete: &s3types.Delete{Objects: objs},
-	})
-	return err
+	return nil
 }
 
 func (d *Driver) List(dir string) ([]core.Object, error) {
@@ -171,7 +233,7 @@ func (d *Driver) List(dir string) ([]core.Object, error) {
 	out, err := d.svc.ListObjectsV2(context.Background(), &awss3.ListObjectsV2Input{
 		Bucket: aws.String(d.cfg.Bucket),
 		Prefix: aws.String(prefix),
-	})
+	}, withCompactSigningHeaders)
 	if err != nil {
 		return nil, err
 	}
@@ -216,12 +278,19 @@ func (d *Driver) Token(info core.FileInfo, ttl time.Duration) (*core.UploadCrede
 
 	// 大文件：MultipartUpload
 	expires := time.Now().Add(ttl)
-	res, err := d.svc.CreateMultipartUpload(context.Background(), &awss3.CreateMultipartUploadInput{
-		Bucket:      aws.String(d.cfg.Bucket),
-		Key:         aws.String(info.Path),
-		Expires:     &expires,
-		ContentType: aws.String(info.MIMEType),
-	})
+	input := &awss3.CreateMultipartUploadInput{
+		Bucket:  aws.String(d.cfg.Bucket),
+		Key:     aws.String(info.Path),
+		Expires: &expires,
+	}
+	if info.MIMEType != "" {
+		input.ContentType = aws.String(info.MIMEType)
+	}
+	opts := []func(*awss3.Options){withCompactSigningHeaders}
+	if info.MIMEType == "" {
+		opts = append(opts, withEmptyContentTypeRemoved)
+	}
+	res, err := d.svc.CreateMultipartUpload(context.Background(), input, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("创建分片上传失败: %w", err)
 	}
@@ -313,7 +382,7 @@ func (d *Driver) presignCompleteMultipartUpload(ctx context.Context, objectPath 
 }
 
 func (d *Driver) objectURL(objectPath string) (*url.URL, error) {
-	base := s3Endpoint(d.cfg)
+	base := publicEndpoint(d.cfg)
 	if base == "" {
 		region := d.cfg.Region
 		if region == "" {

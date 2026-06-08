@@ -101,6 +101,7 @@ storage:
 - `dir` 和 `local_dir` 都映射为本地存储目录
 - Cloudflare R2 复用 S3 兼容实现，`driver` 为 `r2`，`endpoint` 使用 R2 S3 API endpoint，`region` 默认 `auto`
 - S3 / MinIO / R2 driver 使用 AWS SDK for Go v2；自建 S3 兼容服务的 `endpoint` 建议显式带协议，未带协议时默认按 `https://` 处理。
+- S3 / MinIO / R2 的 `endpoint_inner` 只用于服务端 SDK 请求；客户端直传、完成分片和临时访问的 presigned URL 固定使用外网 `endpoint`。
 
 ## Runtime Capability
 
@@ -226,6 +227,8 @@ storage.AfterTokenFailed(hook)
 
 ## 更新记录
 
+- S3 / MinIO / R2 区分服务端内网 endpoint 和客户端 presigned URL endpoint，避免直传凭证返回 `endpoint_inner`。
+- S3 / MinIO / R2 删除改为逐个 `DeleteObject`，避免部分 S3 兼容服务对 `DeleteObjects` 强制要求 `Content-MD5` 导致删除失败。
 - S3 / MinIO / R2 driver 从 AWS SDK for Go v1 迁移到 AWS SDK for Go v2，移除已 EOL 的 `github.com/aws/aws-sdk-go` 依赖。
 - 新增 Cloudflare R2 存储 driver，复用 S3 兼容协议，默认 region 为 `auto`。
 - `Source(path, ttl)` 支持所有现有 driver 的临时私有访问链接；COS 补齐 GET 签名，local 增加签名 URL 和 `SourceHandler`。
