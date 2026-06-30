@@ -131,6 +131,35 @@ func TestRuntimeGovernanceMiddlewares(t *testing.T) {
 	}
 }
 
+func TestRuntimeRetryMiddlewareDeadLettersWhenMaxRetryZero(t *testing.T) {
+	wantErr := errors.New("boom")
+	handler := queue.Chain(
+		func(context.Context, *queue.Message) error {
+			return wantErr
+		},
+		middleware.Retry(queue.RetryStrategyFunc(func(context.Context, *queue.Message, int, error) (time.Duration, bool) {
+			return time.Second, true
+		})),
+	)
+
+	msg := &queue.Message{
+		Type:     "sandbox.run",
+		Queue:    "critical",
+		State:    queue.TaskRunning,
+		MaxRetry: 0,
+	}
+	err := handler(context.Background(), msg)
+	if !queue.IsDeadLetterError(err) {
+		t.Fatalf("handler error = %v, want deadletter runtime error", err)
+	}
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("handler error = %v, want wrapped %v", err, wantErr)
+	}
+	if msg.State != queue.TaskDeadLetter {
+		t.Fatalf("message state = %s, want %s", msg.State, queue.TaskDeadLetter)
+	}
+}
+
 type runtimeMetricsRecorder struct {
 	counter  map[string]int64
 	duration map[string]time.Duration

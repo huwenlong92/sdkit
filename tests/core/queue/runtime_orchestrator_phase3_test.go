@@ -102,7 +102,7 @@ func TestOrchestratorMarksRetryState(t *testing.T) {
 		t.Fatalf("register: %v", err)
 	}
 
-	msg := &queue.Message{ID: "task-1", Type: "task.retry"}
+	msg := &queue.Message{ID: "task-1", Type: "task.retry", MaxRetry: 3}
 	err := dispatcher.Dispatch(context.Background(), "task.retry", msg)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("dispatch error = %v, want %v", err, wantErr)
@@ -114,6 +114,37 @@ func TestOrchestratorMarksRetryState(t *testing.T) {
 		t.Fatalf("events = %v, want %v", got, want)
 	}
 	if observer.retried != 1 || observer.failed != 0 || observer.finished != 1 {
+		t.Fatalf("observer = %+v", observer)
+	}
+}
+
+func TestOrchestratorMarksDeadLetterWhenRetryExhausted(t *testing.T) {
+	dispatcher := queue.NewDispatcher()
+	publisher := &recordingPublisher{}
+	observer := &recordingObserver{}
+	dispatcher.SetOrchestrator(queue.NewOrchestrator(
+		queue.WithEventPublisher(publisher),
+		queue.WithObserver(observer),
+	))
+	wantErr := errors.New("retry exhausted")
+	if err := dispatcher.Register("task.retry.exhausted", func(context.Context, *queue.Message) error {
+		return queue.RetryableAfter(3*time.Second, wantErr)
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	msg := &queue.Message{ID: "task-1", Type: "task.retry.exhausted", MaxRetry: 0}
+	err := dispatcher.Dispatch(context.Background(), "task.retry.exhausted", msg)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("dispatch error = %v, want %v", err, wantErr)
+	}
+	if msg.State != queue.TaskDeadLetter {
+		t.Fatalf("message state = %s, want %s", msg.State, queue.TaskDeadLetter)
+	}
+	if got, want := publisher.types(), []queue.RuntimeEventType{queue.RuntimeEventTaskStarted, queue.RuntimeEventTaskDeadLetter}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("events = %v, want %v", got, want)
+	}
+	if observer.retried != 0 || observer.failed != 1 || observer.finished != 1 {
 		t.Fatalf("observer = %+v", observer)
 	}
 }

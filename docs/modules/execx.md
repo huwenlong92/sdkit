@@ -117,6 +117,8 @@ Shell 入口不做参数转义，也不承诺防注入。业务层必须保证�
 
 `Run`、`RunOutput`、`RunStream` 使用 `exec.CommandContext`，context 取消时会停止进程。调用 `WithKillProcessGroup()` 后，Unix 下会为命令设置独立进程组并 kill 整个进程组。
 
+`RunShell`、`RunShellOutput`、`RunShellStream` 和 `StartShell` 在 Unix 下默认启用进程组清理，避免 shell 脚本拉起后台子进程后只杀顶层 shell。
+
 `Start` 面向长期进程，Unix 下默认启用进程组清理。`Stop` 先发送终止信号，调用方传入的 context 超时后再 kill。
 
 ## Sink

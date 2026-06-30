@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/huwenlong92/sdkit/pkg/storage/chunk"
 	"github.com/huwenlong92/sdkit/pkg/storage/core"
@@ -102,6 +103,38 @@ type fileWithInfo struct {
 
 func (f fileWithInfo) Info() core.FileInfo { return f.info }
 
+type seekableFileWithInfo struct {
+	core.FileHeader
+	io.Seeker
+	info core.FileInfo
+}
+
+func (f seekableFileWithInfo) Info() core.FileInfo { return f.info }
+
+type seekableUploadStream struct {
+	reader   io.Reader
+	seeker   io.Seeker
+	closer   io.Closer
+	info     core.FileInfo
+	progress *uploadProgressReader
+}
+
+func (f seekableUploadStream) Read(p []byte) (int, error) { return f.reader.Read(p) }
+func (f seekableUploadStream) Seek(offset int64, whence int) (int64, error) {
+	position, err := f.seeker.Seek(offset, whence)
+	if err == nil && f.progress != nil {
+		f.progress.setPosition(position)
+	}
+	return position, err
+}
+func (f seekableUploadStream) Info() core.FileInfo { return f.info }
+func (f seekableUploadStream) Close() error {
+	if f.closer != nil {
+		return f.closer.Close()
+	}
+	return nil
+}
+
 func (fs *FileSystem) Upload(ctx context.Context, file core.FileHeader) UploadResult {
 	return fs.UploadWithHook(ctx, file)
 }
@@ -119,11 +152,15 @@ func (fs *FileSystem) upload(ctx context.Context, file core.FileHeader, hooks op
 	}
 	info := fs.prepareInfo(file.Info())
 	wrapped := fileWithInfo{FileHeader: file, info: info}
+	var uploadFile core.FileHeader = wrapped
+	if seeker, ok := file.(io.Seeker); ok {
+		uploadFile = seekableFileWithInfo{FileHeader: file, Seeker: seeker, info: info}
+	}
 
 	if err := fs.Trigger(ctx, HookBeforeUpload, hooks.event(fs, OperationUpload, HookBeforeUpload, info, nil), hooks.beforeUpload...); err != nil {
 		return fs.uploadResult(info, false, err)
 	}
-	if err := fs.handler.Put(wrapped); err != nil {
+	if err := fs.handler.Put(uploadFile); err != nil {
 		_ = fs.Trigger(ctx, HookAfterUploadFailed, hooks.event(fs, OperationUpload, HookAfterUploadFailed, info, err), hooks.afterUploadFailed...)
 		return fs.uploadResult(info, false, err)
 	}
@@ -143,7 +180,43 @@ func (fs *FileSystem) UploadStreamWithHook(ctx context.Context, reader io.Reader
 
 func (fs *FileSystem) uploadStream(ctx context.Context, reader io.Reader, info core.FileInfo, hooks operationHooks) UploadResult {
 	info = fs.prepareInfo(info)
+	if seeker, ok := reader.(io.Seeker); ok {
+		var closer io.Closer
+		if c, ok := reader.(io.Closer); ok {
+			closer = c
+		}
+		stream := seekableUploadStream{reader: reader, seeker: seeker, closer: closer, info: info}
+		if info.Progress != nil {
+			progress := &uploadProgressReader{reader: reader, total: info.Size, fn: info.Progress}
+			stream.reader = progress
+			stream.progress = progress
+		}
+		return fs.upload(ctx, stream, hooks)
+	}
 	return fs.upload(ctx, core.NewFileStream(reader, info), hooks)
+}
+
+type uploadProgressReader struct {
+	reader io.Reader
+	total  int64
+	curr   int64
+	fn     func(uploaded, total int64)
+}
+
+func (r *uploadProgressReader) Read(buf []byte) (int, error) {
+	n, err := r.reader.Read(buf)
+	if n > 0 {
+		uploaded := atomic.AddInt64(&r.curr, int64(n))
+		r.fn(uploaded, r.total)
+	}
+	return n, err
+}
+
+func (r *uploadProgressReader) setPosition(position int64) {
+	if position < 0 {
+		position = 0
+	}
+	atomic.StoreInt64(&r.curr, position)
 }
 
 func (fs *FileSystem) UploadFromURL(ctx context.Context, rawURL string, info core.FileInfo) UploadResult {

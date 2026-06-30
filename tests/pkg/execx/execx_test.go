@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -135,6 +136,23 @@ func TestRunContextDeadline(t *testing.T) {
 	}
 }
 
+func TestRunShellContextDeadlineKillsProcessGroup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process group cleanup test is Unix-specific")
+	}
+	tickFile, pidFile := shellTickerFiles(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	_, err := execx.RunShell(ctx, backgroundTickerScript(tickFile, pidFile))
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("RunShell() error = %v, want deadline exceeded", err)
+	}
+
+	pid := readPIDFile(t, pidFile)
+	assertNoNewTicks(t, tickFile, pid)
+}
+
 func TestRunStreamStdoutStderr(t *testing.T) {
 	name, args := helperCommand("stdout-stderr")
 	var mu sync.Mutex
@@ -236,6 +254,37 @@ func TestRunStreamSinkErrorStopsCommand(t *testing.T) {
 	}
 }
 
+func TestRunShellStreamSinkErrorKillsProcessGroup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process group cleanup test is Unix-specific")
+	}
+	tickFile, pidFile := shellTickerFiles(t)
+	sinkErr := errors.New("sink closed")
+	done := make(chan error, 1)
+
+	go func() {
+		_, err := execx.RunShellStream(
+			context.Background(),
+			backgroundTickerScript(tickFile, pidFile),
+			execx.SinkFunc(func(ctx context.Context, event execx.Event) error {
+				if strings.TrimSpace(event.Text) == "ready" {
+					return sinkErr
+				}
+				return nil
+			}),
+		)
+		done <- err
+	}()
+
+	err := waitShellStreamDone(t, done, pidFile)
+	if !errors.Is(err, sinkErr) {
+		t.Fatalf("RunShellStream() error = %v, want sink error", err)
+	}
+
+	pid := readPIDFile(t, pidFile)
+	assertNoNewTicks(t, tickFile, pid)
+}
+
 func TestStartStopRecentEvents(t *testing.T) {
 	name, args := helperCommand("loop")
 	p, err := execx.Start(context.Background(), name, args, execx.WithRingBuffer(5))
@@ -261,6 +310,99 @@ func TestStartStopRecentEvents(t *testing.T) {
 	if p.Running() {
 		t.Fatal("process should not be running after Stop")
 	}
+}
+
+func shellTickerFiles(t *testing.T) (string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	return filepath.Join(dir, "ticks"), filepath.Join(dir, "child.pid")
+}
+
+func backgroundTickerScript(tickFile, pidFile string) string {
+	return fmt.Sprintf(
+		"(while true; do echo tick >> %s; sleep 0.05; done) & echo $! > %s; echo ready; wait",
+		shellQuoteUnix(tickFile),
+		shellQuoteUnix(pidFile),
+	)
+}
+
+func shellQuoteUnix(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'"
+}
+
+func waitShellStreamDone(t *testing.T, done <-chan error, pidFile string) error {
+	t.Helper()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(2 * time.Second):
+		if pid := readPIDFileIfExists(pidFile); pid > 0 {
+			killPID(pid)
+		}
+	}
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(time.Second):
+		t.Fatal("RunShellStream did not return after sink error")
+		return nil
+	}
+}
+
+func assertNoNewTicks(t *testing.T, tickFile string, pid int) {
+	t.Helper()
+	before := countTicks(t, tickFile)
+	time.Sleep(250 * time.Millisecond)
+	after := countTicks(t, tickFile)
+	if after > before {
+		killPID(pid)
+		t.Fatalf("child process wrote %d ticks after command ended", after-before)
+	}
+}
+
+func countTicks(t *testing.T, path string) int {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return 0
+	}
+	if err != nil {
+		t.Fatalf("read ticks: %v", err)
+	}
+	return strings.Count(string(data), "\n")
+}
+
+func readPIDFile(t *testing.T, path string) int {
+	t.Helper()
+	pid := readPIDFileIfExists(path)
+	if pid <= 0 {
+		t.Fatalf("child pid file %q is empty or missing", path)
+	}
+	return pid
+}
+
+func readPIDFileIfExists(path string) int {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0
+	}
+	return pid
+}
+
+func killPID(pid int) {
+	if pid <= 0 {
+		return
+	}
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return
+	}
+	_ = process.Kill()
+	_ = process.Release()
 }
 
 func TestHelperProcess(t *testing.T) {

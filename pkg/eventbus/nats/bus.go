@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/huwenlong92/sdkit/core/eventbus"
 
@@ -16,6 +17,8 @@ import (
 )
 
 var ErrClosed = eventbus.ErrClosed
+
+const defaultPublishFlushTimeout = 3 * time.Second
 
 type Option func(*Bus)
 
@@ -100,7 +103,9 @@ func (b *Bus) Publish(ctx context.Context, event *eventbus.Event) error {
 	if err := b.conn.Publish(b.subject(event.Topic), data); err != nil {
 		return err
 	}
-	return b.conn.FlushWithContext(ctx)
+	flushCtx, cancel := publishFlushContext(ctx)
+	defer cancel()
+	return b.conn.FlushWithContext(flushCtx)
 }
 
 func (b *Bus) Subscribe(ctx context.Context, topic string, handler eventbus.Handler) (eventbus.Subscription, error) {
@@ -218,4 +223,14 @@ func decodeEvent(topic string, data []byte) *eventbus.Event {
 		return &event
 	}
 	return &eventbus.Event{Topic: topic, Payload: append([]byte(nil), data...)}
+}
+
+func publishFlushContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); ok {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, defaultPublishFlushTimeout)
 }

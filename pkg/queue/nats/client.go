@@ -363,6 +363,8 @@ func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler queue.HandlerFun
 	}
 	ctx = queue.ContextWithMessage(ctx, queueMsg)
 	ctx, span := startWorkerSpan(ctx, queueMsg)
+	stopProgress := q.keepMessageInProgress(ctx, msg)
+	defer stopProgress()
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			recordQueueSpanPanic(span, recovered)
@@ -377,6 +379,44 @@ func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler queue.HandlerFun
 		return
 	}
 	_ = msg.Ack()
+}
+
+func (q *Queue) keepMessageInProgress(ctx context.Context, msg *natsgo.Msg) func() {
+	if q == nil || msg == nil {
+		return func() {}
+	}
+	ackWait := q.cfg.Normalize().NATS.AckWait
+	if ackWait <= 0 {
+		return func() {}
+	}
+	interval := ackWait / 2
+	if interval <= 0 {
+		interval = time.Second
+	}
+	done := make(chan struct{})
+	q.wg.Add(1)
+	go func() {
+		defer q.wg.Done()
+		timer := time.NewTimer(interval)
+		defer timer.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-q.done:
+				return
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				_ = msg.InProgress()
+				timer.Reset(interval)
+			}
+		}
+	}()
+	var once sync.Once
+	return func() {
+		once.Do(func() { close(done) })
+	}
 }
 
 func (q *Queue) rejectMessage(msg *natsgo.Msg, retryCount int, taskMaxRetry int, maxRetrySet bool) {

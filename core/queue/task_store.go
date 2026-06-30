@@ -153,10 +153,11 @@ func (NoopTaskLogger) Warn(string, ...any)  {}
 func (NoopTaskLogger) Error(string, ...any) {}
 
 type TaskStoreOptions struct {
-	Driver   string
-	WorkerID string
-	RunID    func() string
-	Now      func() time.Time
+	Driver        string
+	WorkerID      string
+	RunID         func() string
+	Now           func() time.Time
+	FinishTimeout time.Duration
 }
 
 func TaskStoreMiddleware(store TaskStore, opts TaskStoreOptions) Middleware {
@@ -184,12 +185,14 @@ func TaskStoreMiddleware(store TaskStore, opts TaskStoreOptions) Middleware {
 			var err error
 			defer func() {
 				finishedAt := taskStoreNow(opts)
+				finishCtx, cancel := taskStoreFinishContext(opts)
+				defer cancel()
 				if recovered := recover(); recovered != nil {
 					err = fmt.Errorf("panic: %v", recovered)
-					_ = finishStoredTaskRun(runCtx, store, task, run, msg, now, finishedAt, err)
+					_ = finishStoredTaskRun(finishCtx, store, task, run, msg, now, finishedAt, err)
 					panic(recovered)
 				}
-				_ = finishStoredTaskRun(runCtx, store, task, run, msg, now, finishedAt, err)
+				_ = finishStoredTaskRun(finishCtx, store, task, run, msg, now, finishedAt, err)
 			}()
 			err = next(runCtx, msg)
 			return err
@@ -455,6 +458,14 @@ func taskStoreNow(opts TaskStoreOptions) time.Time {
 		return opts.Now()
 	}
 	return time.Now()
+}
+
+func taskStoreFinishContext(opts TaskStoreOptions) (context.Context, context.CancelFunc) {
+	timeout := opts.FinishTimeout
+	if timeout <= 0 {
+		timeout = 15 * time.Second
+	}
+	return context.WithTimeout(context.Background(), timeout)
 }
 
 func taskStoreFirstNonEmpty(values ...string) string {

@@ -40,5 +40,5 @@ func shouldDeadLetter(msg *queue.Message, err error) bool {
 	if msg == nil {
 		return false
 	}
-	return msg.MaxRetry >= 0 && msg.RetryCount >= msg.MaxRetry
+	return queue.RetryExhausted(msg)
 }

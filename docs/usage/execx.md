@@ -50,6 +50,8 @@ output, err := execx.RunShellOutput(
 
 `RunShell*` 只适合可信脚本、内部固定模板和运维命令。用户输入不要直接拼进 shell 字符串；用户参数优先使用 `Run(ctx, name, args)` 的非 shell 形式。
 
+Shell 入口在 Unix/macOS 下默认启用进程组清理。调用方用 `context.WithTimeout` 或取消 context 停止命令时，会 kill shell 及其拉起的后台子进程，避免只杀顶层 shell 后子进程残留。
+
 ## 收集输出
 
 ```go
@@ -187,6 +189,30 @@ _, err := execx.RunStream(ctx, command, args, sink, execx.WithDecodeFunc(func(da
 ```
 
 如果希望解码失败直接终止命令，增加 `WithStrictDecode()`。
+
+## 超时与进程组清理
+
+`execx` 不设置默认执行超时。调用方需要按业务场景显式传入带超时的 context：
+
+```go
+ctx, cancel := context.WithTimeout(parentCtx, 30*time.Second)
+defer cancel()
+
+_, err := execx.Run(ctx, "git", []string{"status", "--short"})
+```
+
+普通 `Run`、`RunOutput`、`RunStream` 超时后会停止顶层进程。命令会拉起子进程时，Unix/macOS 下应增加 `WithKillProcessGroup()`：
+
+```go
+_, err := execx.Run(
+	ctx,
+	"sh",
+	[]string{"-c", "long-task & wait"},
+	execx.WithKillProcessGroup(),
+)
+```
+
+`RunShell`、`RunShellOutput`、`RunShellStream` 和 `StartShell` 已默认启用进程组清理，不需要重复传入。
 
 ## 长期进程
 

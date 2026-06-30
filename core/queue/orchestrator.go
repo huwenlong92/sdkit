@@ -128,10 +128,10 @@ func (o *Orchestrator) finishFailure(ctx context.Context, msg *Message, err erro
 }
 
 func shouldMarkDeadLetter(msg *Message, err error) bool {
-	if msg == nil || err == nil || IsRateLimitError(err) || IsRetryableError(err) || IsIgnoredError(err) {
+	if msg == nil || err == nil || IsRateLimitError(err) || IsIgnoredError(err) {
 		return false
 	}
-	return msg.MaxRetry > 0 && msg.RetryCount >= msg.MaxRetry
+	return RetryExhausted(msg)
 }
 
 func (o *Orchestrator) publish(ctx context.Context, eventType RuntimeEventType, msg *Message, err error) {

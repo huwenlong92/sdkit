@@ -25,11 +25,21 @@ func Retry(strategy queue.RetryStrategy) queue.Middleware {
 				return err
 			}
 			if runtimeErr, ok := queue.RuntimeErrorFrom(err); ok && runtimeErr.Retryable && runtimeErr.RetryIn > 0 {
+				if queue.RetryExhausted(msg) {
+					queue.TransitionTaskState(msg, queue.TaskFailed)
+					queue.TransitionTaskState(msg, queue.TaskDeadLetter)
+					return queue.NewDeadLetterError(err)
+				}
 				return err
 			}
 			retryCount := 0
 			if msg != nil {
 				retryCount = msg.RetryCount
+			}
+			if queue.RetryExhausted(msg) {
+				queue.TransitionTaskState(msg, queue.TaskFailed)
+				queue.TransitionTaskState(msg, queue.TaskDeadLetter)
+				return queue.NewDeadLetterError(err)
 			}
 			retryIn, ok := strategy.NextRetry(ctx, msg, retryCount, err)
 			if !ok {

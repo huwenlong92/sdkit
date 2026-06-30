@@ -15,3 +15,10 @@ func DefaultRetryDelay(retryCount int, err error, _ *Message) time.Duration {
 	}
 	return 2 * time.Minute
 }
+
+func RetryExhausted(msg *Message) bool {
+	if msg == nil {
+		return false
+	}
+	return msg.MaxRetry >= 0 && msg.RetryCount >= msg.MaxRetry
+}
