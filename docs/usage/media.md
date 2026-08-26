@@ -24,7 +24,7 @@ prober, err := ffprobe.New(ctx, ffprobe.Config{
 })
 ```
 
-本包不自动下载或升级 ffprobe。二进制缺失返回 `media.ErrBinaryUnavailable`，版本不兼容返回 `media.ErrVersionUnsupported`。
+本包不自动下载或升级 ffprobe。版本比较接受 `9.0.1`、`v9.0.1`，以及 FFmpeg snapshot/BtbN 常见的 `n9.0.1-6-g...` 输出；后缀不参与数值范围比较。二进制缺失返回 `media.ErrBinaryUnavailable`，版本不兼容返回 `media.ErrVersionUnsupported`。
 
 ## 探测本地文件
 

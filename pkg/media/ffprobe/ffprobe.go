@@ -208,7 +208,10 @@ func normalizeContext(ctx context.Context) context.Context {
 }
 
 func parseVersion(value string) ([]int, error) {
-	value = strings.TrimPrefix(strings.TrimSpace(value), "v")
+	value = strings.TrimSpace(value)
+	if strings.HasPrefix(value, "v") || strings.HasPrefix(value, "n") {
+		value = value[1:]
+	}
 	parts := strings.SplitN(value, "-", 2)
 	segments := strings.Split(parts[0], ".")
 	if len(segments) == 0 || len(segments) > 4 {

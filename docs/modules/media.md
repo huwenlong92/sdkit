@@ -52,7 +52,7 @@ HDR 判断规则：
 
 ## ffprobe driver
 
-构造时执行 `ffprobe -version` 验证二进制可用性。`MinVersion` 和 `MaxVersion` 可选；配置后无法比较或超出范围都会返回 `ErrVersionUnsupported`。
+构造时执行 `ffprobe -version` 验证二进制可用性。`MinVersion` 和 `MaxVersion` 可选；版本比较支持无前缀、`v` 前缀，以及 FFmpeg snapshot/BtbN 使用的 `n` 前缀，`-` 后的构建信息不参与比较。配置后无法比较或超出范围都会返回 `ErrVersionUnsupported`。
 
 探测命令固定使用参数数组，不经过 shell：
 
@@ -103,4 +103,5 @@ go test ./tests/pkg/media/ffprobe
 
 ## 更新记录
 
+- 2026-08-26：ffprobe 版本比较兼容 FFmpeg snapshot/BtbN 的 `n<version>-<build>` 输出。
 - 2026-08-23：新增 pkg-only Media 契约与本地 ffprobe driver；不接入 core/runtime。

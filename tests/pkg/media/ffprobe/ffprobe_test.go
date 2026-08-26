@@ -149,6 +149,21 @@ func TestFFProbeClassifiesBinaryAndVersionErrors(t *testing.T) {
 	}
 }
 
+func TestFFProbeAcceptsSnapshotVersionPrefix(t *testing.T) {
+	driver, err := ffprobe.New(context.Background(), ffprobe.Config{
+		MinVersion: "9.0.1",
+		MaxVersion: "9.0.1",
+	}, ffprobe.WithRunner(ffprobeRunnerFunc(func(_ context.Context, _ ffprobe.Command) (ffprobe.Result, error) {
+		return ffprobe.Result{Stdout: []byte("ffprobe version n9.0.1-6-g9d4ca21220-20260825 Copyright\n")}, nil
+	})))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	if driver.Version() != "n9.0.1-6-g9d4ca21220-20260825" {
+		t.Fatalf("Version() = %q", driver.Version())
+	}
+}
+
 func TestFFProbeRejectsInvalidOutput(t *testing.T) {
 	driver := newFixtureProber(t, []byte("not-json"))
 	_, err := driver.Probe(context.Background(), media.Input{Path: mediaInput(t)}, media.ProbeOptions{})
