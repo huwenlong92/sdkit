@@ -106,13 +106,13 @@ worker:
 | `nats.subject_prefix` | 任务 subject 前缀，实际 subject 为 `<prefix>.<queue>.<task_type>` |
 | `nats.durable_prefix` | durable consumer 前缀；同一组 worker 必须相同，避免同一任务被多个 durable 重复消费 |
 | `nats.ack_wait` | handler 未 ack 前的重投等待时间 |
-| `nats.max_deliver` | JetStream 最大投递次数 |
+| `nats.max_deliver` | JetStream consumer 最大投递次数；必须不小于业务任务需要的最大投递次数 |
 | `nats.duplicates` | `Nats-Msg-Id` 去重窗口 |
 | `nats.storage` | stream 存储，`file` 或 `memory` |
 | `nats.replicas` | JetStream 副本数 |
 | `nats.fetch_batch` | pull consumer 每次拉取数量 |
 | `nats.fetch_wait` | 单次拉取最长等待 |
-| `nats.retry_delay` | handler 返回 error 后 `NakWithDelay` 的重试间隔 |
+| `nats.retry_delay` | handler 未通过 `RateLimitError.RetryIn` 或 `RuntimeError.RetryIn` 指定间隔时，`NakWithDelay` 使用的后备重试间隔 |
 | `schedule.enabled` | 是否启用 DB 延迟任务调度器 |
 | `schedule.batch_size` | 单次抢占到期延迟任务数量 |
 | `schedule.poll_interval` | 扫描到期延迟任务间隔 |

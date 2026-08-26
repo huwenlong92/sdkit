@@ -1,0 +1,19 @@
+{
+  "streams": [
+    {
+      "index": 0,
+      "codec_name": "flac",
+      "codec_type": "audio",
+      "sample_rate": "96000",
+      "channels": 2,
+      "channel_layout": "stereo"
+    }
+  ],
+  "format": {
+    "format_name": "flac",
+    "format_long_name": "raw FLAC",
+    "duration": "2.500000",
+    "size": "4096",
+    "bit_rate": "13107"
+  }
+}

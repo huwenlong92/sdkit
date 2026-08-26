@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"sync"
@@ -45,30 +46,31 @@ func RunStream(ctx context.Context, name string, args []string, sink Sink, opts 
 	cmd := newCommand(cmdCtx, name, args, cfg)
 	result := newResult(name, args, cfg)
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		result.FinishedAt = time.Now()
-		return result, err
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		result.FinishedAt = time.Now()
-		return result, err
-	}
+	stdout, stdoutWriter := io.Pipe()
+	stderr, stderrWriter := io.Pipe()
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderrWriter
 
 	if err := startCommand(cmd, &result, cfg); err != nil {
+		_ = stdout.Close()
+		_ = stdoutWriter.Close()
+		_ = stderr.Close()
+		_ = stderrWriter.Close()
 		result.FinishedAt = time.Now()
 		return result, err
 	}
 
 	var wg sync.WaitGroup
 	errCh := make(chan error, 2)
-	read := func(r anyReader, stream Stream) {
+	read := func(r *io.PipeReader, stream Stream) {
 		defer wg.Done()
 		if err := readOutput(cmdCtx, r, stream, sink, cfg); err != nil {
+			_ = r.CloseWithError(err)
 			errCh <- err
 			cancel(err)
+			return
 		}
+		_ = r.Close()
 	}
 	wg.Add(2)
 	go read(stdout, StreamStdout)
@@ -79,6 +81,8 @@ func RunStream(ctx context.Context, name string, args []string, sink Sink, opts 
 	go read(stderr, stderrStream)
 
 	waitErr := cmd.Wait()
+	_ = stdoutWriter.Close()
+	_ = stderrWriter.Close()
 	wg.Wait()
 	close(errCh)
 	finishResult(cmd, &result)
@@ -94,10 +98,6 @@ func RunStream(ctx context.Context, name string, args []string, sink Sink, opts 
 		return result, readErr
 	}
 	return result, commandError(cmdCtx, result, waitErr)
-}
-
-type anyReader interface {
-	Read([]byte) (int, error)
 }
 
 func normalizeContext(ctx context.Context) context.Context {
@@ -124,6 +124,9 @@ func newCommand(ctx context.Context, name string, args []string, cfg config) *ex
 
 func buildEnv(cfg config) []string {
 	if cfg.cleanEnv {
+		if len(cfg.env) == 0 {
+			return []string{}
+		}
 		return append([]string(nil), cfg.env...)
 	}
 	if len(cfg.env) == 0 {

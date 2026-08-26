@@ -231,6 +231,10 @@ func (q *Queue) Run(ctx context.Context) error {
 	q.mu.Lock()
 	for pattern, handler := range q.handlers {
 		for queueName := range cfg.Queues {
+			if err := q.ensureConsumerConfig(queueName, pattern); err != nil {
+				q.mu.Unlock()
+				return err
+			}
 			sub, err := q.js.PullSubscribe(q.subject(queueName, pattern), q.durable(queueName, pattern),
 				natsgo.BindStream(q.stream),
 				natsgo.ManualAck(),
@@ -251,6 +255,27 @@ func (q *Queue) Run(ctx context.Context) error {
 	q.closeOnce.Do(func() { close(q.done) })
 	q.wg.Wait()
 	return ctx.Err()
+}
+
+func (q *Queue) ensureConsumerConfig(queueName string, pattern string) error {
+	durable := q.durable(queueName, pattern)
+	info, err := q.js.ConsumerInfo(q.stream, durable)
+	if errors.Is(err, natsgo.ErrConsumerNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	cfg := info.Config
+	desired := q.cfg.Normalize().NATS
+	if cfg.AckWait == desired.AckWait && cfg.MaxDeliver == q.maxDeliver() {
+		return nil
+	}
+	cfg.AckWait = desired.AckWait
+	cfg.MaxDeliver = q.maxDeliver()
+	_, err = q.js.UpdateConsumer(q.stream, &cfg)
+	return err
 }
 
 func (q *Queue) Shutdown(context.Context) error {
@@ -375,7 +400,7 @@ func (q *Queue) handleJetStreamMessage(msg *natsgo.Msg, handler queue.HandlerFun
 	}()
 	if err := handler(ctx, queueMsg); err != nil {
 		recordQueueSpanError(span, err)
-		q.rejectMessage(msg, retryCount, env.MaxRetry, env.MaxRetrySet)
+		q.rejectMessage(msg, err, retryCount, env.MaxRetry, env.MaxRetrySet)
 		return
 	}
 	_ = msg.Ack()
@@ -419,7 +444,7 @@ func (q *Queue) keepMessageInProgress(ctx context.Context, msg *natsgo.Msg) func
 	}
 }
 
-func (q *Queue) rejectMessage(msg *natsgo.Msg, retryCount int, taskMaxRetry int, maxRetrySet bool) {
+func (q *Queue) rejectMessage(msg *natsgo.Msg, cause error, retryCount int, taskMaxRetry int, maxRetrySet bool) {
 	maxRetry := taskMaxRetry
 	if !maxRetrySet {
 		maxRetry = q.maxDeliver() - 1
@@ -429,6 +454,13 @@ func (q *Queue) rejectMessage(msg *natsgo.Msg, retryCount int, taskMaxRetry int,
 		return
 	}
 	delay := q.cfg.Normalize().NATS.RetryDelay
+	var rateLimitErr *queue.RateLimitError
+	if errors.As(cause, &rateLimitErr) && rateLimitErr.RetryIn > 0 {
+		delay = rateLimitErr.RetryIn
+	}
+	if runtimeErr, ok := queue.RuntimeErrorFrom(cause); ok && runtimeErr.RetryIn > 0 {
+		delay = runtimeErr.RetryIn
+	}
 	if delay <= 0 {
 		delay = 5 * time.Second
 	}

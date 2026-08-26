@@ -217,6 +217,68 @@ func TestRunOutputCleanEnvAndEnv(t *testing.T) {
 	}
 }
 
+func TestRunOutputCleanEnvWithoutOverridesDoesNotInheritParent(t *testing.T) {
+	t.Setenv("EXECX_PARENT_SECRET", "must-not-leak")
+	name, args := helperCommand("env", "EXECX_PARENT_SECRET")
+	output, err := execx.RunOutput(context.Background(), name, args, execx.WithCleanEnv())
+	if err != nil {
+		t.Fatalf("RunOutput() error = %v", err)
+	}
+	if len(output.Stdout) != 0 {
+		t.Fatalf("stdout = %q, parent environment leaked", output.Stdout)
+	}
+}
+
+func TestRunOutputConcurrentShortLivedCommandsDoNotRacePipeClose(t *testing.T) {
+	const runs = 64
+	name, args := helperCommand("stdout-stderr")
+	errs := make(chan error, runs)
+	var wait sync.WaitGroup
+	for range runs {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			output, err := execx.RunOutput(context.Background(), name, args, execx.WithCleanEnv())
+			if err == nil && (!strings.Contains(string(output.Stdout), "stdout-line") || !strings.Contains(string(output.Stderr), "stderr-line")) {
+				err = fmt.Errorf("incomplete output stdout=%q stderr=%q", output.Stdout, output.Stderr)
+			}
+			errs <- err
+		}()
+	}
+	wait.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("RunOutput() error = %v", err)
+		}
+	}
+}
+
+func TestStartConcurrentShortLivedCommandsDoNotRacePipeClose(t *testing.T) {
+	const runs = 32
+	name, args := helperCommand("stdout-stderr")
+	errs := make(chan error, runs)
+	var wait sync.WaitGroup
+	for range runs {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			process, err := execx.Start(context.Background(), name, args, execx.WithCleanEnv())
+			if err == nil {
+				_, err = process.Wait()
+			}
+			errs <- err
+		}()
+	}
+	wait.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("Start()/Wait() error = %v", err)
+		}
+	}
+}
+
 func TestRunStreamDecodeFunc(t *testing.T) {
 	name, args := helperCommand("decode")
 	var text string

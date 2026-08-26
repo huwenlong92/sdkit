@@ -17,6 +17,8 @@
 
 模块只负责 HTTP 协议层封装，不处理业务协议、业务鉴权、接口签名规则、日志脱敏策略或链路追踪 SDK 绑定。
 
+`pkg/sdingest` 是这一边界的实际使用方：它复用 request 的 BaseURL、header、body、HTTP 调用和响应大小限制，但自行处理 Token、唯一一次 401 重放、SDIngest envelope、业务错误和 Callback。`pkg/request` 不得替它自动重试写请求或解析业务响应。
+
 ## 包路径
 
 ```go

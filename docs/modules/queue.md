@@ -772,7 +772,8 @@ Middleware 使用边界：
 - 映射到统一 `TaskInfo`、`QueueInfo`、`TaskState`、`QueueState`。
 - 入队时透传 `core/tracking` 和 OpenTelemetry headers。
 - 消费时恢复 tracking 到 `ctx`。
-- driver 只负责 transport，不承载任务类型级 retry governance；自定义 retry delay 必须由 runtime `RetryStage` 产生 `RuntimeError.RetryIn`。
+- driver 只负责 transport，不承载任务类型级 retry governance；自定义 retry delay 必须由 runtime `RetryStage` 产生 `RuntimeError.RetryIn`。NATS driver 必须优先把该值传给 `NakWithDelay`，只有错误未携带有效 `RetryIn` 时才使用 `nats.retry_delay`。
+- NATS consumer 的 `max_deliver` 是 transport 上限，配置值必须覆盖业务任务声明的最大投递次数；否则 JetStream 会在业务进入 dead 状态前停止投递。
 - 不支持的 option 不允许静默忽略。
 
 ## 更新记录

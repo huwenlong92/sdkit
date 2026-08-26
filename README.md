@@ -88,10 +88,12 @@ go test ./...
 ```text
 docs/modules/<module>.md
 docs/usage/<module>.md
+docs/plans/<plan>.md
 ```
 
 - `docs/modules/*`：模块设计、对外 API、内部约束和更新记录
 - `docs/usage/*`：初始化方式、配置方式和使用示例
+- `docs/plans/*`：待实施或正在实施的 core 能力计划和验收记录
 
 ## 兼容性说明
 

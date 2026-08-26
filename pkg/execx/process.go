@@ -3,6 +3,7 @@ package execx
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"sync"
@@ -15,7 +16,8 @@ type Process struct {
 	cancel context.CancelCauseFunc
 	ring   *RingSink
 
-	done chan struct{}
+	done        chan struct{}
+	pipeWriters []*io.PipeWriter
 
 	mu      sync.Mutex
 	result  Result
@@ -43,33 +45,30 @@ func Start(ctx context.Context, name string, args []string, opts ...Option) (*Pr
 		sink = ring
 	}
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		cancel(err)
-		result.FinishedAt = time.Now()
-		return nil, err
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		cancel(err)
-		result.FinishedAt = time.Now()
-		return nil, err
-	}
+	stdout, stdoutWriter := io.Pipe()
+	stderr, stderrWriter := io.Pipe()
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderrWriter
 
 	if err := startCommand(cmd, &result, cfg); err != nil {
+		_ = stdout.Close()
+		_ = stdoutWriter.Close()
+		_ = stderr.Close()
+		_ = stderrWriter.Close()
 		cancel(err)
 		result.FinishedAt = time.Now()
 		return nil, err
 	}
 
 	p := &Process{
-		cmd:     cmd,
-		cfg:     cfg,
-		cancel:  cancel,
-		ring:    ring,
-		done:    make(chan struct{}),
-		result:  result,
-		running: true,
+		cmd:         cmd,
+		cfg:         cfg,
+		cancel:      cancel,
+		ring:        ring,
+		done:        make(chan struct{}),
+		pipeWriters: []*io.PipeWriter{stdoutWriter, stderrWriter},
+		result:      result,
+		running:     true,
 	}
 
 	var wg sync.WaitGroup
@@ -172,15 +171,21 @@ func (p *Process) RecentEvents() []Event {
 	return p.ring.Events()
 }
 
-func (p *Process) read(ctx context.Context, wg *sync.WaitGroup, r anyReader, stream Stream, sink Sink) {
+func (p *Process) read(ctx context.Context, wg *sync.WaitGroup, r *io.PipeReader, stream Stream, sink Sink) {
 	defer wg.Done()
 	if err := readOutput(ctx, r, stream, sink, p.cfg); err != nil {
+		_ = r.CloseWithError(err)
 		p.cancel(err)
+		return
 	}
+	_ = r.Close()
 }
 
 func (p *Process) wait(ctx context.Context, wg *sync.WaitGroup) {
 	waitErr := p.cmd.Wait()
+	for _, writer := range p.pipeWriters {
+		_ = writer.Close()
+	}
 	wg.Wait()
 	p.mu.Lock()
 	finishResult(p.cmd, &p.result)

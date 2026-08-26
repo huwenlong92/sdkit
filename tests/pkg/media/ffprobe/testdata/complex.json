@@ -1,0 +1,62 @@
+{
+  "streams": [
+    {
+      "index": 0,
+      "codec_name": "hevc",
+      "profile": "Main 10",
+      "codec_type": "video",
+      "width": 3840,
+      "height": 2160,
+      "pix_fmt": "yuv420p10le",
+      "r_frame_rate": "60000/1001",
+      "avg_frame_rate": "24000/1001",
+      "color_range": "tv",
+      "color_space": "bt2020nc",
+      "color_transfer": "smpte2084",
+      "color_primaries": "bt2020",
+      "tags": {"language": "und"},
+      "side_data_list": [{"rotation": -90}]
+    },
+    {
+      "index": 1,
+      "codec_name": "h264",
+      "codec_type": "video",
+      "width": 640,
+      "height": 360,
+      "r_frame_rate": "N/A",
+      "avg_frame_rate": "0/0"
+    },
+    {
+      "index": 2,
+      "codec_name": "aac",
+      "profile": "LC",
+      "codec_type": "audio",
+      "sample_rate": "48000",
+      "channels": 2,
+      "channel_layout": "stereo",
+      "tags": {"language": "eng"}
+    },
+    {
+      "index": 3,
+      "codec_name": "eac3",
+      "codec_type": "audio",
+      "sample_rate": "48000",
+      "channels": 6,
+      "channel_layout": "5.1(side)",
+      "tags": {"language": "zho"}
+    },
+    {
+      "index": 4,
+      "codec_name": "subrip",
+      "codec_type": "subtitle",
+      "tags": {"language": "zho", "title": "简体中文"}
+    }
+  ],
+  "format": {
+    "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+    "format_long_name": "QuickTime / MOV",
+    "duration": "12.345000",
+    "size": "12345678",
+    "bit_rate": "8000000"
+  }
+}
