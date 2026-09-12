@@ -135,6 +135,8 @@ Driver 只发送 `preparing`、`transferring`、`finalizing`。`Download` 返回
 
 Sink 同步执行。Sink 返回的数据库、消息或 context 错误会原样返回，调用方不能因此冷却 Provider 账号。
 
+Baidu CLI 的进度大小可能经过舍入。当已传输字节数超过已知总量时，Driver 会将上报的 `TransferredBytes` 限制为 `TotalBytes`，避免进度误差导致下载失败。进度字节数用于展示；实际落盘字节数以成功返回的 `DownloadResult.BytesWritten` 为准，下载仍会校验落盘大小与来源大小一致。
+
 `PartialFileKeep` 仅保留 `<destination>.partial` 作为诊断现场，不保证续传。并发已有者返回 `ErrConflict`。
 
 ## 条件清理

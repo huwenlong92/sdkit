@@ -76,6 +76,7 @@ Prepare → Transfer → Verify → Commit → Return Success
 - `PartialFileKeep` 只保留失败现场，不承诺续传；已有 `<destination>.partial` 时返回 `ErrConflict`，不会覆盖。
 - Driver 只发布 `Preparing`、`Transferring`、`Finalizing`，不发布业务完成事件。`Download` 成功返回才是唯一提交完成点。
 - Progress 数值必须非负；总量已知时 transferred 不得超过 total。Baidu 还拒绝传输字节倒退或 total 在同一次下载中变化。
+- Baidu 在实时和收尾进度调用 `EmitProgress` 前，将超过正数 total 的 transferred 截断为 total，以兼容 CLI 大小舍入；原始进度仍用于倒退和总量变化检查。截断不改变落盘大小校验或 `DownloadResult.BytesWritten`，公共 `EmitProgress` 校验保持不变。
 - Sink 同步执行并传导背压。提交前 Sink 失败原样返回，不能包装成 Provider 临时错误。
 
 ## Walk 与分页
@@ -131,5 +132,6 @@ go test -race ./tests/pkg/remotefs/...
 
 ## 更新记录
 
+- 2026-09-12：限制 Baidu 下载上报进度不超过已知总量，避免 CLI 大小舍入导致下载失败；增加回归测试，保留来源和落盘大小校验。
 - 2026-08-25：删除 Registry、Features、ShareResolver、重复身份字段和 Provider metadata；增加 Runtime/Session、条件操作、原子提交、Session 文件锁、`os.Root` confinement 和不透明 query-bound cursor。
 - 2026-08-23：新增 RemoteFS 首版、Local 与 Baidu driver。

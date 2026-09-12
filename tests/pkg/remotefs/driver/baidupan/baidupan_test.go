@@ -1069,6 +1069,53 @@ func TestBaiduPanDownloadMapsProgressAndFinalPath(t *testing.T) {
 	}
 }
 
+func TestBaiduPanDownloadToleratesRoundedProviderTotal(t *testing.T) {
+	runner := &fakeBaiduRunner{}
+	runner.streamFn = func(ctx context.Context, command baidupan.Command, sink execx.Sink) (execx.Result, error) {
+		saveDir := commandArgValue(command.Args, "--saveto=")
+		if saveDir == "" {
+			return execx.Result{}, errors.New("missing saveto")
+		}
+		finalPath := filepath.Join(saveDir, "episode 01.mp4")
+		if err := os.WriteFile(finalPath, []byte("0123456789"), 0o600); err != nil {
+			return execx.Result{}, err
+		}
+		for _, line := range []string{
+			"[1] ↓ 5B/9B 5B/s in 1s, left 1s",
+			"[1] ↓ 10B/9B 5B/s in 2s, left 0s",
+			"[1] 下载完成, 保存位置: " + finalPath,
+		} {
+			if err := sink.WriteCommandEvent(ctx, execx.Event{Stream: execx.StreamStdout, Data: []byte(line), Text: line}); err != nil {
+				return execx.Result{Command: command.Name, Args: command.Args, ExitCode: -1}, err
+			}
+		}
+		return execx.Result{Command: command.Name, Args: command.Args, ExitCode: 0}, nil
+	}
+	fs := newBaiduFileSystem(t, runner, "account")
+	target := filepath.Join(t.TempDir(), "final.mp4")
+	var progress []remotefs.Progress
+	result, err := fs.(remotefs.Downloader).Download(context.Background(), remotefs.DownloadRequest{
+		Reference: remotefs.Reference{Path: "/shows/episode 01.mp4"}, Destination: target,
+	}, remotefs.ProgressSinkFunc(func(_ context.Context, event remotefs.Progress) error {
+		progress = append(progress, event)
+		return nil
+	}))
+	if err != nil {
+		t.Fatalf("download: %v", err)
+	}
+	if result.Path != target || result.BytesWritten != 10 {
+		t.Fatalf("download result = %+v", result)
+	}
+	for _, event := range progress {
+		if event.TotalBytes > 0 && event.TransferredBytes > event.TotalBytes {
+			t.Fatalf("progress reported beyond the reported total: %+v", event)
+		}
+	}
+	if len(progress) < 3 || progress[len(progress)-1].Phase != remotefs.ProgressFinalizing || progress[len(progress)-1].TransferredBytes != 9 {
+		t.Fatalf("progress = %+v", progress)
+	}
+}
+
 func TestBaiduPanDownloadDenyDoesNotReplaceRacingDestination(t *testing.T) {
 	runner := &fakeBaiduRunner{}
 	runner.streamFn = func(ctx context.Context, command baidupan.Command, sink execx.Sink) (execx.Result, error) {

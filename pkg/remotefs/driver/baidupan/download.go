@@ -67,7 +67,7 @@ func (s *downloadSink) WriteCommandEvent(ctx context.Context, event execx.Event)
 			s.total = progress.TotalBytes
 		}
 		s.mu.Unlock()
-		err := remotefs.EmitProgress(ctx, s.sink, progress)
+		err := remotefs.EmitProgress(ctx, s.sink, clampReportedBytes(progress))
 		if err != nil {
 			s.mu.Lock()
 			s.sinkErr = err
@@ -211,7 +211,7 @@ func (f *FileSystem) Download(ctx context.Context, req remotefs.DownloadRequest,
 	if reportedTotal == 0 {
 		reportedTotal = info.Size()
 	}
-	if err := remotefs.EmitProgress(ctx, sink, remotefs.Progress{Phase: remotefs.ProgressFinalizing, TransferredBytes: info.Size(), TotalBytes: reportedTotal}); err != nil {
+	if err := remotefs.EmitProgress(ctx, sink, clampReportedBytes(remotefs.Progress{Phase: remotefs.ProgressFinalizing, TransferredBytes: info.Size(), TotalBytes: reportedTotal})); err != nil {
 		return result, err
 	}
 	if err := commitDownload(resolvedSavedPath, destination, req.Overwrite); err != nil {
@@ -220,6 +220,19 @@ func (f *FileSystem) Download(ctx context.Context, req remotefs.DownloadRequest,
 	result = remotefs.DownloadResult{Path: destination, BytesWritten: info.Size()}
 	succeeded = true
 	return result, nil
+}
+
+// clampReportedBytes keeps reported progress self-consistent before it leaves the driver.
+// The provider CLI prints human-readable sizes rounded to whole units, so the exact byte
+// count that actually landed can be slightly larger than the reported total. EmitProgress
+// rejects that combination as an invalid argument, which would fail a download that already
+// succeeded; integrity is verified separately against the source size, so the reported value
+// is clamped instead of rejected.
+func clampReportedBytes(progress remotefs.Progress) remotefs.Progress {
+	if progress.TotalBytes > 0 && progress.TransferredBytes > progress.TotalBytes {
+		progress.TransferredBytes = progress.TotalBytes
+	}
+	return progress
 }
 
 func commitDownload(stagedPath string, destination string, policy remotefs.OverwritePolicy) error {
