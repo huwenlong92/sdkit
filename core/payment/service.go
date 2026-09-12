@@ -220,6 +220,26 @@ func (s *Service) HandleNotify(ctx context.Context, req NotifyRequest) (*NotifyR
 	if !result.Verified {
 		return nil, ErrNotifyVerificationFail
 	}
+	if event := result.Event; event != nil {
+		if event.Provider != "" && event.Provider != req.Provider {
+			return nil, ErrNotifyVerificationFail
+		}
+		if event.Channel != "" && event.Channel != req.Channel {
+			return nil, ErrNotifyVerificationFail
+		}
+		if req.MerchantKey != "" && event.MerchantKey != "" && event.MerchantKey != req.MerchantKey {
+			return nil, ErrNotifyVerificationFail
+		}
+		if event.Provider == "" {
+			event.Provider = req.Provider
+		}
+		if event.Channel == "" {
+			event.Channel = req.Channel
+		}
+		if event.MerchantKey == "" {
+			event.MerchantKey = req.MerchantKey
+		}
+	}
 	return result, nil
 }
 

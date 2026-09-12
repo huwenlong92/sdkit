@@ -6,34 +6,39 @@ import (
 )
 
 type CreatePaymentRequest struct {
-	Provider    Provider       `json:"provider"`
-	Channel     Channel        `json:"channel"`
-	MerchantKey string         `json:"merchant_key,omitempty"`
-	PaymentID   string         `json:"payment_id,omitempty"`
-	OrderID     string         `json:"order_id,omitempty"`
-	OutTradeNo  string         `json:"out_trade_no,omitempty"`
-	Subject     string         `json:"subject,omitempty"`
-	Body        string         `json:"body,omitempty"`
-	Pricing     PaymentPricing `json:"pricing"`
-	NotifyURL   string         `json:"notify_url,omitempty"`
-	ReturnURL   string         `json:"return_url,omitempty"`
-	ExpireAt    *time.Time     `json:"expire_at,omitempty"`
-	Extra       map[string]any `json:"extra,omitempty"`
-}
-
-type CreatePaymentResponse struct {
+	// ProviderTradeID resumes a previously created intent without creating another.
+	ProviderTradeID string         `json:"provider_trade_id,omitempty"`
 	Provider        Provider       `json:"provider"`
 	Channel         Channel        `json:"channel"`
 	MerchantKey     string         `json:"merchant_key,omitempty"`
 	PaymentID       string         `json:"payment_id,omitempty"`
 	OrderID         string         `json:"order_id,omitempty"`
 	OutTradeNo      string         `json:"out_trade_no,omitempty"`
-	ProviderTradeID string         `json:"provider_trade_id,omitempty"`
-	Status          PaymentStatus  `json:"status"`
+	Subject         string         `json:"subject,omitempty"`
+	Body            string         `json:"body,omitempty"`
 	Pricing         PaymentPricing `json:"pricing"`
-	Action          PaymentAction  `json:"action"`
-	Raw             any            `json:"raw,omitempty"`
+	NotifyURL       string         `json:"notify_url,omitempty"`
+	ReturnURL       string         `json:"return_url,omitempty"`
+	ExpireAt        *time.Time     `json:"expire_at,omitempty"`
 	Extra           map[string]any `json:"extra,omitempty"`
+}
+
+type CreatePaymentResponse struct {
+	ExpireAt           *time.Time          `json:"expire_at,omitempty"`
+	PaidAt             *time.Time          `json:"paid_at,omitempty"`
+	ProviderSettlement *ProviderSettlement `json:"provider_settlement,omitempty"`
+	Provider           Provider            `json:"provider"`
+	Channel            Channel             `json:"channel"`
+	MerchantKey        string              `json:"merchant_key,omitempty"`
+	PaymentID          string              `json:"payment_id,omitempty"`
+	OrderID            string              `json:"order_id,omitempty"`
+	OutTradeNo         string              `json:"out_trade_no,omitempty"`
+	ProviderTradeID    string              `json:"provider_trade_id,omitempty"`
+	Status             PaymentStatus       `json:"status"`
+	Pricing            PaymentPricing      `json:"pricing"`
+	Action             PaymentAction       `json:"action"`
+	Raw                any                 `json:"raw,omitempty"`
+	Extra              map[string]any      `json:"extra,omitempty"`
 }
 
 type QueryPaymentRequest struct {
@@ -48,18 +53,20 @@ type QueryPaymentRequest struct {
 }
 
 type QueryPaymentResponse struct {
-	Provider        Provider       `json:"provider"`
-	Channel         Channel        `json:"channel"`
-	MerchantKey     string         `json:"merchant_key,omitempty"`
-	PaymentID       string         `json:"payment_id,omitempty"`
-	OrderID         string         `json:"order_id,omitempty"`
-	OutTradeNo      string         `json:"out_trade_no,omitempty"`
-	ProviderTradeID string         `json:"provider_trade_id,omitempty"`
-	Status          PaymentStatus  `json:"status"`
-	Pricing         PaymentPricing `json:"pricing"`
-	PaidAt          *time.Time     `json:"paid_at,omitempty"`
-	Raw             any            `json:"raw,omitempty"`
-	Extra           map[string]any `json:"extra,omitempty"`
+	ExpireAt           *time.Time          `json:"expire_at,omitempty"`
+	ProviderSettlement *ProviderSettlement `json:"provider_settlement,omitempty"`
+	Provider           Provider            `json:"provider"`
+	Channel            Channel             `json:"channel"`
+	MerchantKey        string              `json:"merchant_key,omitempty"`
+	PaymentID          string              `json:"payment_id,omitempty"`
+	OrderID            string              `json:"order_id,omitempty"`
+	OutTradeNo         string              `json:"out_trade_no,omitempty"`
+	ProviderTradeID    string              `json:"provider_trade_id,omitempty"`
+	Status             PaymentStatus       `json:"status"`
+	Pricing            PaymentPricing      `json:"pricing"`
+	PaidAt             *time.Time          `json:"paid_at,omitempty"`
+	Raw                any                 `json:"raw,omitempty"`
+	Extra              map[string]any      `json:"extra,omitempty"`
 }
 
 type ClosePaymentRequest struct {
@@ -140,15 +147,17 @@ type QueryRefundResponse struct {
 }
 
 type NotifyRequest struct {
-	Provider   Provider            `json:"provider"`
-	Channel    Channel             `json:"channel"`
-	Method     string              `json:"method,omitempty"`
-	Header     map[string][]string `json:"header,omitempty"`
-	Query      map[string][]string `json:"query,omitempty"`
-	Form       map[string][]string `json:"form,omitempty"`
-	Body       []byte              `json:"body,omitempty"`
-	Raw        any                 `json:"-"`
-	ReceivedAt time.Time           `json:"received_at"`
+	// MerchantKey is selected by the trusted callback route, never by an unverified payload.
+	MerchantKey string              `json:"merchant_key,omitempty"`
+	Provider    Provider            `json:"provider"`
+	Channel     Channel             `json:"channel"`
+	Method      string              `json:"method,omitempty"`
+	Header      map[string][]string `json:"header,omitempty"`
+	Query       map[string][]string `json:"query,omitempty"`
+	Form        map[string][]string `json:"form,omitempty"`
+	Body        []byte              `json:"body,omitempty"`
+	Raw         any                 `json:"-"`
+	ReceivedAt  time.Time           `json:"received_at"`
 }
 
 type NotifyResult struct {

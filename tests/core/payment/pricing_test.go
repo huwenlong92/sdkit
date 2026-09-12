@@ -22,10 +22,10 @@ func TestNormalizePricingDefaultsToCNY(t *testing.T) {
 	if got.OrderAmount != got.PayAmount {
 		t.Fatalf("order amount = %+v, want pay amount", got.OrderAmount)
 	}
-	if got.SettleCurrency != payment.DefaultCurrency {
+	if got.SettleCurrency != "" {
 		t.Fatalf("settle currency = %q", got.SettleCurrency)
 	}
-	if got.SettleAmount != got.PayAmount {
+	if got.SettleAmount != (payment.Money{}) {
 		t.Fatalf("settle amount = %+v, want pay amount", got.SettleAmount)
 	}
 	if got.ExchangeRate != nil {

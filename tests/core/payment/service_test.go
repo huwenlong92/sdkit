@@ -128,7 +128,7 @@ func TestServiceCreatePaymentNormalizesPricing(t *testing.T) {
 	if adapter.createReq.Pricing.PayAmount != (payment.Money{Amount: 19900, Currency: "CNY"}) {
 		t.Fatalf("adapter pricing = %+v", adapter.createReq.Pricing)
 	}
-	if resp.Pricing.SettleAmount != (payment.Money{Amount: 19900, Currency: "CNY"}) {
+	if resp.Pricing.SettleAmount != (payment.Money{}) {
 		t.Fatalf("response pricing = %+v", resp.Pricing)
 	}
 }

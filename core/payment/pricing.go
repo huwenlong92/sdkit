@@ -15,7 +15,7 @@ type DefaultPricingPolicy struct {
 
 func NewDefaultPricingPolicy() DefaultPricingPolicy {
 	return DefaultPricingPolicy{
-		DefaultSettleCurrency: DefaultCurrency,
+		DefaultSettleCurrency: "",
 		Currencies:            DefaultCurrencyMetadata(),
 	}
 }
@@ -36,7 +36,7 @@ func (p DefaultPricingPolicy) NormalizePricing(ctx context.Context, pricing Paym
 	}
 
 	payCurrency := NormalizeCurrency(pricing.PayAmount.Currency)
-	settleCurrency := NormalizeCurrency(pricing.SettleCurrency)
+	settleCurrency := strings.ToUpper(strings.TrimSpace(pricing.SettleCurrency))
 	if p.DefaultSettleCurrency != "" && strings.TrimSpace(pricing.SettleCurrency) == "" {
 		settleCurrency = NormalizeCurrency(p.DefaultSettleCurrency)
 	}
@@ -45,9 +45,12 @@ func (p DefaultPricingPolicy) NormalizePricing(ctx context.Context, pricing Paym
 	if err != nil {
 		return PaymentPricing{}, err
 	}
-	settleMeta, err := p.currencyMeta(settleCurrency)
-	if err != nil {
-		return PaymentPricing{}, err
+	var settleMeta CurrencyMeta
+	if settleCurrency != "" {
+		settleMeta, err = p.currencyMeta(settleCurrency)
+		if err != nil {
+			return PaymentPricing{}, err
+		}
 	}
 
 	pricing.PayAmount.Currency = payCurrency
@@ -65,26 +68,30 @@ func (p DefaultPricingPolicy) NormalizePricing(ctx context.Context, pricing Paym
 		}
 	}
 
-	settleAmount, err := p.calculateSettleAmount(pricing.PayAmount, payMeta, settleMeta, pricing.ExchangeRate)
-	if err != nil {
-		return PaymentPricing{}, err
-	}
+	if settleCurrency != "" {
+		settleAmount, err := p.calculateSettleAmount(pricing.PayAmount, payMeta, settleMeta, pricing.ExchangeRate)
+		if err != nil {
+			return PaymentPricing{}, err
+		}
 
-	if pricing.SettleAmount.Amount == 0 && strings.TrimSpace(pricing.SettleAmount.Currency) == "" {
-		pricing.SettleAmount = settleAmount
-	} else {
-		if pricing.SettleAmount.Amount <= 0 {
-			return PaymentPricing{}, fmt.Errorf("%w: settle amount must be positive", ErrInvalidAmount)
+		if pricing.SettleAmount.Amount == 0 && strings.TrimSpace(pricing.SettleAmount.Currency) == "" {
+			pricing.SettleAmount = settleAmount
+		} else {
+			if pricing.SettleAmount.Amount <= 0 {
+				return PaymentPricing{}, fmt.Errorf("%w: settle amount must be positive", ErrInvalidAmount)
+			}
+			pricing.SettleAmount.Currency = NormalizeCurrency(pricing.SettleAmount.Currency)
+			if pricing.SettleAmount.Currency != settleCurrency {
+				return PaymentPricing{}, fmt.Errorf("%w: settle amount currency %s does not match settle currency %s", ErrInvalidCurrency, pricing.SettleAmount.Currency, settleCurrency)
+			}
+			if !p.AllowExplicitSettle && pricing.SettleAmount != settleAmount {
+				return PaymentPricing{}, fmt.Errorf("%w: got %d %s, want %d %s", ErrSettleAmountMismatch, pricing.SettleAmount.Amount, pricing.SettleAmount.Currency, settleAmount.Amount, settleAmount.Currency)
+			}
 		}
-		pricing.SettleAmount.Currency = NormalizeCurrency(pricing.SettleAmount.Currency)
-		if pricing.SettleAmount.Currency != settleCurrency {
-			return PaymentPricing{}, fmt.Errorf("%w: settle amount currency %s does not match settle currency %s", ErrInvalidCurrency, pricing.SettleAmount.Currency, settleCurrency)
-		}
-		if !p.AllowExplicitSettle && pricing.SettleAmount != settleAmount {
-			return PaymentPricing{}, fmt.Errorf("%w: got %d %s, want %d %s", ErrSettleAmountMismatch, pricing.SettleAmount.Amount, pricing.SettleAmount.Currency, settleAmount.Amount, settleAmount.Currency)
-		}
-	}
 
+	} else if pricing.SettleAmount != (Money{}) || pricing.ExchangeRate != nil {
+		return PaymentPricing{}, fmt.Errorf("%w: explicit settlement currency required", ErrInvalidRequest)
+	}
 	if pricing.FeeAmount != nil {
 		if pricing.FeeAmount.Amount < 0 {
 			return PaymentPricing{}, fmt.Errorf("%w: fee amount must not be negative", ErrInvalidAmount)

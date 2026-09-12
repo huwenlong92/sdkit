@@ -24,9 +24,10 @@ type ChannelSelectionRequest struct {
 }
 
 type ChannelSelection struct {
-	Provider    Provider
-	Channel     Channel
-	MerchantKey string
+	DisabledForNew bool
+	Provider       Provider
+	Channel        Channel
+	MerchantKey    string
 }
 
 type ChannelSelector interface {
@@ -39,10 +40,11 @@ type ReloadableChannelSelector interface {
 }
 
 type ChannelBinding struct {
-	Key         string   `mapstructure:"key" yaml:"key"`
-	Provider    Provider `mapstructure:"provider" yaml:"provider"`
-	Channel     Channel  `mapstructure:"channel" yaml:"channel"`
-	MerchantKey string   `mapstructure:"merchant_key" yaml:"merchant_key"`
+	DisabledForNew bool     `mapstructure:"disabled_for_new" yaml:"disabled_for_new"`
+	Key            string   `mapstructure:"key" yaml:"key"`
+	Provider       Provider `mapstructure:"provider" yaml:"provider"`
+	Channel        Channel  `mapstructure:"channel" yaml:"channel"`
+	MerchantKey    string   `mapstructure:"merchant_key" yaml:"merchant_key"`
 }
 
 type StaticChannelSelector struct {
@@ -91,6 +93,9 @@ func (s *StaticChannelSelector) SelectPaymentChannel(ctx context.Context, req Ch
 	if req.Channel != "" && req.Channel != selection.Channel {
 		return nil, fmt.Errorf("%w: channel binding %s channel %s does not match %s", ErrUnsupportedChannel, req.MerchantKey, selection.Channel, req.Channel)
 	}
+	if selection.DisabledForNew && (req.Operation == PaymentOperationCreate || req.Operation == PaymentOperation("create_payout")) {
+		return nil, fmt.Errorf("%w: merchant disabled for new payments", ErrInvalidRequest)
+	}
 	return &selection, nil
 }
 
@@ -124,8 +129,9 @@ func normalizeChannelBinding(binding ChannelBinding) (string, ChannelSelection, 
 		merchantKey = binding.Key
 	}
 	return binding.Key, ChannelSelection{
-		Provider:    binding.Provider,
-		Channel:     binding.Channel,
-		MerchantKey: merchantKey,
+		DisabledForNew: binding.DisabledForNew,
+		Provider:       binding.Provider,
+		Channel:        binding.Channel,
+		MerchantKey:    merchantKey,
 	}, nil
 }

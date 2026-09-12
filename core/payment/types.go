@@ -91,13 +91,15 @@ type PaymentAction struct {
 type PaymentStatus string
 
 const (
-	PaymentPending         PaymentStatus = "pending"
-	PaymentProcessing      PaymentStatus = "processing"
-	PaymentRequiresAction  PaymentStatus = "requires_action"
-	PaymentAuthorized      PaymentStatus = "authorized"
-	PaymentSucceeded       PaymentStatus = "succeeded"
-	PaymentFailed          PaymentStatus = "failed"
-	PaymentClosed          PaymentStatus = "closed"
+	PaymentPending        PaymentStatus = "pending"
+	PaymentProcessing     PaymentStatus = "processing"
+	PaymentRequiresAction PaymentStatus = "requires_action"
+	PaymentAuthorized     PaymentStatus = "authorized"
+	PaymentSucceeded      PaymentStatus = "succeeded"
+	PaymentFailed         PaymentStatus = "failed"
+	PaymentClosed         PaymentStatus = "closed"
+	// PaymentExpired is an expiry confirmed by the provider, not a local timer.
+	PaymentExpired         PaymentStatus = "expired"
 	PaymentRefunding       PaymentStatus = "refunding"
 	PaymentPartialRefunded PaymentStatus = "partial_refunded"
 	PaymentRefunded        PaymentStatus = "refunded"
@@ -120,6 +122,7 @@ const (
 	EventPaymentSucceeded  EventType = "payment.succeeded"
 	EventPaymentFailed     EventType = "payment.failed"
 	EventPaymentClosed     EventType = "payment.closed"
+	EventPaymentExpired    EventType = "payment.expired"
 	EventPaymentAuthorized EventType = "payment.authorized"
 	EventPaymentCaptured   EventType = "payment.captured"
 	EventPaymentRefunding  EventType = "payment.refunding"
@@ -135,23 +138,25 @@ const (
 )
 
 type PaymentEvent struct {
-	EventID          string         `json:"event_id"`
-	Type             EventType      `json:"type"`
-	Provider         Provider       `json:"provider"`
-	Channel          Channel        `json:"channel"`
-	MerchantKey      string         `json:"merchant_key,omitempty"`
-	PaymentID        string         `json:"payment_id,omitempty"`
-	OrderID          string         `json:"order_id,omitempty"`
-	OutTradeNo       string         `json:"out_trade_no,omitempty"`
-	ProviderTradeID  string         `json:"provider_trade_id,omitempty"`
-	RefundID         string         `json:"refund_id,omitempty"`
-	ProviderRefundID string         `json:"provider_refund_id,omitempty"`
-	Status           PaymentStatus  `json:"status,omitempty"`
-	RefundStatus     RefundStatus   `json:"refund_status,omitempty"`
-	Amount           Money          `json:"amount"`
-	PaidAt           *time.Time     `json:"paid_at,omitempty"`
-	Raw              []byte         `json:"raw,omitempty"`
-	Extra            map[string]any `json:"extra,omitempty"`
+	ExpireAt           *time.Time          `json:"expire_at,omitempty"`
+	ProviderSettlement *ProviderSettlement `json:"provider_settlement,omitempty"`
+	EventID            string              `json:"event_id"`
+	Type               EventType           `json:"type"`
+	Provider           Provider            `json:"provider"`
+	Channel            Channel             `json:"channel"`
+	MerchantKey        string              `json:"merchant_key,omitempty"`
+	PaymentID          string              `json:"payment_id,omitempty"`
+	OrderID            string              `json:"order_id,omitempty"`
+	OutTradeNo         string              `json:"out_trade_no,omitempty"`
+	ProviderTradeID    string              `json:"provider_trade_id,omitempty"`
+	RefundID           string              `json:"refund_id,omitempty"`
+	ProviderRefundID   string              `json:"provider_refund_id,omitempty"`
+	Status             PaymentStatus       `json:"status,omitempty"`
+	RefundStatus       RefundStatus        `json:"refund_status,omitempty"`
+	Amount             Money               `json:"amount"`
+	PaidAt             *time.Time          `json:"paid_at,omitempty"`
+	Raw                []byte              `json:"raw,omitempty"`
+	Extra              map[string]any      `json:"extra,omitempty"`
 }
 
 type Capabilities struct {

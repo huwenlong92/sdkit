@@ -10,6 +10,8 @@ func EventFromQueryPaymentResponse(resp *QueryPaymentResponse) *PaymentEvent {
 		eventType = EventPaymentSucceeded
 	case PaymentFailed:
 		eventType = EventPaymentFailed
+	case PaymentExpired:
+		eventType = EventPaymentExpired
 	case PaymentClosed:
 		eventType = EventPaymentClosed
 	case PaymentAuthorized:
@@ -22,17 +24,20 @@ func EventFromQueryPaymentResponse(resp *QueryPaymentResponse) *PaymentEvent {
 		eventType = EventPaymentRefunded
 	}
 	return &PaymentEvent{
-		Type:            eventType,
-		Provider:        resp.Provider,
-		Channel:         resp.Channel,
-		MerchantKey:     resp.MerchantKey,
-		PaymentID:       resp.PaymentID,
-		OrderID:         resp.OrderID,
-		OutTradeNo:      resp.OutTradeNo,
-		ProviderTradeID: resp.ProviderTradeID,
-		Status:          resp.Status,
-		Amount:          resp.Pricing.PayAmount,
-		PaidAt:          resp.PaidAt,
+		Type:               eventType,
+		ExpireAt:           resp.ExpireAt,
+		Provider:           resp.Provider,
+		Channel:            resp.Channel,
+		MerchantKey:        resp.MerchantKey,
+		PaymentID:          resp.PaymentID,
+		OrderID:            resp.OrderID,
+		OutTradeNo:         resp.OutTradeNo,
+		ProviderTradeID:    resp.ProviderTradeID,
+		Status:             resp.Status,
+		Amount:             resp.Pricing.PayAmount,
+		PaidAt:             resp.PaidAt,
+		ProviderSettlement: resp.ProviderSettlement,
+		Extra:              resp.Extra,
 	}
 }
 

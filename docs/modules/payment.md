@@ -51,6 +51,7 @@
 | wechat | `pkg/payment/wechat`, `pkg/payment/wechat/apiv3` | `sdkit_payment_wechat` |
 | stripe | `pkg/payment/stripe`, `pkg/payment/stripe/stripego` | `sdkit_payment_stripe` |
 | paypal | `pkg/payment/paypal`, `pkg/payment/paypal/ordersapi` | `sdkit_payment_paypal` |
+| airwallex | `pkg/payment/airwallex`, `pkg/payment/airwallex/httpapi` | `sdkit_payment_airwallex` |
 
 `pkg/payment/aggregate`、`pkg/payment/channelrouter`、`pkg/payment/debuglog`、`pkg/payment/mock` 不绑定第三方 SDK，默认保留。
 
@@ -80,6 +81,8 @@ core/payment/
   facade/
 
 pkg/payment/
+  airwallex/
+    httpapi/
   aggregate/
   alipay/
     openapi/
@@ -215,7 +218,7 @@ type QueryClient interface {
 
 - `PayAmount` 必填
 - `PayAmount.Currency` 为空时默认 `CNY`
-- `SettleCurrency` 为空时默认 `CNY`
+- `SettleCurrency` 为空时不计算结算金额，不要求汇率
 - `OrderAmount` 为空时默认等于 `PayAmount`
 - 支付币种等于结算币种时，`SettleAmount` 默认等于 `PayAmount`
 - 支付币种不等于结算币种时，必须提供 `ExchangeRate`
@@ -397,3 +400,52 @@ Braintree 当前没有官方 Go server SDK。本模块不引入非官方 `braint
 - 新增 `ChannelSelector` 和 `payment.ReloadChannels`。
 - 新增微信、支付宝、Stripe、PayPal adapter。
 - 默认改为动态 client 模式，静态 client 需要显式 `ClientModeStatic`。
+
+
+## Airwallex 普通支付适配器（2026-09-11）
+
+- 只增加 `ProviderAirwallex` / `ChannelAirwallexHPP` 常量，不扩充既有 ProviderAdapter 或 facade.Config；无 tag 时具体实现不参与编译。
+- adapter 沿用动态 ClientLoader / 显式静态 Client 模式，普通支付客户端实现全套六个方法；capability 与方法对应。回调账户选择使用服务器配置 NotifyMerchantKey，不接受请求自报商户 key。
+- httpapi 复用 pkg/request，强制显式环境及账户、官方固定域名、禁止重定向、30 秒默认 HTTP 超时、1 MiB 响应上限。每实例维护 token 和到期时间；并发刷新合并，等待者可取消；不做全局跨账户 token 缓存。
+- v4 UUID 幂等键由业务在操作前持久化；不自动重新生成，不自动重试 POST。401 失效缓存，错误不输出凭据或上游原始 body。
+- 金额使用整数与精确有理数转换，拒绝多余精度、负值和 int64 溢出。查询的付款金额不伪装成真实结算金额；退款先核对原支付币种。
+- HPP 返回 SDKParams（需官方 Airwallex.js）；创建接口本身不等于付款成功。REQUIRES_CAPTURE 映射 authorized，不等于 captured/succeeded。
+- 验签先于 JSON 解析；使用配置中的签名密钥、原始毫秒时间戳和原始 body，验证账户和事件/状态一致性。未知事件/状态不升级为成功；原始 payload 不回显。
+- 支付/退款事件解析是无状态的；可靠入库、去重、乱序事件、订单关联、费率、分账、结算和银行到账事实由消费方拥有。
+- 本轮不提供开户、渠道分账、出款、独立 capture 或指定支付过期时间。官方当前未提供 Go 服务端 SDK，HTTP 层为官方 REST 协议封装。
+
+调用方式、配置字段和回调限制见 [Payment 使用 / Airwallex 普通支付](../usage/payment.md#airwallex-普通支付2026-09-11)。
+
+
+## 2026-09-11：支付主流程与可选能力
+
+支付金额/币种/状态是主流程。支付币种为空默认 CNY；未指定结算币种时不隐式换汇。显式设置结算币种及 ExchangeRate 的计算能力继续保留。ProviderSettlement 是下单、查询及回调共有的可选渠道事实，和调用方计算的 Pricing 分开；缺失不等于零，不要求补齐，也不额外请求结算报告。
+
+CreatePayout/QueryPayout 根据可选 PayoutProvider 接口分派，普通支付 adapter 不实现时返回 ErrUnsupportedCapability。打款请求使用收款人 ID、最小单位金额、币种、持久化 RequestID；业务方负责授权及幂等存储。Airwallex 使用 Transfers 协议，SENT 仅表示已发出，不能当作收款成功。
+
+同一种 provider 可有多个 merchant_key；一个 adapter 通过 ClientLoader 选择商户实例。ChannelBinding.disabled_for_new 阻止新下单/打款，查询、退款和回调继续使用原绑定。NotifyRequest.MerchantKey 由服务端回调路由选择，adapter 据此加载验签配置；签名校验后还须匹配原支付商户。不得因超时自动换商户重试。
+
+Airwallex 目前官方服务端 SDK 仅列出 Node.js Beta，Go 协议实现复用 sdkit/pkg/request。参考：https://www.airwallex.com/docs/developer-tools/sdks/server-side-sdks-%28beta%29 。普通 PaymentIntent 文档未提供逐笔完整结算金额/汇率；它们通过单独的 Settlement Records API 提供。本轮不主动查询该 API，不伪造或从支付金额推导 ProviderSettlement。
+
+运行时可调用 payment.RegisterProvider(adapter) 注册新类型，payment.ReloadChannels(bindings) 原子替换商户绑定；重复注册同名类型返回 ErrAdapterAlreadyExists。动态商户凭据通过 adapter 的 ClientLoader 提供，core 不持有业务配置和密钥。请求显式指定 Provider/Channel/MerchantKey；回调也支持服务端指定 MerchantKey。Airwallex 打款使用 ChannelAirwallexTransfer，同币种出款；接收人管理及自动换汇不在此操作范围。PAID 是渠道处理成功状态，之后仍可能失败，业务方不得将其视为永不可变的状态。
+
+Transfers HTTP 请求固定使用 x-api-version 2024-09-27，与 transfer_amount/transfer_currency 和 Transfers 资源协议一致；普通支付请求维持原版本行为。
+
+
+### 下单地址参数（2026-09-11）
+
+`CreatePaymentRequest.ReturnURL` 和 `NotifyURL` 是单笔支付参数。支持的 adapter 使用请求值，未传时使用该商户可选默认值；同一次渠道幂等重试应保留首次参数。ReturnURL 只决定客户端返回页面，不是付款成功凭据。
+
+Airwallex 支持请求级 ReturnURL。它的 PaymentIntent API 不接受逐笔 notify_url，通知地址通过 Webhook 订阅预先注册。`httpapi.Config.NotifyURL` 记录已在 Airwallex 注册的地址，不会创建或修改订阅；请求 NotifyURL 为空或等于该地址时正常下单，其他值在网络请求前返回 ErrUnsupportedCapability。微信/支付宝沿用已有请求 NotifyURL 优先于 client 默认值的行为。
+
+参考：[Airwallex Webhook 订阅](https://www.airwallex.com/docs/developer-tools/webhooks/webhooks-overview)、[PaymentIntent API](https://www.airwallex.com/docs/api/payments/payment_intents/create)。
+
+
+### Provider expiry (2026-09-11)
+
+`CreatePaymentRequest.ExpireAt` requests a provider expiry only when `SupportsExpireAt` is supported. Create/query responses and `PaymentEvent` optionally return the provider-confirmed `ExpireAt`; nil means unknown. `PaymentExpired` / `EventPaymentExpired` represent provider-confirmed expiration. Business deadlines stay with the caller and are not proof that a provider cannot collect. A verified late success may supersede expiration; stale intermediate results cannot reopen an expired payment. `CreatePaymentResponse.PaidAt` optionally carries the provider payment timestamp.
+
+Airwallex token 到期时间兼容 RFC3339 与 ISO-8601 无冒号时区偏移（如 `+0000`），保留严格到期校验和提前刷新。
+
+
+业务方每次明确重新支付应创建新的支付单号和 request_id。相同 HTTP 命令重放保持原 request_id；已知 ProviderTradeID 时可读取既有渠道单返回付款动作。Airwallex 不再在 duplicate_request 后自动检索或重建支付单；渠道错误原样交由调用方处理。

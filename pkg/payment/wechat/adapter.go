@@ -137,8 +137,8 @@ func (a *Adapter) ParseNotify(ctx context.Context, req payment.NotifyRequest) (*
 	if ctx == nil {
 		return nil, payment.ErrNilContext
 	}
-	merchantKey := ""
-	if req.Query != nil {
+	merchantKey := req.MerchantKey
+	if merchantKey == "" && req.Query != nil {
 		values := req.Query["merchant_key"]
 		if len(values) > 0 {
 			merchantKey = values[0]

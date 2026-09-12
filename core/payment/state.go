@@ -11,6 +11,8 @@ func StatusFromEvent(event PaymentEvent) PaymentStatus {
 		return PaymentSucceeded
 	case EventPaymentFailed:
 		return PaymentFailed
+	case EventPaymentExpired:
+		return PaymentExpired
 	case EventPaymentClosed:
 		return PaymentClosed
 	case EventPaymentAuthorized:
@@ -45,14 +47,14 @@ func CanTransitionPaymentStatus(from, to PaymentStatus) bool {
 			to == PaymentRequiresAction ||
 			to == PaymentAuthorized ||
 			to == PaymentFailed ||
-			to == PaymentClosed
+			to == PaymentClosed || to == PaymentExpired
 	case PaymentProcessing, PaymentRequiresAction:
 		return to == PaymentAuthorized ||
 			to == PaymentFailed ||
-			to == PaymentClosed
+			to == PaymentClosed || to == PaymentExpired
 	case PaymentAuthorized:
 		return to == PaymentFailed ||
-			to == PaymentClosed
+			to == PaymentClosed || to == PaymentExpired
 	case PaymentSucceeded:
 		return to == PaymentRefunding ||
 			to == PaymentPartialRefunded ||
@@ -64,6 +66,8 @@ func CanTransitionPaymentStatus(from, to PaymentStatus) bool {
 	case PaymentPartialRefunded:
 		return to == PaymentRefunding ||
 			to == PaymentRefunded
+	case PaymentExpired:
+		return false
 	case PaymentFailed, PaymentClosed:
 		return to == PaymentAuthorized
 	case PaymentRefunded:
