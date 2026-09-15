@@ -15,6 +15,16 @@ import (
 
 type Environment string
 
+type AuthenticationMode string
+
+const (
+	// AuthenticateAccount preserves explicit account-scoped authentication.
+	AuthenticateAccount AuthenticationMode = "account"
+	// AuthenticateDefault is for a scoped key bound to exactly one account.
+	// AccountID remains required for webhook identity verification.
+	AuthenticateDefault AuthenticationMode = "default"
+)
+
 const (
 	Sandbox           Environment = "sandbox"
 	Production        Environment = "production"
@@ -24,11 +34,12 @@ const (
 )
 
 type Config struct {
-	Environment   Environment
-	ClientID      string
-	APIKey        string
-	AccountID     string
-	WebhookSecret string
+	Environment        Environment
+	ClientID           string
+	APIKey             string
+	AccountID          string
+	AuthenticationMode AuthenticationMode
+	WebhookSecret      string
 	// NotifyURL is the endpoint already registered in Airwallex Webhooks.
 	NotifyURL        string
 	ReturnURL        string
@@ -40,6 +51,7 @@ type Config struct {
 	CurrencyMetadata map[string]payment.CurrencyMeta
 }
 type Client struct {
+	authenticationMode                                    AuthenticationMode
 	environment                                           Environment
 	clientID, apiKey, accountID, webhookSecret, returnURL string
 	notifyURL                                             string

@@ -29,6 +29,12 @@ func NewClient(cfg Config) (*Client, error) {
 	if strings.TrimSpace(cfg.ClientID) == "" || strings.TrimSpace(cfg.APIKey) == "" || strings.TrimSpace(cfg.AccountID) == "" {
 		return nil, fmt.Errorf("%w: airwallex client ID, API key and account ID required", payment.ErrInvalidRequest)
 	}
+	if cfg.AuthenticationMode == "" {
+		cfg.AuthenticationMode = AuthenticateAccount
+	}
+	if cfg.AuthenticationMode != AuthenticateAccount && cfg.AuthenticationMode != AuthenticateDefault {
+		return nil, fmt.Errorf("%w: unsupported airwallex authentication mode", payment.ErrInvalidRequest)
+	}
 	if cfg.ReturnURL != "" {
 		if err := validateReturnURL(cfg.ReturnURL); err != nil {
 			return nil, err
@@ -71,17 +77,18 @@ func NewClient(cfg Config) (*Client, error) {
 		currencies[code] = meta
 	}
 	return &Client{
-		environment:   cfg.Environment,
-		clientID:      cfg.ClientID,
-		apiKey:        cfg.APIKey,
-		accountID:     cfg.AccountID,
-		webhookSecret: cfg.WebhookSecret,
-		returnURL:     cfg.ReturnURL,
-		notifyURL:     cfg.NotifyURL,
-		transport:     transport,
-		clock:         cfg.Clock,
-		tolerance:     cfg.WebhookTolerance,
-		currencies:    currencies,
+		authenticationMode: cfg.AuthenticationMode,
+		environment:        cfg.Environment,
+		clientID:           cfg.ClientID,
+		apiKey:             cfg.APIKey,
+		accountID:          cfg.AccountID,
+		webhookSecret:      cfg.WebhookSecret,
+		returnURL:          cfg.ReturnURL,
+		notifyURL:          cfg.NotifyURL,
+		transport:          transport,
+		clock:              cfg.Clock,
+		tolerance:          cfg.WebhookTolerance,
+		currencies:         currencies,
 	}, nil
 }
 
@@ -114,8 +121,11 @@ func (c *Client) accessToken(ctx context.Context) (string, error) {
 			Token     string `json:"token"`
 			ExpiresAt string `json:"expires_at"`
 		}
-		err := c.send(ctx, http.MethodPost, "/api/v1/authentication/login", struct{}{}, &result,
-			request.WithHeader("x-client-id", c.clientID), request.WithHeader("x-api-key", c.apiKey), request.WithHeader("x-login-as", c.accountID))
+		opts := []request.RequestOption{request.WithHeader("x-client-id", c.clientID), request.WithHeader("x-api-key", c.apiKey)}
+		if c.authenticationMode == AuthenticateAccount {
+			opts = append(opts, request.WithHeader("x-login-as", c.accountID))
+		}
+		err := c.send(ctx, http.MethodPost, "/api/v1/authentication/login", struct{}{}, &result, opts...)
 		var expiresAt time.Time
 		if err == nil {
 			var parseErr error

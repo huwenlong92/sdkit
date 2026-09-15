@@ -404,6 +404,8 @@ Braintree 当前没有官方 Go server SDK。本模块不引入非官方 `braint
 
 ## Airwallex 普通支付适配器（2026-09-11）
 
+2026-09-15：HTTP client 增加显式 AuthenticationMode。空值保持账号头认证；default 模式支持单账号 Scoped Key 默认认证，仍要求 AccountID 并保留 webhook 跨账号拒绝。模式仅影响认证请求头，不修改 token 缓存、操作重试或支付事实映射。
+
 - 只增加 `ProviderAirwallex` / `ChannelAirwallexHPP` 常量，不扩充既有 ProviderAdapter 或 facade.Config；无 tag 时具体实现不参与编译。
 - adapter 沿用动态 ClientLoader / 显式静态 Client 模式，普通支付客户端实现全套六个方法；capability 与方法对应。回调账户选择使用服务器配置 NotifyMerchantKey，不接受请求自报商户 key。
 - httpapi 复用 pkg/request，强制显式环境及账户、官方固定域名、禁止重定向、30 秒默认 HTTP 超时、1 MiB 响应上限。每实例维护 token 和到期时间；并发刷新合并，等待者可取消；不做全局跨账户 token 缓存。

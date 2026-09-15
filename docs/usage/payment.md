@@ -596,7 +596,8 @@ payment:
 | environment | Environment | 必须显式选择 `httpapi.Sandbox` 或 `httpapi.Production`；分别使用官方 sandbox / production 域名，不能只更换域名复用密钥 |
 | client_id | ClientID | 所用 Scoped Key 对应的 Client ID |
 | api_key | APIKey | 服务端私密凭据 |
-| account_id | AccountID | 本实现要求显式配置平台账户，登录时发送 x-login-as，回调时校验所属账户；这是 adapter 的安全约束，比官方单账户可省略要求更严格 |
+| account_id | AccountID | 必须显式配置回调所属账户；不随认证模式切换而关闭账号校验 |
+| authentication_mode | AuthenticationMode | 空值或 `httpapi.AuthenticateAccount` 保持登录发送 x-login-as；单账号 Scoped Key 可显式选择 `httpapi.AuthenticateDefault` 不发送该头，AccountID 仍必填 |
 | webhook_secret | WebhookSecret | 每个 endpoint 对应的验签密钥；未配置时 HTTP 操作仍可用，但所有回调拒绝 |
 | return_url | ReturnURL | HTTPS 默认返回地址，可由服务端 CreatePaymentRequest.ReturnURL 覆写 |
 
