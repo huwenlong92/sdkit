@@ -742,3 +742,9 @@ Airwallex token 到期时间兼容 RFC3339 与 ISO-8601 无冒号时区偏移（
 
 
 业务方每次明确重新支付应创建新的支付单号和 request_id。相同 HTTP 命令重放保持原 request_id；已知 ProviderTradeID 时可读取既有渠道单返回付款动作。Airwallex 不再在 duplicate_request 后自动检索或重建支付单；渠道错误原样交由调用方处理。
+
+### Accounting evidence (2026-09-15)
+
+After an authenticated Airwallex `QueryPayment`, persist `resp.RawBody` as private immutable evidence if required, before applying the normalized payment state. The field retains exact successful HTTP response bytes and is excluded from JSON serialization. Do not write it to logs, browser storage or customer API responses: it can contain client_secret and personal information. Label query evidence separately from real webhook delivery; historical missing original bytes cannot be recreated from normalized fields.
+
+`resp.Details` / normalized `event.Details` optionally report actual method, attempt ID, underlying transaction ID, card brand and four-digit tail. Only project these safe fields into an authorized customer payment receipt. `int_` identifies the intent; `att_` identifies a payment attempt; `payment_method_transaction_id` is the method provider's transaction reference. Missing references or fees are not zero or fabricated. Field definitions: https://www.airwallex.com/docs/api/2024-04-30/payments/payment_intents .

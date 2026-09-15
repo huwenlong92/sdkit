@@ -137,7 +137,18 @@ const (
 	EventUnknown           EventType = "unknown"
 )
 
+// PaymentDetails contains only provider-confirmed, non-secret payment facts.
+// An intent ID is not an attempt ID or an underlying method transaction ID.
+type PaymentDetails struct {
+	Method        string `json:"method,omitempty"`
+	AttemptID     string `json:"attempt_id,omitempty"`
+	TransactionID string `json:"transaction_id,omitempty"`
+	CardBrand     string `json:"card_brand,omitempty"`
+	CardLast4     string `json:"card_last4,omitempty"`
+}
+
 type PaymentEvent struct {
+	Details            *PaymentDetails     `json:"details,omitempty"`
 	ExpireAt           *time.Time          `json:"expire_at,omitempty"`
 	ProviderSettlement *ProviderSettlement `json:"provider_settlement,omitempty"`
 	EventID            string              `json:"event_id"`

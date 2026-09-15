@@ -451,3 +451,9 @@ Airwallex token 到期时间兼容 RFC3339 与 ISO-8601 无冒号时区偏移（
 
 
 业务方每次明确重新支付应创建新的支付单号和 request_id。相同 HTTP 命令重放保持原 request_id；已知 ProviderTradeID 时可读取既有渠道单返回付款动作。Airwallex 不再在 duplicate_request 后自动检索或重建支付单；渠道错误原样交由调用方处理。
+
+### Private accounting evidence and actual payment details (2026-09-15)
+
+Airwallex QueryPayment exposes the original successful intent HTTP response in `QueryPaymentResponse.RawBody` (excluded from JSON). Unknown fields and whitespace remain intact. `EventFromQueryPaymentResponse` copies those bytes into `PaymentEvent.Raw` for explicit server-side evidence persistence; consumers must never return or log complete events. The webhook receiver separately persists its original request bytes before acknowledgement; normalized webhook events do not duplicate the raw envelope.
+
+Optional `Details` distinguishes the actual method, payment attempt ID and underlying method transaction ID from the provider intent ID. Card details include brand and a validated four-digit tail only. Missing attempt information stays nil, never inferred from the checkout selection. Provider fees absent from a response remain unknown; raw evidence does not imply that fees have been reconciled. No business schema, settlement policy or payout orchestration is added to this framework boundary.

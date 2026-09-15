@@ -37,6 +37,8 @@ func EventFromQueryPaymentResponse(resp *QueryPaymentResponse) *PaymentEvent {
 		Amount:             resp.Pricing.PayAmount,
 		PaidAt:             resp.PaidAt,
 		ProviderSettlement: resp.ProviderSettlement,
+		Details:            resp.Details,
+		Raw:                append([]byte(nil), resp.RawBody...),
 		Extra:              resp.Extra,
 	}
 }

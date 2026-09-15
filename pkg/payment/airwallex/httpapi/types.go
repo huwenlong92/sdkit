@@ -77,6 +77,18 @@ type APIError struct {
 func (e *APIError) Error() string { return "airwallex API request failed (see StatusCode and Code)" }
 
 type intent struct {
+	RawBody              []byte `json:"-"`
+	LatestPaymentAttempt *struct {
+		ID            string `json:"id"`
+		TransactionID string `json:"payment_method_transaction_id"`
+		PaymentMethod struct {
+			Type string `json:"type"`
+			Card *struct {
+				Brand string `json:"brand"`
+				Last4 string `json:"last4"`
+			} `json:"card"`
+		} `json:"payment_method"`
+	} `json:"latest_payment_attempt"`
 	ID              string      `json:"id"`
 	RequestID       string      `json:"request_id"`
 	Status          string      `json:"status"`

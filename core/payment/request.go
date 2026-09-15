@@ -53,6 +53,10 @@ type QueryPaymentRequest struct {
 }
 
 type QueryPaymentResponse struct {
+	// RawBody preserves provider HTTP bytes for private accounting evidence.
+	// Never serialize it to browser responses or application logs.
+	RawBody            []byte              `json:"-"`
+	Details            *PaymentDetails     `json:"details,omitempty"`
 	ExpireAt           *time.Time          `json:"expire_at,omitempty"`
 	ProviderSettlement *ProviderSettlement `json:"provider_settlement,omitempty"`
 	Provider           Provider            `json:"provider"`

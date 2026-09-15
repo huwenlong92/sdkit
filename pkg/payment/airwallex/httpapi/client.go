@@ -213,6 +213,9 @@ func (c *Client) send(ctx context.Context, method, path string, payload, result 
 	if result != nil && json.Unmarshal(response.Body, result) != nil {
 		return fmt.Errorf("airwallex invalid JSON response")
 	}
+	if parsed, ok := result.(*intent); ok {
+		parsed.RawBody = append([]byte(nil), response.Body...)
+	}
 	return nil
 }
 

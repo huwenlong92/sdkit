@@ -138,7 +138,20 @@ func (c *Client) intentResponse(raw intent, key string) (*payment.QueryPaymentRe
 	if err != nil {
 		return nil, err
 	}
+	var details *payment.PaymentDetails
+	if attempt := raw.LatestPaymentAttempt; attempt != nil {
+		details = &payment.PaymentDetails{Method: attempt.PaymentMethod.Type, AttemptID: attempt.ID, TransactionID: attempt.TransactionID}
+		if card := attempt.PaymentMethod.Card; card != nil {
+			details.CardBrand = card.Brand
+			// A malformed provider response must never expose a full card number.
+			if len(card.Last4) == 4 && strings.Trim(card.Last4, "0123456789") == "" {
+				details.CardLast4 = card.Last4
+			}
+		}
+	}
 	return &payment.QueryPaymentResponse{
+		RawBody:         append([]byte(nil), raw.RawBody...),
+		Details:         details,
 		Provider:        payment.ProviderAirwallex,
 		Channel:         payment.ChannelAirwallexHPP,
 		MerchantKey:     key,
