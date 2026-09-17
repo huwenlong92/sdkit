@@ -420,6 +420,7 @@ Braintree 当前没有官方 Go server SDK。本模块不引入非官方 `braint
 
 ## Airwallex 受益人与批量打款（2026-09-17）
 
+- 受益人创建和查询接口使用 Airwallex 响应顶层的 `id`，并映射为通用响应中的 `BeneficiaryID`；不得读取请求侧使用的 `beneficiary_id` 字段名。
 - `BeneficiaryProvider` 提供受益人创建和查询；业务系统拥有账户资料、启用状态及 `beneficiary_id` 的持久化，不由 sdkit 建立账户版本或业务审核流程。
 - `BatchPayoutProvider` 提供创建批次、分段添加项目、提交、批次查询和项目查询。core 每次最多接受 100 个新增项目，调用方负责把一个渠道批次控制在 Airwallex 的 1,000 项上限内。
 - 批次与项目只返回渠道原始状态，不在通用层判断店铺结算完成、退款截止或失败重试。只有业务系统核验项目状态后才能推进自己的结算单。

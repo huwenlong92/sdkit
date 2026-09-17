@@ -753,6 +753,8 @@ After an authenticated Airwallex `QueryPayment`, persist `resp.RawBody` as priva
 
 受益人资料使用 Airwallex 动态 schema 组织为 `Details`。业务系统先保存并审核自己的账户资料，再创建受益人并持久化返回的 `BeneficiaryID`；后续批量打款复用该 ID。银行账户等实质资料变化后是否清除并重建绑定，由业务系统决定，sdkit 不维护账户修订号。
 
+Airwallex 创建和查询受益人的响应标识位于顶层 `id`；adapter 会将其映射为 `BeneficiaryResponse.BeneficiaryID`。请求批量打款项目时仍按 Airwallex 协议发送 `beneficiary_id`。
+
 ```go
 beneficiary, err := payment.CreateBeneficiary(ctx, payment.CreateBeneficiaryRequest{
     Provider:    payment.ProviderAirwallex,

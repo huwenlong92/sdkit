@@ -31,9 +31,9 @@ func TestBeneficiaryAndBatchPayoutLifecycle(t *testing.T) {
 			if body["nickname"] == nil || body["beneficiary"] == nil {
 				t.Fatalf("beneficiary payload %s", body)
 			}
-			response = reply(200, fmt.Sprintf(`{"beneficiary_id":%q}`, beneficiaryID))
+			response = reply(200, fmt.Sprintf(`{"id":%q}`, beneficiaryID))
 		case "GET /api/v1/beneficiaries/" + beneficiaryID:
-			response = reply(200, fmt.Sprintf(`{"beneficiary_id":%q}`, beneficiaryID))
+			response = reply(200, fmt.Sprintf(`{"id":%q}`, beneficiaryID))
 		case "POST /api/v1/batch_transfers/create":
 			body := mustBody(t, r)
 			if string(body["request_id"]) != fmt.Sprintf("%q", mutationID) {

@@ -15,7 +15,7 @@ import (
 
 type beneficiaryResult struct {
 	exchangeResult
-	BeneficiaryID string `json:"beneficiary_id"`
+	ID string `json:"id"`
 }
 
 type batchTransferResult struct {
@@ -77,10 +77,10 @@ func (c *Client) CreateBeneficiary(ctx context.Context, req payment.CreateBenefi
 	if err := c.call(ctx, http.MethodPost, "/api/v1/beneficiaries/create", req.Details, &raw); err != nil {
 		return nil, err
 	}
-	if _, err := uuid.Parse(raw.BeneficiaryID); err != nil {
+	if _, err := uuid.Parse(raw.ID); err != nil {
 		return nil, payment.WithProviderExchange(payment.ErrPaymentReference, providerExchange(requestBody, raw.exchangeResult))
 	}
-	return &payment.BeneficiaryResponse{Provider: payment.ProviderAirwallex, Channel: payment.ChannelAirwallexTransfer, MerchantKey: req.MerchantKey, BeneficiaryID: raw.BeneficiaryID, Exchange: providerExchange(requestBody, raw.exchangeResult)}, nil
+	return &payment.BeneficiaryResponse{Provider: payment.ProviderAirwallex, Channel: payment.ChannelAirwallexTransfer, MerchantKey: req.MerchantKey, BeneficiaryID: raw.ID, Exchange: providerExchange(requestBody, raw.exchangeResult)}, nil
 }
 
 func (c *Client) QueryBeneficiary(ctx context.Context, req payment.QueryBeneficiaryRequest) (*payment.BeneficiaryResponse, error) {
@@ -94,10 +94,10 @@ func (c *Client) QueryBeneficiary(ctx context.Context, req payment.QueryBenefici
 	if err := c.call(ctx, http.MethodGet, "/api/v1/beneficiaries/"+url.PathEscape(req.BeneficiaryID), nil, &raw); err != nil {
 		return nil, err
 	}
-	if raw.BeneficiaryID != req.BeneficiaryID {
+	if raw.ID != req.BeneficiaryID {
 		return nil, payment.WithProviderExchange(payment.ErrPaymentReference, providerExchange(nil, raw.exchangeResult))
 	}
-	return &payment.BeneficiaryResponse{Provider: payment.ProviderAirwallex, Channel: payment.ChannelAirwallexTransfer, MerchantKey: req.MerchantKey, BeneficiaryID: raw.BeneficiaryID, Exchange: providerExchange(nil, raw.exchangeResult)}, nil
+	return &payment.BeneficiaryResponse{Provider: payment.ProviderAirwallex, Channel: payment.ChannelAirwallexTransfer, MerchantKey: req.MerchantKey, BeneficiaryID: raw.ID, Exchange: providerExchange(nil, raw.exchangeResult)}, nil
 }
 
 func (c *Client) CreatePayoutBatch(ctx context.Context, req payment.CreatePayoutBatchRequest) (*payment.PayoutBatchResponse, error) {
