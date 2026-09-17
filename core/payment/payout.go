@@ -43,14 +43,15 @@ type QueryPayoutRequest struct {
 	ProviderPayoutID string   `json:"provider_payout_id"`
 }
 type PayoutResponse struct {
-	Provider         Provider     `json:"provider"`
-	Channel          Channel      `json:"channel"`
-	MerchantKey      string       `json:"merchant_key,omitempty"`
-	PayoutID         string       `json:"payout_id,omitempty"`
-	ProviderPayoutID string       `json:"provider_payout_id"`
-	Status           PayoutStatus `json:"status"`
-	Amount           Money        `json:"amount"`
-	ProviderStatus   string       `json:"provider_status,omitempty"`
+	Provider         Provider         `json:"provider"`
+	Channel          Channel          `json:"channel"`
+	MerchantKey      string           `json:"merchant_key,omitempty"`
+	PayoutID         string           `json:"payout_id,omitempty"`
+	ProviderPayoutID string           `json:"provider_payout_id"`
+	Status           PayoutStatus     `json:"status"`
+	Amount           Money            `json:"amount"`
+	ProviderStatus   string           `json:"provider_status,omitempty"`
+	Exchange         ProviderExchange `json:"-"`
 }
 
 func (s *Service) CreatePayout(ctx context.Context, req CreatePayoutRequest) (*PayoutResponse, error) {
@@ -60,7 +61,7 @@ func (s *Service) CreatePayout(ctx context.Context, req CreatePayoutRequest) (*P
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if err := s.selectChannel(ctx, PaymentOperation("create_payout"), &req.Provider, &req.Channel, &req.MerchantKey); err != nil {
+	if err := s.selectPayoutAccount(ctx, PaymentOperation("create_payout"), &req.Provider, &req.MerchantKey); err != nil {
 		return nil, err
 	}
 	adapter, _, err := s.adapter(req.Provider)
@@ -94,7 +95,7 @@ func (s *Service) QueryPayout(ctx context.Context, req QueryPayoutRequest) (*Pay
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if err := s.selectChannel(ctx, PaymentOperation("query_payout"), &req.Provider, &req.Channel, &req.MerchantKey); err != nil {
+	if err := s.selectPayoutAccount(ctx, PaymentOperation("query_payout"), &req.Provider, &req.MerchantKey); err != nil {
 		return nil, err
 	}
 	adapter, _, err := s.adapter(req.Provider)

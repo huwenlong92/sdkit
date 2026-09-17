@@ -179,7 +179,13 @@ func (c *Client) send(ctx context.Context, method, path string, payload, result 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	var requestBody []byte
 	if payload != nil {
+		var marshalErr error
+		requestBody, marshalErr = json.Marshal(payload)
+		if marshalErr != nil {
+			return payment.ErrInvalidRequest
+		}
 		opts = append(opts, request.WithJSON(payload))
 	}
 	// Transfers uses the renamed resource and fields introduced in this version.
@@ -189,15 +195,18 @@ func (c *Client) send(ctx context.Context, method, path string, payload, result 
 	response, err := c.transport.Do(ctx, method, path, opts...)
 	if err != nil {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return payment.WithProviderExchange(ctx.Err(), payment.ProviderExchange{RequestBody: requestBody})
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
-			return context.DeadlineExceeded
+			return payment.WithProviderExchange(context.DeadlineExceeded, payment.ProviderExchange{RequestBody: requestBody})
 		}
-		return fmt.Errorf("airwallex transport failed; outcome may be unknown")
+		return payment.WithProviderExchange(fmt.Errorf("airwallex transport failed; outcome may be unknown"), payment.ProviderExchange{RequestBody: requestBody})
 	}
 	if response == nil {
-		return fmt.Errorf("airwallex empty HTTP response")
+		return payment.WithProviderExchange(fmt.Errorf("airwallex empty HTTP response"), payment.ProviderExchange{RequestBody: requestBody})
+	}
+	if receiver, ok := result.(exchangeReceiver); ok {
+		receiver.setHTTPExchange(response.StatusCode, response.Header, response.Body)
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		var failure struct {
@@ -208,10 +217,10 @@ func (c *Client) send(ctx context.Context, method, path string, payload, result 
 		if len(code) > 80 || !safeCode(code) {
 			code = ""
 		}
-		return &APIError{StatusCode: response.StatusCode, Code: code}
+		return &APIError{StatusCode: response.StatusCode, Code: code, RequestBody: requestBody, RawBody: append([]byte(nil), response.Body...), Headers: response.Header.Clone()}
 	}
 	if result != nil && json.Unmarshal(response.Body, result) != nil {
-		return fmt.Errorf("airwallex invalid JSON response")
+		return payment.WithProviderExchange(fmt.Errorf("airwallex invalid JSON response"), payment.ProviderExchange{RequestBody: requestBody, ResponseBody: append([]byte(nil), response.Body...), StatusCode: response.StatusCode})
 	}
 	if parsed, ok := result.(*intent); ok {
 		parsed.RawBody = append([]byte(nil), response.Body...)

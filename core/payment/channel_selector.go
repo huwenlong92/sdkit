@@ -93,7 +93,7 @@ func (s *StaticChannelSelector) SelectPaymentChannel(ctx context.Context, req Ch
 	if req.Channel != "" && req.Channel != selection.Channel {
 		return nil, fmt.Errorf("%w: channel binding %s channel %s does not match %s", ErrUnsupportedChannel, req.MerchantKey, selection.Channel, req.Channel)
 	}
-	if selection.DisabledForNew && (req.Operation == PaymentOperationCreate || req.Operation == PaymentOperation("create_payout")) {
+	if selection.DisabledForNew && (req.Operation == PaymentOperationCreate || req.Operation == PaymentOperation("create_payout") || req.Operation == PaymentOperation("create_beneficiary") || req.Operation == PaymentOperation("create_payout_batch")) {
 		return nil, fmt.Errorf("%w: merchant disabled for new payments", ErrInvalidRequest)
 	}
 	return &selection, nil

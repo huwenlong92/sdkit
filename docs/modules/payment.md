@@ -418,6 +418,18 @@ Braintree 当前没有官方 Go server SDK。本模块不引入非官方 `braint
 
 调用方式、配置字段和回调限制见 [Payment 使用 / Airwallex 普通支付](../usage/payment.md#airwallex-普通支付2026-09-11)。
 
+## Airwallex 受益人与批量打款（2026-09-17）
+
+- `BeneficiaryProvider` 提供受益人创建和查询；业务系统拥有账户资料、启用状态及 `beneficiary_id` 的持久化，不由 sdkit 建立账户版本或业务审核流程。
+- `BatchPayoutProvider` 提供创建批次、分段添加项目、提交、批次查询和项目查询。core 每次最多接受 100 个新增项目，调用方负责把一个渠道批次控制在 Airwallex 的 1,000 项上限内。
+- 批次与项目只返回渠道原始状态，不在通用层判断店铺结算完成、退款截止或失败重试。只有业务系统核验项目状态后才能推进自己的结算单。
+- `request_id` 必须由调用方在发起资金操作前持久化；超时、取消或结果未知时继续用同一 ID 查询，禁止生成新 ID 猜测重试。
+- `ProviderExchange` 承载不参与 JSON 序列化的请求字节、响应字节、HTTP 状态和白名单响应头。成功结果通过 `Exchange` 返回；失败结果通过 `ProviderExchangeFromError` 提取，同时保留 `errors.Is` / `errors.As` 语义。
+- Airwallex adapter 会为退款、单笔 Transfer、受益人与 Batch Transfer 捕获原始交换数据。认证头、token 和 API key 不进入 `ProviderExchange`；调用方仍必须把原文写入受控的追加式证据存储，禁止写普通日志或返回浏览器。
+- 网络错误没有响应体时仍保留已组装的请求原文，HTTP 错误和无效响应保留请求与实际响应；这些证据只说明发起及返回事实，不证明资金成功或失败。
+
+调用示例和证据处理要求见 [Payment 使用 / Airwallex 受益人与批量打款](../usage/payment.md#airwallex-受益人与批量打款2026-09-17)。
+
 
 ## 2026-09-11：支付主流程与可选能力
 

@@ -105,20 +105,21 @@ type RefundAmount struct {
 }
 
 type RefundResponse struct {
-	Provider         Provider       `json:"provider"`
-	Channel          Channel        `json:"channel"`
-	MerchantKey      string         `json:"merchant_key,omitempty"`
-	PaymentID        string         `json:"payment_id,omitempty"`
-	OrderID          string         `json:"order_id,omitempty"`
-	OutTradeNo       string         `json:"out_trade_no,omitempty"`
-	ProviderTradeID  string         `json:"provider_trade_id,omitempty"`
-	RefundID         string         `json:"refund_id,omitempty"`
-	OutRefundNo      string         `json:"out_refund_no,omitempty"`
-	ProviderRefundID string         `json:"provider_refund_id,omitempty"`
-	Status           RefundStatus   `json:"status"`
-	Amount           RefundAmount   `json:"amount"`
-	Raw              any            `json:"raw,omitempty"`
-	Extra            map[string]any `json:"extra,omitempty"`
+	Provider         Provider         `json:"provider"`
+	Channel          Channel          `json:"channel"`
+	MerchantKey      string           `json:"merchant_key,omitempty"`
+	PaymentID        string           `json:"payment_id,omitempty"`
+	OrderID          string           `json:"order_id,omitempty"`
+	OutTradeNo       string           `json:"out_trade_no,omitempty"`
+	ProviderTradeID  string           `json:"provider_trade_id,omitempty"`
+	RefundID         string           `json:"refund_id,omitempty"`
+	OutRefundNo      string           `json:"out_refund_no,omitempty"`
+	ProviderRefundID string           `json:"provider_refund_id,omitempty"`
+	Status           RefundStatus     `json:"status"`
+	Amount           RefundAmount     `json:"amount"`
+	Exchange         ProviderExchange `json:"-"`
+	Raw              any              `json:"raw,omitempty"`
+	Extra            map[string]any   `json:"extra,omitempty"`
 }
 
 type QueryRefundRequest struct {
@@ -135,19 +136,20 @@ type QueryRefundRequest struct {
 }
 
 type QueryRefundResponse struct {
-	Provider         Provider       `json:"provider"`
-	Channel          Channel        `json:"channel"`
-	MerchantKey      string         `json:"merchant_key,omitempty"`
-	PaymentID        string         `json:"payment_id,omitempty"`
-	OutTradeNo       string         `json:"out_trade_no,omitempty"`
-	ProviderTradeID  string         `json:"provider_trade_id,omitempty"`
-	RefundID         string         `json:"refund_id,omitempty"`
-	OutRefundNo      string         `json:"out_refund_no,omitempty"`
-	ProviderRefundID string         `json:"provider_refund_id,omitempty"`
-	Status           RefundStatus   `json:"status"`
-	Amount           RefundAmount   `json:"amount"`
-	Raw              any            `json:"raw,omitempty"`
-	Extra            map[string]any `json:"extra,omitempty"`
+	Provider         Provider         `json:"provider"`
+	Channel          Channel          `json:"channel"`
+	MerchantKey      string           `json:"merchant_key,omitempty"`
+	PaymentID        string           `json:"payment_id,omitempty"`
+	OutTradeNo       string           `json:"out_trade_no,omitempty"`
+	ProviderTradeID  string           `json:"provider_trade_id,omitempty"`
+	RefundID         string           `json:"refund_id,omitempty"`
+	OutRefundNo      string           `json:"out_refund_no,omitempty"`
+	ProviderRefundID string           `json:"provider_refund_id,omitempty"`
+	Status           RefundStatus     `json:"status"`
+	Amount           RefundAmount     `json:"amount"`
+	Exchange         ProviderExchange `json:"-"`
+	Raw              any              `json:"raw,omitempty"`
+	Extra            map[string]any   `json:"extra,omitempty"`
 }
 
 type NotifyRequest struct {

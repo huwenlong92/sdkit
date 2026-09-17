@@ -748,3 +748,70 @@ Airwallex token 到期时间兼容 RFC3339 与 ISO-8601 无冒号时区偏移（
 After an authenticated Airwallex `QueryPayment`, persist `resp.RawBody` as private immutable evidence if required, before applying the normalized payment state. The field retains exact successful HTTP response bytes and is excluded from JSON serialization. Do not write it to logs, browser storage or customer API responses: it can contain client_secret and personal information. Label query evidence separately from real webhook delivery; historical missing original bytes cannot be recreated from normalized fields.
 
 `resp.Details` / normalized `event.Details` optionally report actual method, attempt ID, underlying transaction ID, card brand and four-digit tail. Only project these safe fields into an authorized customer payment receipt. `int_` identifies the intent; `att_` identifies a payment attempt; `payment_method_transaction_id` is the method provider's transaction reference. Missing references or fees are not zero or fabricated. Field definitions: https://www.airwallex.com/docs/api/2024-04-30/payments/payment_intents .
+
+## Airwallex 受益人与批量打款（2026-09-17）
+
+受益人资料使用 Airwallex 动态 schema 组织为 `Details`。业务系统先保存并审核自己的账户资料，再创建受益人并持久化返回的 `BeneficiaryID`；后续批量打款复用该 ID。银行账户等实质资料变化后是否清除并重建绑定，由业务系统决定，sdkit 不维护账户修订号。
+
+```go
+beneficiary, err := payment.CreateBeneficiary(ctx, payment.CreateBeneficiaryRequest{
+    Provider:    payment.ProviderAirwallex,
+    Channel:     payment.ChannelAirwallexTransfer,
+    MerchantKey: merchantKey,
+    Details:     beneficiaryDetails,
+})
+if err != nil {
+    if exchange, ok := payment.ProviderExchangeFromError(err); ok {
+        // 写入受控的追加式证据存储；不要写普通日志或返回客户端。
+        persistProviderExchange(exchange)
+    }
+    return err
+}
+persistProviderExchange(beneficiary.Exchange)
+```
+
+批量打款按“创建 → 分段添加项目 → 提交 → 查询批次和项目”执行。每次 `AddPayoutBatchItems` 最多 100 项；调用方负责限制单个渠道批次不超过 Airwallex 的 1,000 项。所有 mutation 的 `RequestID` 必须在调用前持久化，超时后以原 ID 查询恢复，不能重新生成。
+
+```go
+batch, err := payment.CreatePayoutBatch(ctx, payment.CreatePayoutBatchRequest{
+    Provider:    payment.ProviderAirwallex,
+    Channel:     payment.ChannelAirwallexTransfer,
+    MerchantKey: merchantKey,
+    RequestID:   persistedBatchRequestID,
+    Name:        "2026-09 settlement",
+})
+if err != nil {
+    return retainExchangeAndReturn(err)
+}
+persistProviderExchange(batch.Exchange)
+
+batch, err = payment.AddPayoutBatchItems(ctx, payment.AddPayoutBatchItemsRequest{
+    Provider:        payment.ProviderAirwallex,
+    Channel:         payment.ChannelAirwallexTransfer,
+    MerchantKey:     merchantKey,
+    ProviderBatchID: batch.ProviderBatchID,
+    Items: []payment.PayoutBatchItemRequest{{
+        RequestID:      persistedItemRequestID,
+        BeneficiaryID:  beneficiaryID,
+        Amount:         payment.Money{Amount: 4560, Currency: "USD"},
+        TransferMethod: "LOCAL",
+        Reference:      "SET-202609-001",
+        Reason:         "business_services",
+    }},
+})
+if err != nil {
+    return retainExchangeAndReturn(err)
+}
+persistProviderExchange(batch.Exchange)
+
+batch, err = payment.SubmitPayoutBatch(ctx, payment.SubmitPayoutBatchRequest{
+    Provider:        payment.ProviderAirwallex,
+    Channel:         payment.ChannelAirwallexTransfer,
+    MerchantKey:     merchantKey,
+    ProviderBatchID: batch.ProviderBatchID,
+})
+```
+
+查询批次时 `ProviderBatchID` 与创建时的 `RequestID` 二选一；按 RequestID 查询适合创建请求结果未知时恢复远端批次。`ListPayoutBatchItems` 返回每个项目的渠道 item ID、Transfer ID、原始状态和首个失败信息。通用层不把 `SCHEDULED`、`BOOKING`、`BOOKED` 或单笔 Transfer 的 `PAID` 自动解释为业务结算完成，业务系统必须按自己的状态机和渠道后续结果收口。
+
+成功响应的 `Exchange` 及 `ProviderExchangeFromError(err)` 返回的失败交换数据均为敏感证据，字段通过 `json:"-"` 排除普通序列化，但仍可能包含账户或个人资料。只允许写入受权限和审计控制的原文存储。网络超时或取消可能只有请求原文，没有 HTTP 状态和响应体；这表示结果未知，不能据此重试出款或标记失败。

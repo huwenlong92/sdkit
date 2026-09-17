@@ -12,6 +12,7 @@ import (
 )
 
 type transfer struct {
+	exchangeResult
 	ID        string      `json:"id"`
 	RequestID string      `json:"request_id"`
 	Status    string      `json:"status"`
@@ -55,6 +56,7 @@ func (c *Client) CreatePayout(ctx context.Context, req payment.CreatePayoutReque
 		Reference      string      `json:"reference,omitempty"`
 		Reason         string      `json:"reason"`
 	}{id, req.BeneficiaryID, amount, req.Amount.Currency, req.Amount.Currency, method, req.Reference, req.Reason}
+	requestBody, _ := json.Marshal(payload)
 	var raw transfer
 	if err := c.call(ctx, http.MethodPost, "/api/v1/transfers/create", payload, &raw); err != nil {
 		return nil, err
@@ -66,6 +68,7 @@ func (c *Client) CreatePayout(ctx context.Context, req payment.CreatePayoutReque
 	if raw.RequestID != id || response.Amount != req.Amount {
 		return nil, payment.ErrInvalidRequest
 	}
+	response.Exchange = providerExchange(requestBody, raw.exchangeResult)
 	return response, nil
 }
 func (c *Client) QueryPayout(ctx context.Context, req payment.QueryPayoutRequest) (*payment.PayoutResponse, error) {
@@ -86,7 +89,11 @@ func (c *Client) QueryPayout(ctx context.Context, req payment.QueryPayoutRequest
 	if raw.ID != req.ProviderPayoutID {
 		return nil, payment.ErrPaymentReference
 	}
-	return c.payoutResponse(raw, req.MerchantKey, req.PayoutID)
+	response, err := c.payoutResponse(raw, req.MerchantKey, req.PayoutID)
+	if err == nil {
+		response.Exchange = providerExchange(nil, raw.exchangeResult)
+	}
+	return response, err
 }
 func (c *Client) payoutResponse(raw transfer, key, payoutID string) (*payment.PayoutResponse, error) {
 	if _, err := uuid.Parse(raw.ID); err != nil {

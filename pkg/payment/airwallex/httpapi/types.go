@@ -70,11 +70,17 @@ var _ airwallex.Client = (*Client)(nil)
 // APIError deliberately excludes upstream message, response body and credentials.
 // Retry a failed mutation only with the original persisted request_id and payload.
 type APIError struct {
-	StatusCode int
-	Code       string
+	StatusCode  int
+	Code        string
+	RequestBody []byte
+	RawBody     []byte
+	Headers     http.Header
 }
 
 func (e *APIError) Error() string { return "airwallex API request failed (see StatusCode and Code)" }
+func (e *APIError) ProviderExchange() payment.ProviderExchange {
+	return providerExchange(e.RequestBody, exchangeResult{StatusCode: e.StatusCode, Headers: e.Headers, RawBody: e.RawBody})
+}
 
 type intent struct {
 	RawBody              []byte `json:"-"`
@@ -98,10 +104,27 @@ type intent struct {
 	ClientSecret    string      `json:"client_secret"`
 }
 type refund struct {
+	exchangeResult
 	ID              string      `json:"id"`
 	RequestID       string      `json:"request_id"`
 	PaymentIntentID string      `json:"payment_intent_id"`
 	Status          string      `json:"status"`
 	Amount          json.Number `json:"amount"`
 	Currency        string      `json:"currency"`
+}
+
+type exchangeResult struct {
+	StatusCode int
+	Headers    http.Header
+	RawBody    []byte
+}
+
+func (r *exchangeResult) setHTTPExchange(status int, headers http.Header, body []byte) {
+	r.StatusCode = status
+	r.Headers = headers.Clone()
+	r.RawBody = append([]byte(nil), body...)
+}
+
+type exchangeReceiver interface {
+	setHTTPExchange(int, http.Header, []byte)
 }

@@ -201,10 +201,10 @@ func (c *Client) Refund(ctx context.Context, req payment.RefundRequest) (*paymen
 	}
 	result, err := c.refundResponse(raw, req.MerchantKey)
 	if err != nil {
-		return nil, err
+		return nil, payment.WithProviderExchange(err, providerExchange(requestBodyForRefund(payload), raw.exchangeResult))
 	}
 	if raw.RequestID != id || raw.PaymentIntentID != req.ProviderTradeID || result.Amount.Refund != req.Amount.Refund {
-		return nil, fmt.Errorf("%w: airwallex refund mismatch", payment.ErrInvalidRequest)
+		return nil, payment.WithProviderExchange(fmt.Errorf("%w: airwallex refund mismatch", payment.ErrInvalidRequest), providerExchange(requestBodyForRefund(payload), raw.exchangeResult))
 	}
 	return &payment.RefundResponse{
 		Provider:         result.Provider,
@@ -219,8 +219,14 @@ func (c *Client) Refund(ctx context.Context, req payment.RefundRequest) (*paymen
 		ProviderRefundID: raw.ID,
 		Status:           result.Status,
 		Amount:           result.Amount,
+		Exchange:         providerExchange(requestBodyForRefund(payload), raw.exchangeResult),
 		Extra:            result.Extra,
 	}, nil
+}
+
+func requestBodyForRefund(payload any) []byte {
+	body, _ := json.Marshal(payload)
+	return body
 }
 
 func (c *Client) QueryRefund(ctx context.Context, req payment.QueryRefundRequest) (*payment.QueryRefundResponse, error) {
@@ -235,11 +241,11 @@ func (c *Client) QueryRefund(ctx context.Context, req payment.QueryRefundRequest
 		return nil, err
 	}
 	if raw.ID != req.ProviderRefundID || (req.ProviderTradeID != "" && raw.PaymentIntentID != req.ProviderTradeID) {
-		return nil, fmt.Errorf("%w: airwallex refund reference mismatch", payment.ErrInvalidRequest)
+		return nil, payment.WithProviderExchange(fmt.Errorf("%w: airwallex refund reference mismatch", payment.ErrInvalidRequest), providerExchange(nil, raw.exchangeResult))
 	}
 	result, err := c.refundResponse(raw, req.MerchantKey)
 	if err != nil {
-		return nil, err
+		return nil, payment.WithProviderExchange(err, providerExchange(nil, raw.exchangeResult))
 	}
 	result.PaymentID = req.PaymentID
 	result.OutTradeNo = req.OutTradeNo

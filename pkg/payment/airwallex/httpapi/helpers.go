@@ -182,6 +182,7 @@ func (c *Client) refundResponse(raw refund, key string) (*payment.QueryRefundRes
 		ProviderRefundID: raw.ID,
 		Status:           refundStatus(raw.Status),
 		Amount:           payment.RefundAmount{Refund: amount},
+		Exchange:         providerExchange(nil, raw.exchangeResult),
 		Extra:            map[string]any{"provider_status": raw.Status, "account_id": c.accountID, "environment": string(c.environment)},
 	}, nil
 }
