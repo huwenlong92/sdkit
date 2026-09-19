@@ -188,8 +188,8 @@ func (c *Client) send(ctx context.Context, method, path string, payload, result 
 		}
 		opts = append(opts, request.WithJSON(payload))
 	}
-	// Transfers uses the renamed resource and fields introduced in this version.
-	if strings.HasPrefix(path, "/api/v1/transfers/") {
+	// Transfers and beneficiary schemas use fields introduced in this version.
+	if strings.HasPrefix(path, "/api/v1/transfers/") || strings.HasPrefix(path, "/api/v1/beneficiary_api_schemas/") || strings.HasPrefix(path, "/api/v1/beneficiary_form_schemas/") {
 		opts = append(opts, request.WithHeader("x-api-version", "2024-09-27"))
 	}
 	response, err := c.transport.Do(ctx, method, path, opts...)

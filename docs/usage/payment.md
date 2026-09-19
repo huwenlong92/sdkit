@@ -751,7 +751,27 @@ After an authenticated Airwallex `QueryPayment`, persist `resp.RawBody` as priva
 
 ## Airwallex 受益人与批量打款（2026-09-17）
 
-受益人资料使用 Airwallex 动态 schema 组织为 `Details`。业务系统先保存并审核自己的账户资料，再创建受益人并持久化返回的 `BeneficiaryID`；后续批量打款复用该 ID。银行账户等实质资料变化后是否清除并重建绑定，由业务系统决定，sdkit 不维护账户修订号。
+受益人资料使用 Airwallex 动态 schema 组织为 `Details`。业务系统通过 `GenerateBeneficiarySchema` 查询当前国家、币种、转账方式和主体类型对应的 API schema 或表单 schema，不应在业务代码里维护一份固定国家字段清单。业务系统先保存并审核自己的账户资料，再创建受益人并持久化返回的 `BeneficiaryID`；后续批量打款复用该 ID。银行账户等实质资料变化后是否清除并重建绑定，由业务系统决定，sdkit 不维护账户修订号。
+
+```go
+schema, err := payment.GenerateBeneficiarySchema(ctx, payment.GenerateBeneficiarySchemaRequest{
+    Provider:        payment.ProviderAirwallex,
+    Channel:         payment.ChannelAirwallexTransfer,
+    MerchantKey:     merchantKey,
+    Kind:            payment.BeneficiarySchemaForm, // 或 BeneficiarySchemaAPI
+    BankCountryCode: "CN",
+    AccountCurrency: "CNY",
+    TransferMethod:  "LOCAL",
+    EntityType:      "COMPANY",
+    CountryCode:     "CN",
+})
+if err != nil {
+    return err
+}
+renderOrValidate(schema.Condition, schema.Fields)
+```
+
+国家和币种代码必须为大写 ISO 格式；`TransferMethod` 支持 `LOCAL`、`SWIFT`，`EntityType` 支持 `COMPANY`、`PERSONAL`。请求使用 Airwallex `2024-09-27` API 版本及 `transfer_method` 字段。查询结果可能随渠道规则变化，调用方负责缓存版本、设置有效期，并在账户创建或资料实质变更时用完整条件重新校验。`Exchange` 可能包含银行字段规则等受控资料，保存和日志约束与创建受益人一致。
 
 Airwallex 创建和查询受益人的响应标识位于顶层 `id`；adapter 会将其映射为 `BeneficiaryResponse.BeneficiaryID`。请求批量打款项目时仍按 Airwallex 协议发送 `beneficiary_id`。
 

@@ -420,6 +420,8 @@ Braintree 当前没有官方 Go server SDK。本模块不引入非官方 `braint
 
 ## Airwallex 受益人与批量打款（2026-09-17）
 
+- `BeneficiarySchemaProvider` 提供受益人 API schema 与表单 schema 的动态查询。调用方传入银行国家、账户币种、转账方式、主体类型及受益人国家等条件；core 校验条件格式，adapter 原样保留渠道返回的 `condition`、`fields` 与交换数据，不固化各国家银行字段。
+- schema 请求固定使用 Airwallex API 版本 `2024-09-27`，因此使用 `transfer_method`，不兼容旧版本的 `payment_method`。空条件可用于渐进式表单的第一步；业务系统仍须在保存或同步账户时用完整条件重新取 schema 并校验。
 - 受益人创建和查询接口使用 Airwallex 响应顶层的 `id`，并映射为通用响应中的 `BeneficiaryID`；不得读取请求侧使用的 `beneficiary_id` 字段名。
 - `BeneficiaryProvider` 提供受益人创建和查询；业务系统拥有账户资料、启用状态及 `beneficiary_id` 的持久化，不由 sdkit 建立账户版本或业务审核流程。
 - `BatchPayoutProvider` 提供创建批次、分段添加项目、提交、批次查询和项目查询。core 每次最多接受 100 个新增项目，调用方负责把一个渠道批次控制在 Airwallex 的 1,000 项上限内。
