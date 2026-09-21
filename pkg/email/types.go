@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	htmltemplate "html/template"
+	"io"
 	"strings"
 	texttemplate "text/template"
 	"time"
@@ -15,6 +16,8 @@ var (
 	ErrTemplateRendererRequired = errors.New("email: template renderer is required")
 	ErrTemplateFSRequired       = errors.New("email: template fs is required")
 	ErrTemplateNotFound         = errors.New("email: template not found")
+	ErrAttachmentInvalid        = errors.New("email: attachment is invalid")
+	ErrAttachmentOpen           = errors.New("email: open attachment")
 )
 
 type ProviderConfig struct {
@@ -36,13 +39,71 @@ func (c ProviderConfig) Clone() ProviderConfig {
 }
 
 type Payload struct {
-	To      []string
-	Cc      []string
-	Bcc     []string
-	Subject string
-	Text    string
-	HTML    string
-	Headers map[string]string
+	To          []string
+	Cc          []string
+	Bcc         []string
+	Subject     string
+	Text        string
+	HTML        string
+	Headers     map[string]string
+	Attachments []Attachment
+}
+
+// AttachmentSource 按发送尝试打开一份新的附件内容流。
+// Provider 会负责关闭成功打开的流；实现方不得复用已经读取过的 reader。
+type AttachmentSource interface {
+	Open(ctx context.Context) (io.ReadCloser, error)
+}
+
+// AttachmentSourceFunc 将函数适配为 AttachmentSource。
+type AttachmentSourceFunc func(ctx context.Context) (io.ReadCloser, error)
+
+func (fn AttachmentSourceFunc) Open(ctx context.Context) (io.ReadCloser, error) {
+	if fn == nil {
+		return nil, ErrAttachmentInvalid
+	}
+	return fn(ctx)
+}
+
+// Attachment 是仅在本次发送期间使用的附件描述。
+// Source 不参与持久化；队列消费者应根据自己的附件 ID 或对象键重新构造它。
+type Attachment struct {
+	Name        string
+	ContentType string
+	Size        int64
+	Source      AttachmentSource
+}
+
+// AttachmentOpenError 表示附件在 Provider 建立发送连接前无法打开。
+// 调用方可用 errors.Is(err, ErrAttachmentOpen) 判断该错误确定未发送。
+type AttachmentOpenError struct {
+	Name string
+	Err  error
+}
+
+func (e *AttachmentOpenError) Error() string {
+	if e == nil {
+		return ErrAttachmentOpen.Error()
+	}
+	cause := e.Err
+	if cause == nil {
+		cause = ErrAttachmentInvalid
+	}
+	if strings.TrimSpace(e.Name) == "" {
+		return ErrAttachmentOpen.Error() + ": " + cause.Error()
+	}
+	return ErrAttachmentOpen.Error() + " " + e.Name + ": " + cause.Error()
+}
+
+func (e *AttachmentOpenError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+func (e *AttachmentOpenError) Is(target error) bool {
+	return target == ErrAttachmentOpen
 }
 
 type Message interface {
@@ -50,34 +111,37 @@ type Message interface {
 }
 
 type DirectMessage struct {
-	To      []string
-	Cc      []string
-	Bcc     []string
-	Subject string
-	Text    string
-	HTML    string
-	Headers map[string]string
+	To          []string
+	Cc          []string
+	Bcc         []string
+	Subject     string
+	Text        string
+	HTML        string
+	Headers     map[string]string
+	Attachments []Attachment
 }
 
 func (m DirectMessage) Resolve(context.Context, TemplateRenderer) (Payload, error) {
 	return Payload{
-		To:      append([]string(nil), m.To...),
-		Cc:      append([]string(nil), m.Cc...),
-		Bcc:     append([]string(nil), m.Bcc...),
-		Subject: m.Subject,
-		Text:    m.Text,
-		HTML:    m.HTML,
-		Headers: cloneHeaders(m.Headers),
+		To:          append([]string(nil), m.To...),
+		Cc:          append([]string(nil), m.Cc...),
+		Bcc:         append([]string(nil), m.Bcc...),
+		Subject:     m.Subject,
+		Text:        m.Text,
+		HTML:        m.HTML,
+		Headers:     cloneHeaders(m.Headers),
+		Attachments: append([]Attachment(nil), m.Attachments...),
 	}, nil
 }
 
 type TemplateMessage struct {
-	To       []string
-	Cc       []string
-	Bcc      []string
-	Template string
-	Data     map[string]any
-	Headers  map[string]string
+	To          []string
+	Cc          []string
+	Bcc         []string
+	Template    string
+	Data        map[string]any
+	Headers     map[string]string
+	Attachments []Attachment
 }
 
 func (m TemplateMessage) Resolve(ctx context.Context, renderer TemplateRenderer) (Payload, error) {
@@ -89,13 +153,14 @@ func (m TemplateMessage) Resolve(ctx context.Context, renderer TemplateRenderer)
 		return Payload{}, err
 	}
 	return Payload{
-		To:      append([]string(nil), m.To...),
-		Cc:      append([]string(nil), m.Cc...),
-		Bcc:     append([]string(nil), m.Bcc...),
-		Subject: tpl.Subject,
-		Text:    tpl.Text,
-		HTML:    tpl.HTML,
-		Headers: cloneHeaders(m.Headers),
+		To:          append([]string(nil), m.To...),
+		Cc:          append([]string(nil), m.Cc...),
+		Bcc:         append([]string(nil), m.Bcc...),
+		Subject:     tpl.Subject,
+		Text:        tpl.Text,
+		HTML:        tpl.HTML,
+		Headers:     cloneHeaders(m.Headers),
+		Attachments: append([]Attachment(nil), m.Attachments...),
 	}, nil
 }
 

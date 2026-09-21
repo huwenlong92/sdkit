@@ -3,6 +3,8 @@ package email_test
 import (
 	"context"
 	"errors"
+	"io"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -12,6 +14,25 @@ import (
 type fakeEmailProvider struct {
 	name string
 	fail bool
+}
+
+func TestDirectMessagePreservesAttachmentDescriptors(t *testing.T) {
+	t.Parallel()
+
+	attachments := []email.Attachment{{
+		Name: "report.txt", ContentType: "text/plain", Size: 6,
+		Source: email.AttachmentSourceFunc(func(context.Context) (io.ReadCloser, error) {
+			return io.NopCloser(strings.NewReader("report")), nil
+		}),
+	}}
+	payload, err := (email.DirectMessage{To: []string{"user@example.com"}, Attachments: attachments}).Resolve(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	attachments[0].Name = "changed.txt"
+	if len(payload.Attachments) != 1 || payload.Attachments[0].Name != "report.txt" {
+		t.Fatalf("resolved attachments = %#v", payload.Attachments)
+	}
 }
 
 func (p *fakeEmailProvider) Send(_ context.Context, payload email.Payload) (*email.ProviderResult, error) {

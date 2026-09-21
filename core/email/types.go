@@ -4,6 +4,10 @@ import pkgemail "github.com/huwenlong92/sdkit/pkg/email"
 
 type ProviderConfig = pkgemail.ProviderConfig
 type Payload = pkgemail.Payload
+type Attachment = pkgemail.Attachment
+type AttachmentSource = pkgemail.AttachmentSource
+type AttachmentSourceFunc = pkgemail.AttachmentSourceFunc
+type AttachmentOpenError = pkgemail.AttachmentOpenError
 type Message = pkgemail.Message
 type DirectMessage = pkgemail.DirectMessage
 type TemplateMessage = pkgemail.TemplateMessage

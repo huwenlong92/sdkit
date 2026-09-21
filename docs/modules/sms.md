@@ -113,6 +113,7 @@ return sms.ResolvePayload(provider.Name, map[string]sms.Payload{
 | driver | package | build tag |
 | --- | --- | --- |
 | `aliyun` | `pkg/sms/driver/aliyun` | `sdkit_sms_aliyun` |
+| `aliyun_global` | `pkg/sms/driver/aliyun_global` | `sdkit_sms_aliyun_global` |
 | `feige` | `pkg/sms/driver/feige` | `sdkit_sms_feige` |
 | `twilio` | `pkg/sms/driver/twilio` | `sdkit_sms_twilio` |
 | `tencentcloud` | `pkg/sms/driver/tencentcloud` | `sdkit_sms_tencentcloud` |
@@ -130,6 +131,8 @@ import _ "github.com/huwenlong92/sdkit/pkg/sms/driver/aliyun"
 ```
 
 Twilio driver 面向国际短信，使用 `Payload.Content` 作为短信正文，不处理 `Payload.Template`。
+
+Aliyun Global driver 使用 `SendMessageToGlobe` 发送国际/港澳台短信，接收不带 `+` 的“国际区号+号码”，使用 `Payload.Content` 作为完整正文；它与国内 `aliyun` 的 `SendSms` 模板接口是两个独立 driver，但可以使用同一组 AccessKey。`ProviderConfig.Sender` 对应可选 Sender ID，默认地域与接入点分别为 `ap-southeast-1` 和 `dysmsapi.ap-southeast-1.aliyuncs.com`。
 
 TencentCloud driver 使用腾讯云 SendSms API 和 TC3-HMAC-SHA256 签名，支持国内短信与国际/港澳台短信。`ProviderConfig.SmsSdkAppID` 对应短信应用 ID，`SignName` 对应签名，`Sender` 对应国际/港澳台 Sender ID。
 
@@ -149,6 +152,7 @@ type RateLimiter interface {
 
 ## 更新记录
 
+- 2026-09-03：新增 Aliyun Global 国际/港澳台短信 driver，build tag 为 `sdkit_sms_aliyun_global`。
 - 2026-05-28：新增 TencentCloud、Huawei 短信 driver，build tag 分别为 `sdkit_sms_tencentcloud`、`sdkit_sms_huawei`。
 - 2026-05-28：新增 Twilio 短信 driver，build tag 为 `sdkit_sms_twilio`。
 - 2026-05-28：新增 `ResolvePayload` helper，推荐业务侧表驱动实现短信模板。

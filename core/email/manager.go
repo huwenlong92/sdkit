@@ -14,6 +14,7 @@ type Manager struct {
 	fallback    []string
 	configs     map[string]pkgemail.ProviderConfig
 	providers   map[string]pkgemail.Provider
+	resolver    ProviderResolver
 	templates   pkgemail.TemplateRenderer
 	middleware  []Middleware
 }
@@ -45,8 +46,27 @@ func NewManager(cfg Config, middleware ...Middleware) (*Manager, error) {
 	return manager, nil
 }
 
+// NewDynamicManager 创建一个由运行时 Resolver 提供账号配置的邮件管理器。
+// 动态管理器不要求默认账号，调用方应通过 SendVia 明确传入账号路由。
+func NewDynamicManager(resolver ProviderResolver, renderer TemplateRenderer, middleware ...Middleware) (*Manager, error) {
+	if resolver == nil {
+		return nil, ErrNotConfigured
+	}
+	manager := &Manager{
+		resolver:  resolver,
+		providers: make(map[string]pkgemail.Provider),
+		templates: renderer,
+	}
+	manager.UseMiddleware(middleware...)
+	return manager, nil
+}
+
 func (m *Manager) Send(ctx context.Context, msg Message) (*SendResult, error) {
-	return m.SendVia(ctx, msg, m.route()...)
+	route := m.route()
+	if len(route) == 0 {
+		return nil, ErrDefaultRequired
+	}
+	return m.SendVia(ctx, msg, route...)
 }
 
 func (m *Manager) SendVia(ctx context.Context, msg Message, providers ...string) (*SendResult, error) {
@@ -56,6 +76,9 @@ func (m *Manager) SendVia(ctx context.Context, msg Message, providers ...string)
 	route := cleanProviderNames(providers)
 	if len(route) == 0 {
 		route = m.route()
+	}
+	if len(route) == 0 {
+		return nil, ErrDefaultRequired
 	}
 	req := Request{
 		Message:   msg,
@@ -177,7 +200,9 @@ func (m *Manager) route() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	route := make([]string, 0, 1+len(m.fallback))
-	route = append(route, m.defaultName)
+	if m.defaultName != "" {
+		route = append(route, m.defaultName)
+	}
 	for _, name := range m.fallback {
 		if name != m.defaultName {
 			route = append(route, name)
@@ -200,12 +225,17 @@ func (m *Manager) sendDirect(ctx context.Context, req Request) (*SendResult, err
 		return nil, err
 	}
 	for _, name := range providers {
-		provider, err := m.Use(name)
+		provider, dynamic, err := m.provider(ctx, name)
 		if err != nil {
 			attempts = append(attempts, AttemptResult{Provider: name, Error: err})
 			continue
 		}
 		result, err := provider.Send(ctx, payload)
+		if dynamic {
+			if closeErr := provider.Close(); err == nil && closeErr != nil {
+				err = closeErr
+			}
+		}
 		attempt := AttemptResult{
 			Provider: name,
 			Result:   result,
@@ -220,4 +250,23 @@ func (m *Manager) sendDirect(ctx context.Context, req Request) (*SendResult, err
 	}
 	sendErr := &NoProviderAvailableError{Attempts: attempts}
 	return &SendResult{Error: sendErr, Attempts: attempts}, sendErr
+}
+
+func (m *Manager) provider(ctx context.Context, name string) (pkgemail.Provider, bool, error) {
+	m.mu.RLock()
+	resolver := m.resolver
+	m.mu.RUnlock()
+	if resolver == nil {
+		provider, err := m.Use(name)
+		return provider, false, err
+	}
+	cfg, err := resolver.Resolve(ctx, name)
+	if err != nil {
+		return nil, false, err
+	}
+	provider, err := pkgemail.NewProvider(name, cfg)
+	if err != nil {
+		return nil, false, err
+	}
+	return provider, true, nil
 }

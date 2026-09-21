@@ -15,6 +15,8 @@ var (
 	ErrDriverRequired      = pkgemail.ErrDriverRequired
 	ErrUnknownDriver       = pkgemail.ErrUnknownDriver
 	ErrNoProviderAvailable = errors.New("email: no provider available")
+	ErrAttachmentInvalid   = pkgemail.ErrAttachmentInvalid
+	ErrAttachmentOpen      = pkgemail.ErrAttachmentOpen
 )
 
 type NoProviderAvailableError struct {

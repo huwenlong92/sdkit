@@ -9,6 +9,7 @@
 | driver | build tag |
 | --- | --- |
 | aliyun | `sdkit_sms_aliyun` |
+| aliyun_global | `sdkit_sms_aliyun_global` |
 | feige | `sdkit_sms_feige` |
 | twilio | `sdkit_sms_twilio` |
 | tencentcloud | `sdkit_sms_tencentcloud` |
@@ -38,6 +39,13 @@ sms:
       access_key_secret: ${ALIYUN_ACCESS_KEY_SECRET}
       sign_name: 示例签名
       region_id: cn-hangzhou
+    aliyun_global:
+      driver: aliyun_global
+      access_key_id: ${ALIYUN_ACCESS_KEY_ID}
+      access_key_secret: ${ALIYUN_ACCESS_KEY_SECRET}
+      region_id: ap-southeast-1
+      endpoint: dysmsapi.ap-southeast-1.aliyuncs.com
+      sender: ${ALIYUN_GLOBAL_SENDER_ID}
     feige_backup:
       driver: feige
       account: ${FEIGE_ACCOUNT}
@@ -139,6 +147,9 @@ func (t CaptchaTemplate) Resolve(ctx context.Context, provider sms.ProviderConfi
             Content: "您的验证码是 " + t.Code,
         },
         "twilio_global": {
+            Content: "Your verification code is " + t.Code,
+        },
+        "aliyun_global": {
             Content: "Your verification code is " + t.Code,
         },
         "tencent_cn": {

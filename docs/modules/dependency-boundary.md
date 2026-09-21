@@ -30,6 +30,7 @@ sdkit_eventbus_nats
 sdkit_tracing_otel
 
 sdkit_sms_aliyun
+sdkit_sms_aliyun_global
 sdkit_sms_feige
 sdkit_sms_twilio
 sdkit_sms_tencentcloud

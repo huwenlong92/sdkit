@@ -256,3 +256,17 @@ r.Use(securitymw.SecureHeaders(securitymw.SecureHeaderOption{
 go test ./pkg/security/... ./core/security/... ./core/gin/security/...
 go test ./...
 ```
+
+
+## 风控临时验证码要求
+
+`risk.NewChallengeStore(redis.UniversalClient)` 提供独立于频率计数的 Redis 状态。`ChallengeKey` 由服务、场景、规则代码、对象类型和对象值构成；账号和 IP 分别使用独立键，不拼成账号/IP联合键。
+
+- `Require(ctx, key, ttl)`：生成新版本并保存要求；TTL 必须大于零，新失败可以延长要求。
+- `Get(ctx, keys)`：批量读取存在的要求，不计数、不续期；Redis 不可用时返回错误，空键列表也检查可用性。
+- `Resolve(ctx, requirement)`：按读取到的版本比较删除，保护并发新产生的要求。调用方决定解除哪些维度，例如成功登录仅解除账号状态。
+- `ClaimProof(ctx, scope, proof, ttl)`：原子认领一次性验证凭证，在实际验证之前调用。scope 必须与验证码命名空间一致，TTL 必须覆盖凭证的有效期；不能代替凭证真实性校验。
+
+调用方依据仍启用的规则构建读取键，负责验证码校验与黑名单/限流优先级。此接口不改变 Engine.Evaluate、Counter.Incr 和历史风控事件，不能把完成验证码当成跳过其他风控的授权。
+
+测试：`SDKIT_RISK_TEST_REDIS_SOCKET=<临时Redis Unix socket> go test ./tests/core/security/risk`。

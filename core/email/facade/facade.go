@@ -11,10 +11,16 @@ type Config = coreemail.Config
 type ProviderConfig = coreemail.ProviderConfig
 type Manager = coreemail.Manager
 type Message = coreemail.Message
+type Attachment = coreemail.Attachment
+type AttachmentSource = coreemail.AttachmentSource
+type AttachmentSourceFunc = coreemail.AttachmentSourceFunc
+type AttachmentOpenError = coreemail.AttachmentOpenError
 type DirectMessage = coreemail.DirectMessage
 type TemplateMessage = coreemail.TemplateMessage
 type Template = coreemail.Template
 type TemplateRenderer = coreemail.TemplateRenderer
+type ProviderResolver = coreemail.ProviderResolver
+type ProviderResolverFunc = coreemail.ProviderResolverFunc
 type SendResult = coreemail.SendResult
 type Middleware = coreemail.Middleware
 
