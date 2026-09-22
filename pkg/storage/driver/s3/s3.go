@@ -39,6 +39,9 @@ func Register() {
 	storage.RegisterDriver("r2", func(cfg core.Config) (core.Handler, error) {
 		return NewR2FromConfig(cfg)
 	})
+	storage.RegisterDriver("cucloud", func(cfg core.Config) (core.Handler, error) {
+		return NewFromConfig(cfg, false)
+	})
 }
 
 type Driver struct {

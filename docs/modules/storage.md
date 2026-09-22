@@ -89,6 +89,13 @@ storage:
       endpoint: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
       access_key: ${R2_ACCESS_KEY_ID}
       secret_key: ${R2_SECRET_ACCESS_KEY}
+    cucloud:
+      driver: cucloud
+      bucket: app-assets
+      endpoint: https://<联通云控制台提供的对象存储 endpoint>
+      region: <联通云控制台提供的区域>
+      access_key: ${CUCLOUD_ACCESS_KEY}
+      secret_key: ${CUCLOUD_SECRET_KEY}
 ```
 
 `StoreConfig` 会转换成统一 `Policy`：
@@ -100,6 +107,7 @@ storage:
 - `access_key_id` 和 `access_secret` 映射为 `AccessKey` / `SecretKey`，用于 OSS
 - `dir` 和 `local_dir` 都映射为本地存储目录
 - Cloudflare R2 复用 S3 兼容实现，`driver` 为 `r2`，`endpoint` 使用 R2 S3 API endpoint，`region` 默认 `auto`
+- 联通云对象存储复用 S3 兼容实现，`driver` 为 `cucloud`；使用资源对应的 endpoint、region 和 AK/SK，编译时启用 `sdkit_storage_s3`
 - S3 / MinIO / R2 driver 使用 AWS SDK for Go v2；自建 S3 兼容服务的 `endpoint` 建议显式带协议，未带协议时默认按 `https://` 处理。
 - S3 / MinIO / R2 的 `endpoint_inner` 只用于服务端 SDK 请求；客户端直传、完成分片和临时访问的 presigned URL 固定使用外网 `endpoint`。
 
@@ -227,6 +235,7 @@ storage.AfterTokenFailed(hook)
 
 ## 更新记录
 
+- 新增联通云对象存储 `cucloud` driver，复用 S3 兼容协议和现有存储能力。
 - S3 / MinIO / R2 区分服务端内网 endpoint 和客户端 presigned URL endpoint，避免直传凭证返回 `endpoint_inner`。
 - S3 / MinIO / R2 删除改为逐个 `DeleteObject`，避免部分 S3 兼容服务对 `DeleteObjects` 强制要求 `Content-MD5` 导致删除失败。
 - S3 / MinIO / R2 driver 从 AWS SDK for Go v1 迁移到 AWS SDK for Go v2，移除已 EOL 的 `github.com/aws/aws-sdk-go` 依赖。

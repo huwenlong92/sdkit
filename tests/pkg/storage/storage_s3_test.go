@@ -17,6 +17,41 @@ import (
 	_ "github.com/huwenlong92/sdkit/pkg/storage/driver/s3"
 )
 
+func TestCUCloudUsesS3CompatiblePresignedURLs(t *testing.T) {
+	fs, err := storage.NewFromPolicy(core.StoragePolicy{
+		Driver:        "cucloud",
+		Bucket:        "assets",
+		Endpoint:      "https://oss.example.cucloud.cn",
+		EndpointInner: "https://oss-internal.example.cucloud.cn",
+		Region:        "example-region",
+		AccessKey:     "access-key",
+		SecretKey:     "secret-key",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := fs.Source("avatars/a.png", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(source, "assets.oss.example.cucloud.cn/avatars/a.png") {
+		t.Fatalf("source should use public endpoint: %s", source)
+	}
+	if !strings.Contains(source, "X-Amz-Signature=") || !strings.Contains(source, "example-region") {
+		t.Fatalf("source should be a region-signed URL: %s", source)
+	}
+	cred, err := fs.Token(core.FileInfo{Name: "b.png", Path: "avatars/b.png", Size: 1024}, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cred.Mode != core.UploadModeDirectPut || len(cred.UploadURLs) != 1 {
+		t.Fatalf("expected direct put credential: %+v", cred)
+	}
+	if !strings.Contains(cred.UploadURLs[0], "assets.oss.example.cucloud.cn/avatars/b.png") || strings.Contains(cred.UploadURLs[0], "oss-internal") {
+		t.Fatalf("upload URL should use public endpoint: %s", cred.UploadURLs[0])
+	}
+}
+
 func TestR2SourceUsesS3CompatiblePresignedURL(t *testing.T) {
 	fs, err := storage.NewFromPolicy(core.StoragePolicy{
 		Driver:    "r2",

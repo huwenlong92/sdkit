@@ -35,6 +35,13 @@ storage:
       endpoint: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
       access_key: ${R2_ACCESS_KEY_ID}
       secret_key: ${R2_SECRET_ACCESS_KEY}
+    cucloud:
+      driver: cucloud
+      bucket: app-assets
+      endpoint: https://<联通云控制台提供的对象存储 endpoint>
+      region: <联通云控制台提供的区域>
+      access_key: ${CUCLOUD_ACCESS_KEY}
+      secret_key: ${CUCLOUD_SECRET_KEY}
 ```
 
 启动层必须显式传入 storage 配置。`default` 必须显式配置，并且必须指向 `stores` 中存在的名称。业务需要把一部分资源放到其他存储时，通过 store 名称显式选择。
@@ -248,5 +255,6 @@ case storage.UploadModeMultipartPut:
 - 业务代码需要跨 driver 时通过 `storage.Use(name)` 显式选择
 - 配置入口只使用 `storage`，不要再新增 `filesystem` 配置
 - Cloudflare R2 使用 `driver: r2`，`endpoint` 为 `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`，region 默认按 R2 要求使用 `auto`
+- 联通云对象存储使用 `driver: cucloud`，复用 S3 兼容协议；`endpoint`、`region` 和 AK/SK 以实际资源的控制台信息为准，编译时启用 `sdkit_storage_s3`
 - S3 / MinIO / R2 删除对象时逐个调用 `DeleteObject`，兼容要求批量删除请求携带 `Content-MD5` 的自建 S3 服务
 - 新增 driver 时必须在上传凭证中补齐 `mode`
