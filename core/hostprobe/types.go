@@ -9,10 +9,16 @@ type DiskSpec struct {
 	Path string `json:"path" mapstructure:"path" yaml:"path"`
 }
 
+type NetworkSpec struct {
+	ProcRoot   string   `json:"-" mapstructure:"proc_root" yaml:"proc_root"`
+	Interfaces []string `json:"-" mapstructure:"interfaces" yaml:"interfaces"`
+}
+
 type Config struct {
 	CacheTTL    time.Duration `json:"-" mapstructure:"cache_ttl" yaml:"cache_ttl"`
 	CPUInterval time.Duration `json:"-" mapstructure:"cpu_interval" yaml:"cpu_interval"`
 	Disks       []DiskSpec    `json:"-" mapstructure:"disks" yaml:"disks"`
+	Network     NetworkSpec   `json:"-" mapstructure:"network" yaml:"network"`
 }
 
 type Snapshot struct {

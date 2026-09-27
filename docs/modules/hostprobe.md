@@ -10,7 +10,7 @@
 - CPU 逻辑核心数和使用率；
 - 内存总量、已用量、可用量和使用率；
 - 调用方显式配置目录所在文件系统的容量与使用率；
-- 全机累计网络收发量、包数量以及相邻有效采样间的收发速率。
+- 指定网络接口的累计收发量、包数量以及相邻有效采样间的收发速率；未指定接口时保持当前 network namespace 的聚合行为。
 
 ## 边界
 
@@ -31,7 +31,10 @@ func (p *Probe) Snapshot(ctx context.Context) (Snapshot, error)
 
 网络实时速率需要两个有效样本。首次采样的 `Network.RateReady` 为 `false`；后续非缓存采样根据累计计数差值计算每秒速率。
 
+容器内需要展示宿主机网络时，调用方必须把宿主机目标 network namespace 的 `net` 目录只读挂载到容器的 proc 根路径下，并通过 `Config.Network.ProcRoot` 指定挂载路径。`Config.Network.Interfaces` 用于只统计真实出口网卡，避免把 Docker bridge 和 veth 内部流量重复计入。
+
 ## 更新记录
 
 - 新增主机、CPU、内存、指定磁盘和网络快照。
 - 新增短时缓存与相邻样本网络速率计算。
+- 新增可配置网络 proc 根路径与接口白名单，支持容器安全采集宿主机出口网卡。

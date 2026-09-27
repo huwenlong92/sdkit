@@ -2,11 +2,13 @@ package hostprobe
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/shirou/gopsutil/v4/common"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/host"
@@ -19,6 +21,7 @@ const (
 	defaultCPUInterval = 200 * time.Millisecond
 	maxCPUInterval     = time.Second
 	maxDiskSpecs       = 16
+	maxNetworkSpecs    = 16
 )
 
 type Probe struct {
@@ -131,11 +134,20 @@ func (p *Probe) collect(ctx context.Context) Snapshot {
 		})
 	}
 
-	if counters, err := gnet.IOCountersWithContext(ctx, false); err != nil {
+	networkCtx := ctx
+	if p.config.Network.ProcRoot != "" {
+		networkCtx = context.WithValue(ctx, common.EnvKey, common.EnvMap{
+			common.HostProcEnvKey: p.config.Network.ProcRoot,
+		})
+	}
+	perNIC := len(p.config.Network.Interfaces) > 0
+	if counters, err := gnet.IOCountersWithContext(networkCtx, perNIC); err != nil {
 		snapshot.addIssue("network", "", err)
-	} else if len(counters) > 0 {
+	} else if counter, missing, ok := selectNetworkCounters(counters, p.config.Network.Interfaces); ok {
+		if len(missing) > 0 {
+			snapshot.addIssue("network", strings.Join(missing, ","), fmt.Errorf("configured network interface is unavailable"))
+		}
 		now := time.Now()
-		counter := counters[0]
 		snapshot.Network = Network{
 			BytesSent:       counter.BytesSent,
 			BytesReceived:   counter.BytesRecv,
@@ -152,6 +164,8 @@ func (p *Probe) collect(ctx context.Context) Snapshot {
 			}
 		}
 		p.lastNetwork = networkSample{at: now, bytesOut: counter.BytesSent, bytesIn: counter.BytesRecv}
+	} else if len(missing) > 0 {
+		snapshot.addIssue("network", strings.Join(missing, ","), fmt.Errorf("configured network interface is unavailable"))
 	}
 
 	snapshot.CollectedAt = time.Now()
@@ -184,7 +198,57 @@ func normalizeConfig(config Config) Config {
 		disks = append(disks, DiskSpec{Name: "workdir", Path: "."})
 	}
 	config.Disks = disks
+	config.Network.ProcRoot = strings.TrimSpace(config.Network.ProcRoot)
+	interfaces := make([]string, 0, len(config.Network.Interfaces))
+	seenInterfaces := make(map[string]struct{}, len(config.Network.Interfaces))
+	for _, name := range config.Network.Interfaces {
+		if len(interfaces) >= maxNetworkSpecs {
+			break
+		}
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if _, exists := seenInterfaces[name]; exists {
+			continue
+		}
+		seenInterfaces[name] = struct{}{}
+		interfaces = append(interfaces, name)
+	}
+	config.Network.Interfaces = interfaces
 	return config
+}
+
+func selectNetworkCounters(counters []gnet.IOCountersStat, interfaces []string) (gnet.IOCountersStat, []string, bool) {
+	if len(interfaces) == 0 {
+		if len(counters) == 0 {
+			return gnet.IOCountersStat{}, nil, false
+		}
+		return counters[0], nil, true
+	}
+
+	selected := make(map[string]struct{}, len(interfaces))
+	for _, name := range interfaces {
+		selected[name] = struct{}{}
+	}
+	total := gnet.IOCountersStat{}
+	for _, counter := range counters {
+		if _, exists := selected[counter.Name]; !exists {
+			continue
+		}
+		total.BytesSent += counter.BytesSent
+		total.BytesRecv += counter.BytesRecv
+		total.PacketsSent += counter.PacketsSent
+		total.PacketsRecv += counter.PacketsRecv
+		delete(selected, counter.Name)
+	}
+	missing := make([]string, 0, len(selected))
+	for _, name := range interfaces {
+		if _, exists := selected[name]; exists {
+			missing = append(missing, name)
+		}
+	}
+	return total, missing, len(selected) < len(interfaces)
 }
 
 func (s *Snapshot) addIssue(component string, path string, err error) {
