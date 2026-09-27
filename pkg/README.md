@@ -4,7 +4,6 @@
 
 ## 外部文件与媒体
 
-- `pkg/remotefs`：外部层级文件系统公共契约，包含 local 与 BaiduPan driver。参见 [模块设计](../docs/modules/remotefs.md) 和 [使用指南](../docs/usage/remotefs.md)。
 - `pkg/media`：本地媒体元数据探测契约，包含 ffprobe driver。参见 [模块设计](../docs/modules/media.md) 和 [使用指南](../docs/usage/media.md)。
 
 ## 服务 SDK
