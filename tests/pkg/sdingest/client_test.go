@@ -261,6 +261,86 @@ func TestClientSupportsAutoAndManualManifestModes(t *testing.T) {
 	}
 }
 
+func TestClientPreservesArtifactLocationContracts(t *testing.T) {
+	expiresAt := time.Date(2026, 9, 28, 16, 0, 0, 0, time.UTC)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/v1/auth/token":
+			writeEnvelope(t, writer, http.StatusOK, http.StatusOK, "", map[string]any{"access_token": "token", "expires_in": 3600})
+		case "/v1/ingest/job/manifest":
+			writeEnvelope(t, writer, http.StatusOK, http.StatusOK, "", map[string]any{
+				"manifest": map[string]any{"job_id": "job-1", "revision": 1},
+				"items": []map[string]any{{
+					"item_id": "item-1", "artifact_id": "artifact-1", "target_id": "target-1",
+					"artifact_path": "jobs/job-1/file.mp4", "path": "source/file.mp4", "selected": true,
+				}},
+				"total": 1,
+			})
+		case "/v1/ingest/job/artifact-access":
+			if request.URL.Query().Get("artifact_id") != "artifact-1" || request.URL.Query().Get("ttl_seconds") != "300" {
+				t.Errorf("artifact access query = %s", request.URL.RawQuery)
+			}
+			writeEnvelope(t, writer, http.StatusOK, http.StatusOK, "", map[string]any{
+				"artifact_id": "artifact-1", "target_id": "target-1", "path": "jobs/job-1/file.mp4",
+				"object_uri": "s3://bucket/jobs/job-1/file.mp4", "url": "https://storage.example.com/file.mp4", "expires_at": expiresAt,
+			})
+		case "/v1/ingest/job/artifact-access-batch":
+			var input struct {
+				Items      []sdingest.ArtifactAccessLocator `json:"items"`
+				TTLSeconds int64                            `json:"ttl_seconds"`
+			}
+			if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
+				t.Errorf("decode batch access input: %v", err)
+			}
+			if input.TTLSeconds != 300 || len(input.Items) != 1 || input.Items[0].TargetID != "target-1" || input.Items[0].Path != "jobs/job-1/file.mp4" {
+				t.Errorf("batch access input = %+v", input)
+			}
+			writeEnvelope(t, writer, http.StatusOK, http.StatusOK, "", map[string]any{
+				"list": []map[string]any{{
+					"artifact_id": "artifact-1", "target_id": "target-1", "path": "jobs/job-1/file.mp4",
+					"object_uri": "s3://bucket/jobs/job-1/file.mp4", "url": "https://storage.example.com/file.mp4", "expires_at": expiresAt,
+				}},
+			})
+		default:
+			http.NotFound(writer, request)
+		}
+	}))
+	defer server.Close()
+
+	client := newClient(t, server.URL)
+	manifest, err := client.GetJobManifest(context.Background(), "job-1", 1, 100)
+	if err != nil || len(manifest.Items) != 1 || manifest.Items[0].TargetID != "target-1" || manifest.Items[0].ArtifactPath != "jobs/job-1/file.mp4" {
+		t.Fatalf("GetJobManifest() = %+v, %v", manifest, err)
+	}
+	access, err := client.GetArtifactAccess(context.Background(), "artifact-1", 5*time.Minute)
+	if err != nil || access.TargetID != "target-1" || access.Path != "jobs/job-1/file.mp4" {
+		t.Fatalf("GetArtifactAccess() = %+v, %v", access, err)
+	}
+	batch, err := client.GetArtifactAccessBatch(context.Background(), []sdingest.ArtifactAccessLocator{{
+		TargetID: " target-1 ", Path: "/jobs/job-1/file.mp4/",
+	}}, 5*time.Minute)
+	if err != nil || len(batch) != 1 || batch[0].ArtifactID != "artifact-1" || batch[0].TargetID != "target-1" || batch[0].Path != "jobs/job-1/file.mp4" {
+		t.Fatalf("GetArtifactAccessBatch() = %+v, %v", batch, err)
+	}
+}
+
+func TestVerifyAndDecodeCallbackPreservesTargetLocation(t *testing.T) {
+	now := time.Date(2026, 9, 28, 16, 0, 0, 0, time.UTC)
+	body := []byte(`{"event_id":"evt-target","event":"job.succeeded","timestamp":"2026-09-28T16:00:00Z","data":{"job_id":"job-1","target_id":"target-1","status":"succeeded","phase":"cleanup","revision":10,"item":{"item_id":"item-1","path":"source/file.mp4","name":"file.mp4","status":"succeeded","phase":"upload","size":128,"down_bytes":128,"up_bytes":128,"artifact_id":"artifact-1","target_id":"target-1","artifact_path":"jobs/job-1/file.mp4"}}}`)
+	header := make(http.Header)
+	header.Set(sdingest.CallbackHeaderEventID, "evt-target")
+	header.Set(sdingest.CallbackHeaderTimestamp, strconv.FormatInt(now.Unix(), 10))
+	header.Set(sdingest.CallbackHeaderSignature, callbackSignature("callback-secret", now.Unix(), body))
+
+	event, err := sdingest.VerifyAndDecodeCallback(header, body, "callback-secret", now, time.Minute)
+	if err != nil {
+		t.Fatalf("VerifyAndDecodeCallback: %v", err)
+	}
+	if event.Data.TargetID != "target-1" || event.Data.Item == nil || event.Data.Item.TargetID != "target-1" || event.Data.Item.ArtifactPath != "jobs/job-1/file.mp4" {
+		t.Fatalf("event = %+v", event)
+	}
+}
+
 func TestClientReturnsMachineReadableAPIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/v1/auth/token" {

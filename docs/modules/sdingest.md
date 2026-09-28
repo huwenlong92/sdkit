@@ -80,6 +80,7 @@ func NewClient(config Config) (*Client, error)
 - `ListArtifacts(ctx, input) (Page[Artifact], error)`
 - `GetArtifact(ctx, artifactID) (Artifact, error)`
 - `GetArtifactAccess(ctx, artifactID, ttl) (ArtifactAccess, error)`
+- `GetArtifactAccessBatch(ctx, items, ttl) ([]ArtifactAccess, error)`
 - `AcknowledgeArtifact(ctx, artifactID, idempotencyKey) (Artifact, error)`
 
 Callback：
@@ -144,7 +145,10 @@ v1=hex(HMAC-SHA256(signing_secret, unix_timestamp + "." + raw_body))
 
 SDK 不维护事件去重表。调用方必须持久化 Event ID，并在收到提示后重新查询 GET 权威状态。`ReplayCallback` 仅允许重放当前 App 自己的事件，且服务端会为重放生成新的 Event ID。
 
+Manifest item、Artifact access 和 Callback item 都保留 `target_id` 与产物路径。`path` 表示源文件相对路径，`artifact_path` 表示目标存储对象路径；调用方不得混用。没有目标存储配置读取能力的调用方，可以把 `target_id + artifact_path` 交给 `GetArtifactAccessBatch` 批量换取短期访问地址。
+
 ## 更新记录
 
+- 2026-09-28：补齐 Manifest、Callback 和 Artifact access 的目标存储定位字段，新增按 `target_id + path` 批量获取临时地址。
 - 2026-08-25：新增 Callback 人工重放，并为任务列表增加 Manifest 模式筛选。
 - 2026-08-25：新增首版 typed Client，覆盖 App、Job、Progress、Manifest、Artifact、业务错误、Token 缓存、Callback 管理与验签。

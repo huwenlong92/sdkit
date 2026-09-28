@@ -138,6 +138,29 @@ func (c *Client) GetArtifactAccess(ctx context.Context, artifactID string, ttl t
 	return result, err
 }
 
+func (c *Client) GetArtifactAccessBatch(ctx context.Context, items []ArtifactAccessLocator, ttl time.Duration) ([]ArtifactAccess, error) {
+	input := struct {
+		Items      []ArtifactAccessLocator `json:"items"`
+		TTLSeconds int64                   `json:"ttl_seconds,omitempty"`
+	}{
+		Items: make([]ArtifactAccessLocator, len(items)),
+	}
+	for index, item := range items {
+		input.Items[index] = ArtifactAccessLocator{
+			TargetID: strings.TrimSpace(item.TargetID),
+			Path:     strings.Trim(strings.TrimSpace(item.Path), "/"),
+		}
+	}
+	if ttl > 0 {
+		input.TTLSeconds = int64(ttl / time.Second)
+	}
+	var result struct {
+		List []ArtifactAccess `json:"list"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/ingest/job/artifact-access-batch", nil, input, "", &result)
+	return result.List, err
+}
+
 func (c *Client) AcknowledgeArtifact(ctx context.Context, artifactID string, idempotencyKey string) (Artifact, error) {
 	key, err := requiredIdempotencyKey(idempotencyKey)
 	if err != nil {

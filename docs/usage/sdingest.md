@@ -84,6 +84,15 @@ if err != nil {
 	return err
 }
 
+for _, item := range manifest.Items {
+	if item.ArtifactID == "" {
+		continue
+	}
+	// item.Path 是源相对路径；item.ArtifactPath 是目标存储对象路径。
+	_ = item.TargetID
+	_ = item.ArtifactPath
+}
+
 artifacts, err := client.ListArtifacts(ctx, sdingest.ListArtifactsInput{
 	Page:  1,
 	Limit: 100,
@@ -129,6 +138,19 @@ job, err = client.ConfirmJobManifestSelection(ctx, sdingest.ConfirmJobManifestIn
 ```go
 access, err := client.GetArtifactAccess(ctx, artifact.ArtifactID, 15*time.Minute)
 ```
+
+调用方已经保存 `target_id + artifact_path` 时，可以批量换取临时地址，无需自行持有目标桶凭据：
+
+```go
+accessList, err := client.GetArtifactAccessBatch(ctx, []sdingest.ArtifactAccessLocator{
+	{TargetID: item.TargetID, Path: item.ArtifactPath},
+}, 15*time.Minute)
+if err != nil {
+	return err
+}
+```
+
+批量接口一次最多提交 100 项，返回顺序与输入顺序一致。`ArtifactAccess` 同时保留 `TargetID` 和 `Path`，便于调用方关联本地记录。
 
 只有在调用方自己的事务已经成功落库后再确认回执：
 
@@ -206,6 +228,8 @@ if err != nil {
 ```
 
 调用方应以 `event.EventID` 去重。Callback 只是状态变化提示；收到事件后仍通过 `GetJob`、`GetJobProgress` 或 `ListArtifacts` 获取权威状态，不依赖事件顺序推导最终结果。`ReplayCallback` 会创建一个新的事件 ID 并重新投递同类事件，不能把重放当作原事件的重复响应。
+
+Callback 的 `Data.TargetID` 表示任务目标存储；item 事件还会在 `Data.Item` 中携带 `ArtifactID`、`TargetID` 和 `ArtifactPath`。这些字段用于定位产物，最终状态仍以查询接口为准。
 
 ## 敏感信息
 

@@ -239,28 +239,30 @@ type Manifest struct {
 }
 
 type ManifestItem struct {
-	ItemID     string          `json:"item_id"`
-	ArtifactID string          `json:"artifact_id,omitempty"`
-	Path       string          `json:"path"`
-	Name       string          `json:"name"`
-	Size       int64           `json:"size"`
-	MTime      *time.Time      `json:"mtime,omitempty"`
-	Checksum   string          `json:"checksum,omitempty"`
-	Selected   bool            `json:"selected"`
-	SkipReason string          `json:"skip_reason,omitempty"`
-	Status     string          `json:"status"`
-	Phase      string          `json:"phase"`
-	LocalSize  int64           `json:"local_size"`
-	MIME       string          `json:"mime,omitempty"`
-	HashType   string          `json:"hash_type,omitempty"`
-	HashValue  string          `json:"hash_value,omitempty"`
-	Media      json.RawMessage `json:"media,omitempty"`
-	DownBytes  int64           `json:"down_bytes"`
-	UpBytes    int64           `json:"up_bytes"`
-	ErrorCode  string          `json:"err_code,omitempty"`
-	ErrorMsg   string          `json:"err_msg,omitempty"`
-	StartedAt  *time.Time      `json:"started_at,omitempty"`
-	FinishedAt *time.Time      `json:"finished_at,omitempty"`
+	ItemID       string          `json:"item_id"`
+	ArtifactID   string          `json:"artifact_id,omitempty"`
+	TargetID     string          `json:"target_id"`
+	ArtifactPath string          `json:"artifact_path,omitempty"`
+	Path         string          `json:"path"`
+	Name         string          `json:"name"`
+	Size         int64           `json:"size"`
+	MTime        *time.Time      `json:"mtime,omitempty"`
+	Checksum     string          `json:"checksum,omitempty"`
+	Selected     bool            `json:"selected"`
+	SkipReason   string          `json:"skip_reason,omitempty"`
+	Status       string          `json:"status"`
+	Phase        string          `json:"phase"`
+	LocalSize    int64           `json:"local_size"`
+	MIME         string          `json:"mime,omitempty"`
+	HashType     string          `json:"hash_type,omitempty"`
+	HashValue    string          `json:"hash_value,omitempty"`
+	Media        json.RawMessage `json:"media,omitempty"`
+	DownBytes    int64           `json:"down_bytes"`
+	UpBytes      int64           `json:"up_bytes"`
+	ErrorCode    string          `json:"err_code,omitempty"`
+	ErrorMsg     string          `json:"err_msg,omitempty"`
+	StartedAt    *time.Time      `json:"started_at,omitempty"`
+	FinishedAt   *time.Time      `json:"finished_at,omitempty"`
 }
 
 type ManifestPage struct {
@@ -313,7 +315,14 @@ type ListArtifactsInput struct {
 
 type ArtifactAccess struct {
 	ArtifactID string    `json:"artifact_id"`
+	TargetID   string    `json:"target_id"`
+	Path       string    `json:"path"`
 	ObjectURI  string    `json:"object_uri"`
 	URL        string    `json:"url"`
 	ExpiresAt  time.Time `json:"expires_at"`
+}
+
+type ArtifactAccessLocator struct {
+	TargetID string `json:"target_id"`
+	Path     string `json:"path"`
 }

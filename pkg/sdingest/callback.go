@@ -55,8 +55,25 @@ type CallbackEnvelope struct {
 	Data      CallbackData `json:"data"`
 }
 
+type CallbackItem struct {
+	ItemID       string `json:"item_id"`
+	AttemptID    string `json:"attempt_id,omitempty"`
+	Path         string `json:"path"`
+	Name         string `json:"name"`
+	Status       string `json:"status"`
+	Phase        string `json:"phase"`
+	Size         int64  `json:"size"`
+	DownBytes    int64  `json:"down_bytes"`
+	UpBytes      int64  `json:"up_bytes"`
+	ErrorCode    string `json:"error_code,omitempty"`
+	ArtifactID   string `json:"artifact_id,omitempty"`
+	TargetID     string `json:"target_id,omitempty"`
+	ArtifactPath string `json:"artifact_path,omitempty"`
+}
+
 type CallbackData struct {
 	JobID         string            `json:"job_id"`
+	TargetID      string            `json:"target_id"`
 	ExternalRef   string            `json:"external_ref,omitempty"`
 	Status        string            `json:"status"`
 	Phase         string            `json:"phase"`
@@ -64,6 +81,7 @@ type CallbackData struct {
 	WaitingReason string            `json:"waiting_reason,omitempty"`
 	ErrorCode     string            `json:"error_code,omitempty"`
 	Progress      *CallbackProgress `json:"progress,omitempty"`
+	Item          *CallbackItem     `json:"item,omitempty"`
 }
 
 type Callback struct {
