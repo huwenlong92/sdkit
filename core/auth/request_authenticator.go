@@ -4,12 +4,19 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
+
+	jwt "github.com/golang-jwt/jwt/v5"
 )
 
 type JWTAuthenticator struct {
-	cfg       JWTConfig
-	extractor Extractor
-	provider  string
+	cfg               JWTConfig
+	extractor         Extractor
+	provider          string
+	audience          string
+	validMethods      []string
+	validateIssuer    bool
+	requireExpiration bool
 }
 
 type JWTAuthenticatorOption func(*JWTAuthenticator)
@@ -44,6 +51,30 @@ func WithJWTProvider(provider string) JWTAuthenticatorOption {
 	}
 }
 
+func WithJWTAudience(audience string) JWTAuthenticatorOption {
+	return func(a *JWTAuthenticator) {
+		a.audience = strings.TrimSpace(audience)
+	}
+}
+
+func WithJWTValidMethods(methods ...string) JWTAuthenticatorOption {
+	return func(a *JWTAuthenticator) {
+		a.validMethods = append([]string(nil), methods...)
+	}
+}
+
+func WithJWTIssuerValidation() JWTAuthenticatorOption {
+	return func(a *JWTAuthenticator) {
+		a.validateIssuer = true
+	}
+}
+
+func WithJWTExpirationRequired() JWTAuthenticatorOption {
+	return func(a *JWTAuthenticator) {
+		a.requireExpiration = true
+	}
+}
+
 func (a *JWTAuthenticator) AuthenticateRequest(ctx context.Context, r *http.Request) (*Identity, error) {
 	if a == nil || a.extractor == nil {
 		return nil, ErrUnauthorized
@@ -52,13 +83,37 @@ func (a *JWTAuthenticator) AuthenticateRequest(ctx context.Context, r *http.Requ
 	if !ok {
 		return nil, ErrUnauthorized
 	}
-	claims, err := parseTokenWithSecret(credential.Value, a.cfg.Secret)
+	identity, err := a.AuthenticateToken(ctx, credential.Value)
+	if err != nil {
+		return nil, err
+	}
+	identity.TokenID = credential.Source
+	return identity, nil
+}
+
+func (a *JWTAuthenticator) AuthenticateToken(_ context.Context, value string) (*Identity, error) {
+	if a == nil {
+		return nil, ErrUnauthorized
+	}
+	options := make([]jwt.ParserOption, 0, 4)
+	if a.audience != "" {
+		options = append(options, jwt.WithAudience(a.audience))
+	}
+	if len(a.validMethods) > 0 {
+		options = append(options, jwt.WithValidMethods(a.validMethods))
+	}
+	if a.validateIssuer && strings.TrimSpace(a.cfg.Issuer) != "" {
+		options = append(options, jwt.WithIssuer(a.cfg.Issuer))
+	}
+	if a.requireExpiration {
+		options = append(options, jwt.WithExpirationRequired())
+	}
+	claims, err := parseTokenWithSecret(value, a.cfg.Secret, options...)
 	if err != nil {
 		return nil, err
 	}
 	identity := identityFromClaims(claims)
-	enrichIdentity(identity, MethodJWT, providerName(a.provider, credential.Provider))
-	identity.TokenID = credential.Source
+	enrichIdentity(identity, MethodJWT, a.provider)
 	return identity, nil
 }
 
@@ -69,7 +124,7 @@ func (a *JWTAuthenticator) Login(ctx context.Context, identity *Identity) (*Logi
 	if identity == nil {
 		return nil, ErrUnauthorized
 	}
-	token, err := generateToken(a.cfg.Secret, a.cfg.Issuer, a.cfg.Expire, identity)
+	token, err := generateToken(a.cfg.Secret, a.cfg.Issuer, a.cfg.Expire, a.audience, identity)
 	if err != nil {
 		return nil, err
 	}

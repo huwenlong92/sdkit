@@ -57,6 +57,21 @@ apiAuth := auth.NewJWTAuthenticator(&cfg.JWT,
 )
 ```
 
+同一个签名密钥服务多个 token 用途时，可以为认证器绑定 audience，并按需要求 issuer 和过期时间：
+
+```go
+appAuth := auth.NewJWTAuthenticator(&cfg.JWT,
+    auth.WithJWTAudience("open-api"),
+    auth.WithJWTValidMethods("HS256"),
+    auth.WithJWTIssuerValidation(),
+    auth.WithJWTExpirationRequired(),
+)
+```
+
+这些选项默认关闭，已有调用不传时保持原行为。`Login` 会把 `Identity` 的 `TenantID`、`Roles`、`Permissions` 和 `Extra` 一并写入 token，认证时恢复；业务扩展字段应放在 `Extra`，core 不定义业务键名。
+
+已有 token 字符串可直接调用 `AuthenticateToken(ctx, token)` 解析；HTTP 请求入口继续使用 `AuthenticateRequest`，由配置的 extractor 负责取凭证。
+
 Gin 可选认证：
 
 ```go

@@ -76,6 +76,55 @@ func TestJWTAuthenticatorPreservesStringSubject(t *testing.T) {
 	}
 }
 
+func TestJWTAuthenticatorRoundTripsExtendedIdentityAndValidatesAudience(t *testing.T) {
+	cfg := auth.JWTConfig{Secret: "secret", Issuer: "test", Expire: 3600}
+	issuer := auth.NewJWTAuthenticator(&cfg,
+		auth.WithJWTAudience("service-a"),
+		auth.WithJWTValidMethods("HS256"),
+		auth.WithJWTIssuerValidation(),
+		auth.WithJWTExpirationRequired(),
+	)
+	login, err := issuer.Login(context.Background(), &auth.Identity{
+		SubjectID:   42,
+		Subject:     "app_demo",
+		SubjectType: "application",
+		TenantID:    7,
+		Roles:       []string{"client"},
+		Permissions: []string{"job:read"},
+		Extra: map[string]any{
+			"credential_version": "3",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/jobs", nil)
+	req.Header.Set("Authorization", "Bearer "+login.Token)
+	identity, err := issuer.AuthenticateRequest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("AuthenticateRequest: %v", err)
+	}
+	if identity.SubjectID != 42 || identity.Subject != "app_demo" || identity.TenantID != 7 {
+		t.Fatalf("unexpected identity: %+v", identity)
+	}
+	if len(identity.Roles) != 1 || identity.Roles[0] != "client" || len(identity.Permissions) != 1 || identity.Permissions[0] != "job:read" {
+		t.Fatalf("roles or permissions not preserved: %+v", identity)
+	}
+	if identity.Extra["credential_version"] != "3" || identity.ExpiresAt.IsZero() {
+		t.Fatalf("extra or expiration not preserved: %+v", identity)
+	}
+	directIdentity, err := issuer.AuthenticateToken(context.Background(), login.Token)
+	if err != nil || directIdentity.Subject != "app_demo" {
+		t.Fatalf("AuthenticateToken identity=%+v err=%v", directIdentity, err)
+	}
+
+	otherAudience := auth.NewJWTAuthenticator(&cfg, auth.WithJWTAudience("service-b"))
+	if _, err := otherAudience.AuthenticateRequest(context.Background(), req); err == nil {
+		t.Fatal("wrong audience must fail")
+	}
+}
+
 func TestGinSessionAuthenticatorReadsSessionIdentity(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	session.Register(sessionUser{})

@@ -49,6 +49,14 @@ type Identity struct {
 
 从请求中提取 token，解析为 `Identity`。默认读取 `Authorization: Bearer`，可通过 `WithJWTExtractor` 改成 header、query、cookie 或组合提取。
 
+- `WithJWTAudience`：签发并校验指定 audience。
+- `WithJWTValidMethods`：限制允许的 JWT 签名算法。
+- `WithJWTIssuerValidation`：校验配置中的 issuer。
+- `WithJWTExpirationRequired`：要求 token 必须包含过期时间。
+
+JWT 会往返保留 `Identity` 的 `TenantID`、`Roles`、`Permissions` 和 `Extra`。扩展字段只提供通用容器，业务键名和解释仍归接入方。
+`AuthenticateToken` 用于已经取得 token 字符串的非 HTTP 或业务适配场景；`AuthenticateRequest` 仍负责请求凭证提取和来源记录。
+
 ### SessionAuthenticator
 
 通过 `SessionReader` 读取 session payload。payload 到 `Identity` 的映射由业务传入，core 不感知具体结构。
@@ -102,6 +110,7 @@ type Config struct {
 
 ## 更新记录
 
+- 2026-09-28：JWTAuthenticator 新增可选 audience、issuer 和过期时间校验，并完整往返通用身份扩展字段；旧调用默认行为不变。
 - 2026-05-24：JWT claims 新增字符串 `Subject`，Realtime 适配器统一输出带 `SubjectType` 的 subject key。
 - 2026-05-23：SessionAuthenticator 新增生命周期 hooks，支持接入方实现业务态校验、滑动续期和失败清理。
 - 2026-05-23：移除旧 `Auth` manager / `Guard` / Gin middleware 入口，统一改为 request authenticator；新增 JWT、Session、Chain、Realtime 适配能力。
