@@ -425,7 +425,7 @@ func TestCallbackManagementUsesConfiguredBasePathAndStableKeys(t *testing.T) {
 				t.Errorf("create idempotency key = %q", request.Header.Get("Idempotency-Key"))
 			}
 			writeEnvelope(t, writer, http.StatusOK, 200, "", map[string]any{
-				"callback_id": "cb-1", "name": "DreamIP", "url": "https://example.com/callback",
+				"callback_id": "cb-1", "name": "SDIngest consumer", "url": "https://example.com/callback",
 				"events": []string{sdingest.CallbackEventFailed}, "status": "enabled", "secret_ver": 1,
 				"signing_secret": "callback-secret-1",
 			})
@@ -472,7 +472,7 @@ func TestCallbackManagementUsesConfiguredBasePathAndStableKeys(t *testing.T) {
 
 	client := newClient(t, server.URL)
 	created, err := client.CreateCallback(context.Background(), sdingest.CreateCallbackInput{
-		Name: "DreamIP", URL: "https://example.com/callback", Events: []string{sdingest.CallbackEventFailed},
+		Name: "SDIngest consumer", URL: "https://example.com/callback", Events: []string{sdingest.CallbackEventFailed},
 	}, "callback-create-1")
 	if err != nil || created.CallbackID != "cb-1" || created.SigningSecret == "" {
 		t.Fatalf("CreateCallback() = %+v, %v", created, err)

@@ -188,8 +188,8 @@ Callback 可以通过 SDK 创建、查询、旋转密钥和启停。创建与旋
 
 ```go
 callback, err := client.CreateCallback(ctx, sdingest.CreateCallbackInput{
-	Name:   "DreamIP ingest events",
-	URL:    "https://dreamip.example.com/internal/v1/integrations/sdingest/events",
+	Name:   "SDIngest job events",
+	URL:    "https://consumer.example.com/callbacks/sdingest",
 	Events: []string{sdingest.CallbackEventSucceeded, sdingest.CallbackEventFailed},
 }, "callback-create:"+integration.ID)
 if err != nil {
