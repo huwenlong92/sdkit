@@ -3,11 +3,14 @@
 package tests
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -158,5 +161,90 @@ func TestS3UploadStreamCanRetrySeekableBody(t *testing.T) {
 	}
 	if got := atomic.LoadInt64(&uploadedBytes); got != int64(len("seekable upload payload")) {
 		t.Fatalf("uploaded bytes = %d, want %d", got, len("seekable upload payload"))
+	}
+}
+
+func TestS3LargeUploadReportsCommittedMultipartProgress(t *testing.T) {
+	const partSize = int64(16 << 20)
+	total := partSize + 7
+	var uploadedBytes int64
+	var partRequests int32
+	var progressMu sync.Mutex
+	progressValues := make([]int64, 0, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		switch {
+		case r.Method == http.MethodPost && query.Has("uploads"):
+			w.Header().Set("Content-Type", "application/xml")
+			_, _ = fmt.Fprint(w, `<InitiateMultipartUploadResult><Bucket>assets</Bucket><Key>runs/large.zip</Key><UploadId>upload-1</UploadId></InitiateMultipartUploadResult>`)
+		case r.Method == http.MethodPut && query.Get("uploadId") == "upload-1":
+			partNumber := query.Get("partNumber")
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("read part %s: %v", partNumber, err)
+			}
+			expectedBeforeResponse := int64(0)
+			if partNumber == "2" {
+				expectedBeforeResponse = partSize
+			}
+			if got := atomic.LoadInt64(&uploadedBytes); got != expectedBeforeResponse {
+				t.Errorf("progress before part %s response = %d, want %d", partNumber, got, expectedBeforeResponse)
+			}
+			if partNumber == "1" && int64(len(body)) != partSize {
+				t.Errorf("part 1 size = %d, want %d", len(body), partSize)
+			}
+			if partNumber == "2" && int64(len(body)) != total-partSize {
+				t.Errorf("part 2 size = %d, want %d", len(body), total-partSize)
+			}
+			atomic.AddInt32(&partRequests, 1)
+			w.Header().Set("ETag", fmt.Sprintf(`"etag-%s"`, partNumber))
+			w.WriteHeader(http.StatusOK)
+		case r.Method == http.MethodPost && query.Get("uploadId") == "upload-1":
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("read complete body: %v", err)
+			}
+			if !bytes.Contains(body, []byte("etag-1")) || !bytes.Contains(body, []byte("etag-2")) {
+				t.Errorf("complete body missing parts: %s", body)
+			}
+			w.Header().Set("Content-Type", "application/xml")
+			_, _ = fmt.Fprint(w, `<CompleteMultipartUploadResult><Bucket>assets</Bucket><Key>runs/large.zip</Key><ETag>"complete"</ETag></CompleteMultipartUploadResult>`)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.String())
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+	defer server.Close()
+
+	content := bytes.Repeat([]byte("x"), int(total))
+	fs, err := storage.NewFromPolicy(core.StoragePolicy{
+		Driver: "minio", Bucket: "assets", Endpoint: server.URL, Region: "us-east-1",
+		AccessKey: "access-key", SecretKey: "secret-key",
+	}, storage.WithChunkSize(partSize))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := fs.UploadStream(t.Context(), bytes.NewReader(content), core.FileInfo{
+		Name: "large.zip", Path: "runs/large.zip", Size: total,
+		Progress: func(uploaded, progressTotal int64) {
+			if progressTotal != total {
+				t.Errorf("progress total = %d, want %d", progressTotal, total)
+			}
+			atomic.StoreInt64(&uploadedBytes, uploaded)
+			progressMu.Lock()
+			progressValues = append(progressValues, uploaded)
+			progressMu.Unlock()
+		},
+	})
+	if result.Error != nil {
+		t.Fatalf("upload stream error = %v", result.Error)
+	}
+	if got := atomic.LoadInt32(&partRequests); got != 2 {
+		t.Fatalf("part requests = %d, want 2", got)
+	}
+	progressMu.Lock()
+	defer progressMu.Unlock()
+	if len(progressValues) != 2 || progressValues[0] != partSize || progressValues[1] != total {
+		t.Fatalf("progress values = %v, want [%d %d]", progressValues, partSize, total)
 	}
 }

@@ -180,18 +180,26 @@ func (fs *FileSystem) UploadStreamWithHook(ctx context.Context, reader io.Reader
 
 func (fs *FileSystem) uploadStream(ctx context.Context, reader io.Reader, info core.FileInfo, hooks operationHooks) UploadResult {
 	info = fs.prepareInfo(info)
+	_, driverManagesProgress := fs.handler.(core.UploadProgressHandler)
 	if seeker, ok := reader.(io.Seeker); ok {
 		var closer io.Closer
 		if c, ok := reader.(io.Closer); ok {
 			closer = c
 		}
 		stream := seekableUploadStream{reader: reader, seeker: seeker, closer: closer, info: info}
-		if info.Progress != nil {
+		if info.Progress != nil && !driverManagesProgress {
 			progress := &uploadProgressReader{reader: reader, total: info.Size, fn: info.Progress}
 			stream.reader = progress
 			stream.progress = progress
 		}
 		return fs.upload(ctx, stream, hooks)
+	}
+	if driverManagesProgress {
+		stream := core.NewFileStream(reader, core.FileInfo{
+			Name: info.Name, Path: info.Path, Size: info.Size, MIMEType: info.MIMEType, ModTime: info.ModTime,
+			Progress: nil, Metadata: info.Metadata,
+		})
+		return fs.upload(ctx, fileWithInfo{FileHeader: stream, info: info}, hooks)
 	}
 	return fs.upload(ctx, core.NewFileStream(reader, info), hooks)
 }

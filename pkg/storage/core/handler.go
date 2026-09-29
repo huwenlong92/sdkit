@@ -20,3 +20,11 @@ type Handler interface {
 	// Token 生成客户端直传凭证（S3 返回 presigned URL，local 返回路径）
 	Token(fileInfo FileInfo, ttl time.Duration) (*UploadCredential, error)
 }
+
+// UploadProgressHandler identifies drivers that report upload progress only
+// after bytes have been accepted by the storage provider. FileSystem skips its
+// generic reader-based progress wrapper for these drivers so SDK pre-reads and
+// retries are not counted as committed bytes.
+type UploadProgressHandler interface {
+	ManagesUploadProgress()
+}

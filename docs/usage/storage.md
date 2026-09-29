@@ -76,6 +76,9 @@ if err != nil {
 result := fs.UploadStream(ctx, reader, storage.FileInfo{
     Name: "avatar.png",
     Size: size,
+    Progress: func(uploaded, total int64) {
+        // Object-storage large uploads report successfully committed parts.
+    },
 })
 if result.Error != nil {
     return result.Error
@@ -257,4 +260,5 @@ case storage.UploadModeMultipartPut:
 - Cloudflare R2 使用 `driver: r2`，`endpoint` 为 `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`，region 默认按 R2 要求使用 `auto`
 - 联通云对象存储使用 `driver: cucloud`，复用 S3 兼容协议；`endpoint`、`region` 和 AK/SK 以实际资源的控制台信息为准，编译时启用 `sdkit_storage_s3`
 - S3 / MinIO / R2 删除对象时逐个调用 `DeleteObject`，兼容要求批量删除请求携带 `Content-MD5` 的自建 S3 服务
+- S3 / MinIO / R2 / 联通云、OSS、COS 服务端上传超过 `storage.chunk_size` 时自动使用 multipart；`Progress` 只在单次 PUT 成功或分片成功后推进，不包含 SDK 签名前的本地预读取。分片大小低于 provider 协议下限时会提升到对应最小值。
 - 新增 driver 时必须在上传凭证中补齐 `mode`

@@ -40,9 +40,13 @@ type Config struct {
 	CDNURL        string
 	SecretID      string
 	SecretKey     string
+	ChunkSize     int64
 }
 
 func New(cfg Config) (*Driver, error) {
+	if cfg.ChunkSize < 1<<20 {
+		cfg.ChunkSize = 5 << 20
+	}
 	endpoint := cfg.Endpoint
 	if cfg.EndpointInner != "" {
 		endpoint = cfg.EndpointInner
@@ -74,6 +78,7 @@ func NewFromConfig(cfg core.Config) (*Driver, error) {
 		CDNURL:        firstNonEmpty(policy.CDNURL, cfg.DriverString("cos", "cdn_url")),
 		SecretID:      firstNonEmpty(policy.AccessKey, cfg.DriverString("cos", "secret_id")),
 		SecretKey:     firstNonEmpty(policy.SecretKey, cfg.DriverString("cos", "secret_key")),
+		ChunkSize:     cfg.ChunkSize,
 	})
 }
 
@@ -90,8 +95,11 @@ func (d *Driver) Put(file core.FileHeader) error {
 	info := file.Info()
 
 	// 小文件单次上传
-	if info.Size <= 25<<20 { // 25MB
+	if info.Size <= d.cfg.ChunkSize {
 		_, err := d.client.Object.Put(context.Background(), info.Path, io.LimitReader(file, info.Size), nil)
+		if err == nil && info.Progress != nil {
+			info.Progress(info.Size, info.Size)
+		}
 		return err
 	}
 
@@ -101,8 +109,14 @@ func (d *Driver) Put(file core.FileHeader) error {
 		return err
 	}
 	uploadID := initRes.UploadID
+	completed := false
+	defer func() {
+		if !completed {
+			_, _ = d.client.Object.AbortMultipartUpload(context.Background(), info.Path, uploadID)
+		}
+	}()
 
-	chunkSize := int64(25 << 20) // 25MB
+	chunkSize := cosMultipartPartSize(info.Size, d.cfg.ChunkSize)
 	chunkNum := int(info.Size / chunkSize)
 	if info.Size%chunkSize != 0 {
 		chunkNum++
@@ -125,12 +139,28 @@ func (d *Driver) Put(file core.FileHeader) error {
 			return fmt.Errorf("上传分片 %d 失败: %w", i, err)
 		}
 		parts[i] = cos.Object{PartNumber: i + 1, ETag: resp.Header.Get("ETag")}
+		if info.Progress != nil {
+			info.Progress(end, info.Size)
+		}
 	}
 
 	_, _, err = d.client.Object.CompleteMultipartUpload(context.Background(), info.Path, uploadID, &cos.CompleteMultipartUploadOptions{
 		Parts: parts,
 	})
+	completed = err == nil
 	return err
+}
+
+func (d *Driver) ManagesUploadProgress() {}
+
+func cosMultipartPartSize(total int64, configured int64) int64 {
+	partSize := max(configured, int64(1<<20))
+	const maxParts = int64(10_000)
+	if required := (total + maxParts - 1) / maxParts; required > partSize {
+		const alignment = int64(1 << 20)
+		partSize = ((required + alignment - 1) / alignment) * alignment
+	}
+	return partSize
 }
 
 func (d *Driver) Get(path string) (io.ReadCloser, error) {
@@ -193,7 +223,7 @@ func (d *Driver) Source(path string, ttl time.Duration) (string, error) {
 }
 
 func (d *Driver) Token(info core.FileInfo, ttl time.Duration) (*core.UploadCredential, error) {
-	chunkSize := int64(25 << 20)
+	chunkSize := d.cfg.ChunkSize
 
 	// 小文件：单次 PUT presigned URL
 	if info.Size <= chunkSize || info.Size == 0 {

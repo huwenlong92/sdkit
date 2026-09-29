@@ -18,11 +18,16 @@ import (
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
+	awss3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 
 	"github.com/huwenlong92/sdkit/pkg/storage"
 	"github.com/huwenlong92/sdkit/pkg/storage/core"
+)
+
+const (
+	s3MinimumPartSize = int64(5 << 20)
 )
 
 func init() {
@@ -60,9 +65,13 @@ type Config struct {
 	Region        string
 	AccessKey     string
 	SecretKey     string
+	ChunkSize     int64
 }
 
 func New(cfg Config, minio bool) (*Driver, error) {
+	if cfg.ChunkSize < s3MinimumPartSize {
+		cfg.ChunkSize = s3MinimumPartSize
+	}
 	creds := aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, ""))
 	awsCfg := aws.Config{
 		Region:                     cfg.Region,
@@ -101,6 +110,7 @@ func NewFromConfig(cfg core.Config, minio bool) (*Driver, error) {
 		Region:        firstNonEmpty(policy.Region, cfg.DriverString("s3", "region")),
 		AccessKey:     firstNonEmpty(policy.AccessKey, cfg.DriverString("s3", "access_key")),
 		SecretKey:     firstNonEmpty(policy.SecretKey, cfg.DriverString("s3", "secret_key")),
+		ChunkSize:     cfg.ChunkSize,
 	}, minio)
 }
 
@@ -120,6 +130,7 @@ func NewR2FromConfig(cfg core.Config) (*Driver, error) {
 		Region:        firstNonEmpty(policy.Region, cfg.DriverString("r2", "region"), "auto"),
 		AccessKey:     firstNonEmpty(policy.AccessKey, cfg.DriverString("r2", "access_key"), cfg.DriverString("r2", "access_key_id")),
 		SecretKey:     firstNonEmpty(policy.SecretKey, cfg.DriverString("r2", "secret_key"), cfg.DriverString("r2", "access_secret")),
+		ChunkSize:     cfg.ChunkSize,
 	}, true)
 }
 
@@ -149,6 +160,24 @@ func normalizeEndpoint(endpoint string) string {
 
 func (d *Driver) Put(file core.FileHeader) error {
 	info := file.Info()
+	if info.Size > d.cfg.ChunkSize {
+		return d.putMultipart(file, info)
+	}
+	if err := d.putObject(file, info); err != nil {
+		return err
+	}
+	if info.Progress != nil {
+		info.Progress(info.Size, info.Size)
+	}
+	return nil
+}
+
+// ManagesUploadProgress marks S3-compatible uploads as driver-observed. The
+// generic reader callback measures SDK pre-reads and retries, while this driver
+// reports only successfully committed request bodies or multipart parts.
+func (d *Driver) ManagesUploadProgress() {}
+
+func (d *Driver) putObject(file core.FileHeader, info core.FileInfo) error {
 	input := &awss3.PutObjectInput{
 		Bucket:        aws.String(d.cfg.Bucket),
 		Key:           aws.String(info.Path),
@@ -164,6 +193,80 @@ func (d *Driver) Put(file core.FileHeader) error {
 	}
 	_, err := d.svc.PutObject(context.Background(), input, opts...)
 	return err
+}
+
+func (d *Driver) putMultipart(file core.FileHeader, info core.FileInfo) (resultErr error) {
+	input := &awss3.CreateMultipartUploadInput{Bucket: aws.String(d.cfg.Bucket), Key: aws.String(info.Path)}
+	if info.MIMEType != "" {
+		input.ContentType = aws.String(info.MIMEType)
+	}
+	opts := []func(*awss3.Options){withCompactSigningHeaders}
+	if info.MIMEType == "" {
+		opts = append(opts, withEmptyContentTypeRemoved)
+	}
+	created, err := d.svc.CreateMultipartUpload(context.Background(), input, opts...)
+	if err != nil {
+		return fmt.Errorf("create multipart upload: %w", err)
+	}
+	uploadID := aws.ToString(created.UploadId)
+	if uploadID == "" {
+		return fmt.Errorf("create multipart upload: empty upload id")
+	}
+	completed := false
+	defer func() {
+		if completed {
+			return
+		}
+		_, abortErr := d.svc.AbortMultipartUpload(context.Background(), &awss3.AbortMultipartUploadInput{
+			Bucket: aws.String(d.cfg.Bucket), Key: aws.String(info.Path), UploadId: aws.String(uploadID),
+		}, withCompactSigningHeaders)
+		if resultErr == nil && abortErr != nil {
+			resultErr = fmt.Errorf("abort multipart upload: %w", abortErr)
+		}
+	}()
+
+	partSize := multipartPartSize(info.Size, d.cfg.ChunkSize)
+	partCount := int((info.Size + partSize - 1) / partSize)
+	parts := make([]awss3types.CompletedPart, 0, partCount)
+	var uploaded int64
+	for partNumber, remaining := int32(1), info.Size; remaining > 0; partNumber++ {
+		size := min(partSize, remaining)
+		body := make([]byte, int(size))
+		if _, err := io.ReadFull(file, body); err != nil {
+			return fmt.Errorf("read multipart part %d: %w", partNumber, err)
+		}
+		response, err := d.svc.UploadPart(context.Background(), &awss3.UploadPartInput{
+			Bucket: aws.String(d.cfg.Bucket), Key: aws.String(info.Path), UploadId: aws.String(uploadID),
+			PartNumber: aws.Int32(partNumber), Body: bytes.NewReader(body), ContentLength: aws.Int64(size),
+		}, withCompactSigningHeaders)
+		if err != nil {
+			return fmt.Errorf("upload multipart part %d: %w", partNumber, err)
+		}
+		parts = append(parts, awss3types.CompletedPart{ETag: response.ETag, PartNumber: aws.Int32(partNumber)})
+		remaining -= size
+		if info.Progress != nil {
+			uploaded += size
+			info.Progress(uploaded, info.Size)
+		}
+	}
+	if _, err := d.svc.CompleteMultipartUpload(context.Background(), &awss3.CompleteMultipartUploadInput{
+		Bucket: aws.String(d.cfg.Bucket), Key: aws.String(info.Path), UploadId: aws.String(uploadID),
+		MultipartUpload: &awss3types.CompletedMultipartUpload{Parts: parts},
+	}, withCompactSigningHeaders); err != nil {
+		return fmt.Errorf("complete multipart upload: %w", err)
+	}
+	completed = true
+	return nil
+}
+
+func multipartPartSize(total int64, configured int64) int64 {
+	partSize := max(configured, s3MinimumPartSize)
+	const maxParts = int64(10_000)
+	if required := (total + maxParts - 1) / maxParts; required > partSize {
+		const alignment = int64(1 << 20)
+		partSize = ((required + alignment - 1) / alignment) * alignment
+	}
+	return partSize
 }
 
 func withEmptyContentTypeRemoved(options *awss3.Options) {
@@ -256,7 +359,7 @@ func (d *Driver) List(dir string) ([]core.Object, error) {
 }
 
 func (d *Driver) Token(info core.FileInfo, ttl time.Duration) (*core.UploadCredential, error) {
-	chunkSize := int64(5 << 20) // 5MB
+	chunkSize := d.cfg.ChunkSize
 
 	// 小文件：单次 PUT presigned URL
 	if info.Size <= chunkSize || info.Size == 0 {

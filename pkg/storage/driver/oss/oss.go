@@ -37,9 +37,13 @@ type Config struct {
 	CDNURL        string
 	AccessKeyID   string
 	AccessSecret  string
+	ChunkSize     int64
 }
 
 func New(cfg Config) (*Driver, error) {
+	if cfg.ChunkSize < 100<<10 {
+		cfg.ChunkSize = 5 << 20
+	}
 	endpoint := cfg.Endpoint
 	if cfg.EndpointInner != "" {
 		endpoint = cfg.EndpointInner
@@ -67,6 +71,7 @@ func NewFromConfig(cfg core.Config) (*Driver, error) {
 		CDNURL:        firstNonEmpty(policy.CDNURL, cfg.DriverString("oss", "cdn_url")),
 		AccessKeyID:   firstNonEmpty(policy.AccessKey, cfg.DriverString("oss", "access_key_id")),
 		AccessSecret:  firstNonEmpty(policy.SecretKey, cfg.DriverString("oss", "access_secret")),
+		ChunkSize:     cfg.ChunkSize,
 	})
 }
 
@@ -81,7 +86,58 @@ func firstNonEmpty(values ...string) string {
 
 func (d *Driver) Put(file core.FileHeader) error {
 	info := file.Info()
-	return d.bucket.PutObject(info.Path, file)
+	if info.Size <= d.cfg.ChunkSize {
+		if err := d.bucket.PutObject(info.Path, file); err != nil {
+			return err
+		}
+		if info.Progress != nil {
+			info.Progress(info.Size, info.Size)
+		}
+		return nil
+	}
+	imur, err := d.bucket.InitiateMultipartUpload(info.Path)
+	if err != nil {
+		return fmt.Errorf("oss initiate multipart upload: %w", err)
+	}
+	completed := false
+	defer func() {
+		if !completed {
+			_ = d.bucket.AbortMultipartUpload(imur)
+		}
+	}()
+	chunkSize := ossMultipartPartSize(info.Size, d.cfg.ChunkSize)
+	parts := make([]alioss.UploadPart, 0, int((info.Size+chunkSize-1)/chunkSize))
+	var uploaded int64
+	for partNumber, remaining := 1, info.Size; remaining > 0; partNumber++ {
+		size := min(chunkSize, remaining)
+		part, err := d.bucket.UploadPart(imur, io.LimitReader(file, size), size, partNumber)
+		if err != nil {
+			return fmt.Errorf("oss upload multipart part %d: %w", partNumber, err)
+		}
+		parts = append(parts, part)
+		remaining -= size
+		uploaded += size
+		if info.Progress != nil {
+			info.Progress(uploaded, info.Size)
+		}
+	}
+	if _, err := d.bucket.CompleteMultipartUpload(imur, parts); err != nil {
+		return fmt.Errorf("oss complete multipart upload: %w", err)
+	}
+	completed = true
+	return nil
+}
+
+func (d *Driver) ManagesUploadProgress() {}
+
+func ossMultipartPartSize(total int64, configured int64) int64 {
+	partSize := max(configured, int64(100<<10))
+	const maxParts = int64(10_000)
+	if required := (total + maxParts - 1) / maxParts; required > partSize {
+		const alignment = int64(1 << 20)
+		partSize = ((required + alignment - 1) / alignment) * alignment
+	}
+	return partSize
 }
 
 func (d *Driver) Get(path string) (io.ReadCloser, error) {

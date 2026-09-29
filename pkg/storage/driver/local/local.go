@@ -20,6 +20,7 @@ type Config struct {
 	CDNURL    string
 	Endpoint  string
 	SecretKey string
+	ChunkSize int64
 }
 
 func New(dir string) *Driver {
@@ -27,6 +28,9 @@ func New(dir string) *Driver {
 }
 
 func NewWithConfig(cfg Config) *Driver {
+	if cfg.ChunkSize <= 0 {
+		cfg.ChunkSize = 5 << 20
+	}
 	dir := cfg.Dir
 	abs, _ := filepath.Abs(dir)
 	return &Driver{cfg: cfg, dir: abs}
@@ -39,6 +43,7 @@ func NewFromConfig(cfg core.Config) *Driver {
 		CDNURL:    firstNonEmpty(policy.CDNURL, cfg.DriverString("local", "cdn_url")),
 		Endpoint:  firstNonEmpty(policy.Endpoint, cfg.DriverString("local", "endpoint")),
 		SecretKey: firstNonEmpty(policy.SecretKey, cfg.DriverString("local", "secret_key")),
+		ChunkSize: cfg.ChunkSize,
 	})
 }
 
@@ -128,6 +133,6 @@ func (d *Driver) Token(info core.FileInfo, ttl time.Duration) (*core.UploadCrede
 		Mode:      core.UploadModeLocalChunk,
 		Gateway:   "local",
 		Path:      info.Path,
-		ChunkSize: 5 << 20, // 5MB
+		ChunkSize: d.cfg.ChunkSize,
 	}, nil
 }

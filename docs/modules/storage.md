@@ -109,6 +109,7 @@ storage:
 - Cloudflare R2 复用 S3 兼容实现，`driver` 为 `r2`，`endpoint` 使用 R2 S3 API endpoint，`region` 默认 `auto`
 - 联通云对象存储复用 S3 兼容实现，`driver` 为 `cucloud`；使用资源对应的 endpoint、region 和 AK/SK，编译时启用 `sdkit_storage_s3`
 - S3 / MinIO / R2 driver 使用 AWS SDK for Go v2；自建 S3 兼容服务的 `endpoint` 建议显式带协议，未带协议时默认按 `https://` 处理。
+- S3 兼容、OSS 和 COS driver 的服务端上传超过 `storage.chunk_size` 时使用 multipart。上传进度由 driver 在分片成功后报告，避免把签名预读取或 SDK 重试计入已上传字节；local 按实际写入流报告。配置低于 provider 最小分片限制时只提升到协议下限。
 - S3 / MinIO / R2 的 `endpoint_inner` 只用于服务端 SDK 请求；客户端直传、完成分片和临时访问的 presigned URL 固定使用外网 `endpoint`。
 
 ## Runtime Capability
@@ -235,6 +236,7 @@ storage.AfterTokenFailed(hook)
 
 ## 更新记录
 
+- S3 / MinIO / R2 / 联通云、OSS、COS 的大文件服务端上传统一服从 `storage.chunk_size` 并按已成功提交的分片统计进度；local 继续按实际写入流报告。
 - 新增联通云对象存储 `cucloud` driver，复用 S3 兼容协议和现有存储能力。
 - S3 / MinIO / R2 区分服务端内网 endpoint 和客户端 presigned URL endpoint，避免直传凭证返回 `endpoint_inner`。
 - S3 / MinIO / R2 删除改为逐个 `DeleteObject`，避免部分 S3 兼容服务对 `DeleteObjects` 强制要求 `Content-MD5` 导致删除失败。
