@@ -164,13 +164,16 @@ func TestCreateJobRequiresAndForwardsStableIdempotencyKey(t *testing.T) {
 		switch request.URL.Path {
 		case "/v1/auth/token":
 			writeEnvelope(t, writer, http.StatusOK, 200, "", map[string]any{"access_token": "token", "expires_in": 3600})
-		case "/v1/ingest/job/create":
+		case "/v1/job/create":
 			if value := request.Header.Get("Idempotency-Key"); value != "import-receipt-42" {
 				t.Errorf("idempotency key = %q", value)
 			}
 			var input sdingest.CreateJobInput
 			if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
 				t.Errorf("decode request: %v", err)
+			}
+			if input.CallbackURL != "http://callback.example.test/task" {
+				t.Errorf("callback_url = %q", input.CallbackURL)
 			}
 			if input.ExternalRef != "asset-42" || input.Source.Mode != "share_link" {
 				t.Errorf("input = %+v", input)
@@ -188,6 +191,7 @@ func TestCreateJobRequiresAndForwardsStableIdempotencyKey(t *testing.T) {
 		t.Fatalf("missing key error = %v", err)
 	}
 	job, err := client.CreateJob(context.Background(), sdingest.CreateJobInput{
+		CallbackURL: "http://callback.example.test/task",
 		ExternalRef: "asset-42",
 		Source:      sdingest.Source{Mode: "share_link", URL: "https://pan.baidu.com/s/example", Password: "test"},
 	}, "import-receipt-42")
@@ -206,7 +210,7 @@ func TestClientSupportsAutoAndManualManifestModes(t *testing.T) {
 		switch request.URL.Path {
 		case "/v1/auth/token":
 			writeEnvelope(t, writer, http.StatusOK, 200, "", map[string]any{"access_token": "token", "expires_in": 3600})
-		case "/v1/ingest/job/create":
+		case "/v1/job/create":
 			var input sdingest.CreateJobInput
 			if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
 				t.Errorf("decode create request: %v", err)
@@ -215,7 +219,7 @@ func TestClientSupportsAutoAndManualManifestModes(t *testing.T) {
 			writeEnvelope(t, writer, http.StatusOK, 200, "", map[string]any{
 				"job_id": "job-manual", "manifest_mode": input.ManifestMode, "status": "pending",
 			})
-		case "/v1/ingest/job/manifest-confirm":
+		case "/v1/job/manifest-confirm":
 			var input sdingest.ConfirmJobManifestInput
 			if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
 				t.Errorf("decode confirm request: %v", err)
@@ -267,7 +271,7 @@ func TestClientPreservesArtifactLocationContracts(t *testing.T) {
 		switch request.URL.Path {
 		case "/v1/auth/token":
 			writeEnvelope(t, writer, http.StatusOK, http.StatusOK, "", map[string]any{"access_token": "token", "expires_in": 3600})
-		case "/v1/ingest/job/manifest":
+		case "/v1/job/manifest":
 			writeEnvelope(t, writer, http.StatusOK, http.StatusOK, "", map[string]any{
 				"manifest": map[string]any{"job_id": "job-1", "revision": 1},
 				"items": []map[string]any{{
@@ -276,7 +280,7 @@ func TestClientPreservesArtifactLocationContracts(t *testing.T) {
 				}},
 				"total": 1,
 			})
-		case "/v1/ingest/job/artifact-access":
+		case "/v1/job/artifact-access":
 			if request.URL.Query().Get("artifact_id") != "artifact-1" || request.URL.Query().Get("ttl_seconds") != "300" {
 				t.Errorf("artifact access query = %s", request.URL.RawQuery)
 			}
@@ -284,7 +288,7 @@ func TestClientPreservesArtifactLocationContracts(t *testing.T) {
 				"artifact_id": "artifact-1", "target_id": "target-1", "path": "jobs/job-1/file.mp4",
 				"object_uri": "s3://bucket/jobs/job-1/file.mp4", "url": "https://storage.example.com/file.mp4", "expires_at": expiresAt,
 			})
-		case "/v1/ingest/job/artifact-access-batch":
+		case "/v1/job/artifact-access-batch":
 			var input struct {
 				Items      []sdingest.ArtifactAccessLocator `json:"items"`
 				TTLSeconds int64                            `json:"ttl_seconds"`
@@ -434,11 +438,11 @@ func TestCallbackManagementUsesConfiguredBasePathAndStableKeys(t *testing.T) {
 		case "/v1/callback/list":
 			writeEnvelope(t, writer, http.StatusOK, 200, "", map[string]any{"list": []map[string]any{{"callback_id": "cb-1"}}, "total": 1})
 		case "/v1/callback/log-list":
-			if request.URL.Query().Get("callback_id") != "cb-1" || request.URL.Query().Get("job_id") != "job-1" {
+			if request.URL.Query().Get("callback_url") != "https://example.com/callback" || request.URL.Query().Get("job_id") != "job-1" {
 				t.Errorf("callback log query = %s", request.URL.RawQuery)
 			}
 			writeEnvelope(t, writer, http.StatusOK, 200, "", map[string]any{
-				"list":  []map[string]any{{"event_id": "evt-1", "callback_id": "cb-1", "job_id": "job-1", "status": "succeeded"}},
+				"list":  []map[string]any{{"event_id": "evt-1", "callback_url": "https://example.com/callback", "job_id": "job-1", "status": "succeeded"}},
 				"total": 1,
 			})
 		case "/v1/callback/secret-rotate":
@@ -484,7 +488,7 @@ func TestCallbackManagementUsesConfiguredBasePathAndStableKeys(t *testing.T) {
 		t.Fatalf("ListCallbacks() = %+v, %v", page, err)
 	}
 	if page, err := client.ListCallbackLogs(context.Background(), sdingest.ListCallbackLogsInput{
-		Page: 1, Limit: 20, CallbackID: created.CallbackID, JobID: "job-1",
+		Page: 1, Limit: 20, CallbackURL: created.URL, JobID: "job-1",
 	}); err != nil || page.Total != 1 || page.List[0].EventID != "evt-1" {
 		t.Fatalf("ListCallbackLogs() = %+v, %v", page, err)
 	}

@@ -109,6 +109,8 @@ SDK 不对普通网络错误或业务错误自动循环重试。调用方应在�
 
 `CreateJobInput.ManifestMode` 支持 `sdingest.ManifestModeAuto` 和 `sdingest.ManifestModeManual`。留空等同于 `auto`：枚举和过滤完成后直接进入下载。`manual` 会停在 `waiting / await_confirm`，调用方读取 Manifest 后必须通过 `ConfirmJobManifestSelection` 提交当前 `revision`、`hash` 和明确选择的 `item_ids`。
 
+`CreateJobInput.CallbackURL` 可随任务直接传入 HTTP 或 HTTPS 回调地址，不需要预先创建回调配置，也不发送签名头。服务端会保留任务与每次投递使用的 URL 快照，便于查询、重试和审计。
+
 旧方法 `ConfirmJobManifest` 保留用于已有自动模式或历史调用兼容；人工模式必须使用带选择项的新方法。确认请求属于幂等写操作，相同业务确认必须复用同一个 `Idempotency-Key`。
 
 ## 错误契约

@@ -92,7 +92,7 @@ type Job struct {
 	SourceName     string          `json:"source_name,omitempty"`
 	TargetID       string          `json:"target_id"`
 	PoolID         string          `json:"pool_id,omitempty"`
-	CallbackID     string          `json:"callback_id,omitempty"`
+	CallbackURL    string          `json:"callback_url,omitempty"`
 	ExternalRef    string          `json:"external_ref,omitempty"`
 	Provider       string          `json:"provider"`
 	SourceMode     string          `json:"source_mode"`
@@ -154,7 +154,7 @@ type CreateJobInput struct {
 	ManifestMode string     `json:"manifest_mode,omitempty"`
 	TargetID     string     `json:"target_id,omitempty"`
 	PoolID       string     `json:"pool_id,omitempty"`
-	CallbackID   string     `json:"callback_id,omitempty"`
+	CallbackURL  string     `json:"callback_url,omitempty"`
 	FailPolicy   string     `json:"fail_policy,omitempty"`
 	Priority     int16      `json:"priority,omitempty"`
 }

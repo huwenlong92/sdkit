@@ -35,6 +35,7 @@ profile, err := client.GetAppProfile(ctx)
 
 ```go
 job, err := client.CreateJob(ctx, sdingest.CreateJobInput{
+	CallbackURL: "http://callback.internal.example/task",
 	ExternalRef: importReceipt.ID,
 	Source: sdingest.Source{
 		Mode:     "share_link",

@@ -24,14 +24,14 @@ func (c *Client) ListJobs(ctx context.Context, input ListJobsInput) (Page[Job], 
 	setQuery(query, "external_ref", input.ExternalRef)
 	setQuery(query, "search", input.Search)
 	var result Page[Job]
-	err := c.do(ctx, http.MethodGet, "/v1/ingest/job/list", query, nil, "", &result)
+	err := c.do(ctx, http.MethodGet, "/v1/job/list", query, nil, "", &result)
 	return result, err
 }
 
 func (c *Client) GetJob(ctx context.Context, jobID string) (Job, error) {
 	query := url.Values{"job_id": {strings.TrimSpace(jobID)}}
 	var result Job
-	err := c.do(ctx, http.MethodGet, "/v1/ingest/job/detail", query, nil, "", &result)
+	err := c.do(ctx, http.MethodGet, "/v1/job/detail", query, nil, "", &result)
 	return result, err
 }
 
@@ -41,14 +41,14 @@ func (c *Client) CreateJob(ctx context.Context, input CreateJobInput, idempotenc
 		return Job{}, err
 	}
 	var result Job
-	err = c.do(ctx, http.MethodPost, "/v1/ingest/job/create", nil, input, key, &result)
+	err = c.do(ctx, http.MethodPost, "/v1/job/create", nil, input, key, &result)
 	return result, err
 }
 
 func (c *Client) GetJobProgress(ctx context.Context, jobID string) (JobProgress, error) {
 	query := url.Values{"job_id": {strings.TrimSpace(jobID)}}
 	var result JobProgress
-	err := c.do(ctx, http.MethodGet, "/v1/ingest/job/progress", query, nil, "", &result)
+	err := c.do(ctx, http.MethodGet, "/v1/job/progress", query, nil, "", &result)
 	return result, err
 }
 
@@ -58,7 +58,7 @@ func (c *Client) GetItemProgress(ctx context.Context, jobID string, itemID strin
 		"item_id": {strings.TrimSpace(itemID)},
 	}
 	var result ItemProgress
-	err := c.do(ctx, http.MethodGet, "/v1/ingest/job/item-progress", query, nil, "", &result)
+	err := c.do(ctx, http.MethodGet, "/v1/job/item-progress", query, nil, "", &result)
 	return result, err
 }
 
@@ -66,7 +66,7 @@ func (c *Client) GetJobManifest(ctx context.Context, jobID string, page int, lim
 	query := paginationQuery(page, limit)
 	query.Set("job_id", strings.TrimSpace(jobID))
 	var result ManifestPage
-	err := c.do(ctx, http.MethodGet, "/v1/ingest/job/manifest", query, nil, "", &result)
+	err := c.do(ctx, http.MethodGet, "/v1/job/manifest", query, nil, "", &result)
 	return result, err
 }
 
@@ -87,16 +87,16 @@ func (c *Client) ConfirmJobManifestSelection(ctx context.Context, input ConfirmJ
 		input.ItemIDs[index] = strings.TrimSpace(input.ItemIDs[index])
 	}
 	var result Job
-	err = c.do(ctx, http.MethodPost, "/v1/ingest/job/manifest-confirm", nil, input, key, &result)
+	err = c.do(ctx, http.MethodPost, "/v1/job/manifest-confirm", nil, input, key, &result)
 	return result, err
 }
 
 func (c *Client) CancelJob(ctx context.Context, jobID string, idempotencyKey string) (Job, error) {
-	return c.jobAction(ctx, "/v1/ingest/job/cancel", jobID, idempotencyKey)
+	return c.jobAction(ctx, "/v1/job/cancel", jobID, idempotencyKey)
 }
 
 func (c *Client) RetryJob(ctx context.Context, jobID string, idempotencyKey string) (Job, error) {
-	return c.jobAction(ctx, "/v1/ingest/job/retry", jobID, idempotencyKey)
+	return c.jobAction(ctx, "/v1/job/retry", jobID, idempotencyKey)
 }
 
 func (c *Client) jobAction(ctx context.Context, path string, jobID string, idempotencyKey string) (Job, error) {
@@ -117,14 +117,14 @@ func (c *Client) ListArtifacts(ctx context.Context, input ListArtifactsInput) (P
 	setQuery(query, "job_id", input.JobID)
 	setQuery(query, "status", input.Status)
 	var result Page[Artifact]
-	err := c.do(ctx, http.MethodGet, "/v1/ingest/job/artifact-list", query, nil, "", &result)
+	err := c.do(ctx, http.MethodGet, "/v1/job/artifact-list", query, nil, "", &result)
 	return result, err
 }
 
 func (c *Client) GetArtifact(ctx context.Context, artifactID string) (Artifact, error) {
 	query := url.Values{"artifact_id": {strings.TrimSpace(artifactID)}}
 	var result Artifact
-	err := c.do(ctx, http.MethodGet, "/v1/ingest/job/artifact-detail", query, nil, "", &result)
+	err := c.do(ctx, http.MethodGet, "/v1/job/artifact-detail", query, nil, "", &result)
 	return result, err
 }
 
@@ -134,7 +134,7 @@ func (c *Client) GetArtifactAccess(ctx context.Context, artifactID string, ttl t
 		query.Set("ttl_seconds", strconv.FormatInt(int64(ttl/time.Second), 10))
 	}
 	var result ArtifactAccess
-	err := c.do(ctx, http.MethodGet, "/v1/ingest/job/artifact-access", query, nil, "", &result)
+	err := c.do(ctx, http.MethodGet, "/v1/job/artifact-access", query, nil, "", &result)
 	return result, err
 }
 
@@ -157,7 +157,7 @@ func (c *Client) GetArtifactAccessBatch(ctx context.Context, items []ArtifactAcc
 	var result struct {
 		List []ArtifactAccess `json:"list"`
 	}
-	err := c.do(ctx, http.MethodPost, "/v1/ingest/job/artifact-access-batch", nil, input, "", &result)
+	err := c.do(ctx, http.MethodPost, "/v1/job/artifact-access-batch", nil, input, "", &result)
 	return result.List, err
 }
 
@@ -170,7 +170,7 @@ func (c *Client) AcknowledgeArtifact(ctx context.Context, artifactID string, ide
 		ArtifactID string `json:"artifact_id"`
 	}{ArtifactID: strings.TrimSpace(artifactID)}
 	var result Artifact
-	err = c.do(ctx, http.MethodPost, "/v1/ingest/job/artifact-ack", nil, input, key, &result)
+	err = c.do(ctx, http.MethodPost, "/v1/job/artifact-ack", nil, input, key, &result)
 	return result, err
 }
 

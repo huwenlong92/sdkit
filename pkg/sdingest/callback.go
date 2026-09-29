@@ -117,28 +117,28 @@ type CreateCallbackInput struct {
 }
 
 type CallbackLog struct {
-	EventID    string          `json:"event_id"`
-	Event      string          `json:"event"`
-	CallbackID string          `json:"callback_id"`
-	JobID      string          `json:"job_id"`
-	AttemptNo  int             `json:"attempt_no"`
-	SecretVer  int64           `json:"secret_ver"`
-	Status     string          `json:"status"`
-	LatencyMS  int64           `json:"latency_ms"`
-	NextAt     *time.Time      `json:"next_at,omitempty"`
-	Error      string          `json:"err,omitempty"`
-	Response   string          `json:"response,omitempty"`
-	CreatedAt  time.Time       `json:"created_at"`
-	Callback   json.RawMessage `json:"callback,omitempty"`
-	Job        json.RawMessage `json:"job,omitempty"`
+	EventID     string          `json:"event_id"`
+	Event       string          `json:"event"`
+	CallbackURL string          `json:"callback_url"`
+	JobID       string          `json:"job_id"`
+	AttemptNo   int             `json:"attempt_no"`
+	SecretVer   int64           `json:"secret_ver"`
+	Status      string          `json:"status"`
+	LatencyMS   int64           `json:"latency_ms"`
+	NextAt      *time.Time      `json:"next_at,omitempty"`
+	Error       string          `json:"err,omitempty"`
+	Response    string          `json:"response,omitempty"`
+	CreatedAt   time.Time       `json:"created_at"`
+	Callback    json.RawMessage `json:"callback,omitempty"`
+	Job         json.RawMessage `json:"job,omitempty"`
 }
 
 type ListCallbackLogsInput struct {
-	Page       int
-	Limit      int
-	CallbackID string
-	JobID      string
-	Status     string
+	Page        int
+	Limit       int
+	CallbackURL string
+	JobID       string
+	Status      string
 }
 
 func (c *Client) ListCallbacks(ctx context.Context, input ListCallbacksInput) (Page[Callback], error) {
@@ -159,7 +159,7 @@ func (c *Client) GetCallback(ctx context.Context, callbackID string) (Callback, 
 
 func (c *Client) ListCallbackLogs(ctx context.Context, input ListCallbackLogsInput) (Page[CallbackLog], error) {
 	query := paginationQuery(input.Page, input.Limit)
-	setQuery(query, "callback_id", input.CallbackID)
+	setQuery(query, "callback_url", input.CallbackURL)
 	setQuery(query, "job_id", input.JobID)
 	setQuery(query, "status", input.Status)
 	var result Page[CallbackLog]
