@@ -37,11 +37,15 @@ type Config struct {
 }
 
 type Client struct {
-	appID     string
-	appSecret string
-	transport *request.Client
-	tokenSkew time.Duration
-	clock     func() time.Time
+	baseURL          string
+	appID            string
+	appSecret        string
+	httpClient       *http.Client
+	maxResponseBytes int64
+	userAgent        string
+	transport        *request.Client
+	tokenSkew        time.Duration
+	clock            func() time.Time
 
 	tokenMu sync.Mutex
 	token   Token
@@ -98,7 +102,9 @@ func NewClient(config Config) (*Client, error) {
 		return nil, fmt.Errorf("%w: configure HTTP transport: %v", ErrInvalidConfig, err)
 	}
 	return &Client{
-		appID: appID, appSecret: appSecret, transport: transport, tokenSkew: tokenSkew, clock: clock,
+		baseURL: baseURL, appID: appID, appSecret: appSecret, httpClient: httpClient,
+		maxResponseBytes: maxResponseBytes, userAgent: userAgent,
+		transport: transport, tokenSkew: tokenSkew, clock: clock,
 	}, nil
 }
 

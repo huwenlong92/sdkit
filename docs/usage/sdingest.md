@@ -75,6 +75,81 @@ page, err := client.ListJobs(ctx, sdingest.ListJobsInput{
 })
 ```
 
+## 创建并订阅打包任务
+
+打包任务直接接收文件清单。每个文件可以来自不同 Target，最终 ZIP 单独写入 `OutputTargetID`：
+
+```go
+archive, err := client.CreateArchiveJob(ctx, sdingest.CreateArchiveJobInput{
+	ExternalRef:    delivery.ID,
+	CallbackURL:    "http://callback.internal.example/archive",
+	ArchiveName:    "delivery.zip",
+	RootDirectory:  "交付目录",
+	OutputTargetID: outputTargetID,
+	Entries: []sdingest.ArchiveEntryInput{
+		{
+			TargetID:    video.TargetID,
+			SourcePath:  video.Path,
+			ArchivePath: "视频/main.mp4",
+			Size:        video.Size,
+		},
+		{
+			TargetID:    subtitle.TargetID,
+			SourcePath:  subtitle.Path,
+			ArchivePath: "字幕/main.srt",
+			Size:        subtitle.Size,
+		},
+	},
+}, "archive-create:"+delivery.ID)
+if err != nil {
+	return err
+}
+```
+
+清单最多 10,000 项。创建接口请求体上限由 SDIngest 服务端控制；调用方应提交稳定的相对路径，不要把临时下载 URL 当作 `source_path`。
+
+详情、清单与回调记录分别查询：
+
+```go
+detail, err := client.GetArchiveJob(ctx, archive.JobID)
+manifest, err := client.GetArchiveManifest(ctx, archive.JobID, 1, 100)
+logs, err := client.ListArchiveCallbackLogs(ctx, archive.JobID, 1, 20)
+```
+
+需要实时进度时直接订阅 SDK 的鉴权 SSE，不需要自行获取 Token 或拼接 URL：
+
+```go
+err = client.StreamArchiveJobEvents(ctx, archive.JobID, func(event sdingest.ArchiveJobEvent) error {
+	switch event.Event {
+	case "snapshot":
+		log.Printf("archive=%s progress=%d%% upload=%d%%", event.Job.JobID, event.Job.ProgressPercent, event.Job.UploadProgressPercent)
+	case "complete":
+		log.Printf("archive=%s status=%s", event.Job.JobID, event.Job.Status)
+	}
+	return nil
+})
+```
+
+SSE 是实时展示通道。断线或进程重启后仍需调用 `GetArchiveJob` 校准权威状态；失败任务可用稳定幂等键重试：
+
+```go
+archive, err = client.RetryArchiveJob(ctx, archive.JobID, "archive-retry:"+retryReceipt.ID)
+```
+
+成功后获取 ZIP 临时下载地址：
+
+```go
+access, err := client.GetArchiveAccess(ctx, archive.JobID, 15*time.Minute)
+if err != nil {
+	return err
+}
+_ = access.URL
+_ = access.TargetID
+_ = access.Path
+```
+
+打包任务只投递 `archive.succeeded` 或 `archive.failed`。接收方可以把请求体解码为 `sdingest.ArchiveCallbackEnvelope`，并以 `event_id` 做幂等；任务级 `callback_url` 不发送签名头。
+
 ## Manifest 与产物回执
 
 默认自动模式不需要调用方确认：
@@ -183,7 +258,9 @@ if errors.As(err, &apiErr) {
 
 不要根据中文 `Message` 做程序分支。应使用稳定的 `SubCode`；任务运行中的业务错误使用 `Job.ErrorCode`。
 
-## Callback 验签
+## 旧 Callback 配置与验签（过渡能力）
+
+以下 Callback 配置实体与签名方法仅用于仍在使用旧回调配置的调用方。新建搬运和打包任务应直接传 `callback_url`，任务级回调不要求创建 Callback 配置，也不发送签名头。
 
 Callback 可以通过 SDK 创建、查询、旋转密钥和启停。创建与旋转只在响应中返回一次 signing secret，调用方应立即加密保存；所有写操作仍使用稳定幂等键：
 

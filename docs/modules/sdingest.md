@@ -8,7 +8,8 @@
 - `/v1` HTTP 请求与 `{err_code,sub_code,msg,data}` envelope 解析
 - HTTP 状态、业务错误、`Retry-After` 和 request ID 投影
 - 写接口 `Idempotency-Key` 强制传入
-- App、Job、Progress、Manifest、Artifact 的公开 DTO
+- App、Job、Progress、Manifest、Artifact、Archive Job/Entry/Access 的公开 DTO
+- Archive REST 查询、可靠写操作与带鉴权的 SSE 订阅
 - Callback HMAC-SHA256 验签、时间窗口检查和原始 body 解码
 
 内部 HTTP transport 复用 `pkg/request`：request 负责 URL、header、JSON body、HTTP 调用和响应大小限制；本包保留 Token、401 后唯一一次刷新重放、envelope 和安全错误语义。该 transport 固定 `MaxAttempts=1`，不会叠加通用自动重试。
@@ -75,6 +76,18 @@ func NewClient(config Config) (*Client, error)
 - `CancelJob(ctx, jobID, idempotencyKey) (Job, error)`
 - `RetryJob(ctx, jobID, idempotencyKey) (Job, error)`
 
+打包任务：
+
+- `CreateArchiveJob(ctx, input, idempotencyKey) (ArchiveJob, error)`
+- `ListArchiveJobs(ctx, input) (Page[ArchiveJob], error)`
+- `GetArchiveJob(ctx, jobID) (ArchiveJob, error)`
+- `GetArchiveManifest(ctx, jobID, page, limit) (ArchiveManifestPage, error)`
+- `ListArchiveCallbackLogs(ctx, jobID, page, limit) (Page[ArchiveCallbackLog], error)`
+- `GetArchiveCallbackLog(ctx, jobID, eventID, attemptNo) (ArchiveCallbackLogDetail, error)`
+- `GetArchiveAccess(ctx, jobID, ttl) (ArchiveAccess, error)`
+- `RetryArchiveJob(ctx, jobID, idempotencyKey) (ArchiveJob, error)`
+- `StreamArchiveJobEvents(ctx, jobID, handler) error`
+
 产物：
 
 - `ListArtifacts(ctx, input) (Page[Artifact], error)`
@@ -112,6 +125,22 @@ SDK 不对普通网络错误或业务错误自动循环重试。调用方应在�
 `CreateJobInput.CallbackURL` 可随任务直接传入 HTTP 或 HTTPS 回调地址，不需要预先创建回调配置，也不发送签名头。服务端会保留任务与每次投递使用的 URL 快照，便于查询、重试和审计。
 
 旧方法 `ConfirmJobManifest` 保留用于已有自动模式或历史调用兼容；人工模式必须使用带选择项的新方法。确认请求属于幂等写操作，相同业务确认必须复用同一个 `Idempotency-Key`。
+
+## Archive 打包任务
+
+Archive 是独立任务域，不是搬运 Job 的附加阶段。`CreateArchiveJobInput` 直接携带完整文件清单：
+
+- 每个 `ArchiveEntryInput` 使用 `target_id + source_path` 定位源对象。
+- `archive_path` 决定文件在 ZIP 内的相对路径。
+- `root_directory` 可选；为空时不额外包裹顶层目录。
+- `output_target_id` 决定最终 ZIP 写入的目标存储。
+- `callback_url` 是当前任务的回调地址快照，不依赖预创建的 Callback 配置。
+
+创建和重试是幂等写操作，必须使用稳定的 `Idempotency-Key`。Manifest 与回调日志均独立分页；任务详情不会内嵌上千条 Entry 或完整回调 payload。
+
+`StreamArchiveJobEvents` 使用 Client 的 Bearer Token 建立 SSE，请求遇到 401 时沿用普通 API 的规则，只刷新 Token 并重连一次。Handler 会收到 `snapshot` 与 `complete`；方法在 `complete`、handler 返回错误或 context 取消时退出。网络在终态前关闭会返回 `io.ErrUnexpectedEOF`，由调用方决定是否重新订阅或回退到 `GetArchiveJob` 查询。
+
+终态成功后使用 `GetArchiveAccess` 获取有时效的 ZIP 下载地址。打包回调只发送 `archive.succeeded` 或 `archive.failed`；`ArchiveCallbackEnvelope` 与 `ArchiveCallbackEnvelopeData` 提供类型化解码字段。
 
 ## 错误契约
 
@@ -151,6 +180,7 @@ Manifest item、Artifact access 和 Callback item 都保留 `target_id` 与产�
 
 ## 更新记录
 
+- 2026-09-30：新增 Archive 打包任务 typed client，覆盖创建、列表、详情、Manifest、回调日志、下载地址、重试和带鉴权 SSE。
 - 2026-09-28：补齐 Manifest、Callback 和 Artifact access 的目标存储定位字段，新增按 `target_id + path` 批量获取临时地址。
 - 2026-08-25：新增 Callback 人工重放，并为任务列表增加 Manifest 模式筛选。
 - 2026-08-25：新增首版 typed Client，覆盖 App、Job、Progress、Manifest、Artifact、业务错误、Token 缓存、Callback 管理与验签。
