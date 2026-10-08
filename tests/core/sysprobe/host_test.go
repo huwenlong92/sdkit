@@ -1,4 +1,4 @@
-package tests
+package sysprobe_test
 
 import (
 	"context"
@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huwenlong92/sdkit/core/hostprobe"
+	"github.com/huwenlong92/sdkit/core/sysprobe"
 )
 
 func TestHostProbeCollectsResourceSnapshot(t *testing.T) {
-	probe := hostprobe.New(hostprobe.Config{
+	probe := sysprobe.NewHost(sysprobe.HostConfig{
 		CacheTTL:    time.Nanosecond,
 		CPUInterval: time.Millisecond,
-		Disks:       []hostprobe.DiskSpec{{Name: "workspace", Path: "."}},
+		Disks:       []sysprobe.DiskSpec{{Name: "workspace", Path: "."}},
 	})
 
 	first, err := probe.Snapshot(context.Background())
@@ -53,7 +53,7 @@ func TestHostProbeCollectsResourceSnapshot(t *testing.T) {
 }
 
 func TestHostProbeUsesCache(t *testing.T) {
-	probe := hostprobe.New(hostprobe.Config{CacheTTL: time.Minute, CPUInterval: time.Millisecond})
+	probe := sysprobe.NewHost(sysprobe.HostConfig{CacheTTL: time.Minute, CPUInterval: time.Millisecond})
 
 	first, err := probe.Snapshot(context.Background())
 	if err != nil {
@@ -90,10 +90,10 @@ docker0: %d 30 0 0 0 0 0 0 %d 40 0 0 0 0 0 0
 	}
 	writeNetworkCounters(1000, 2000, 100000, 200000)
 
-	probe := hostprobe.New(hostprobe.Config{
+	probe := sysprobe.NewHost(sysprobe.HostConfig{
 		CacheTTL:    time.Nanosecond,
 		CPUInterval: time.Millisecond,
-		Network: hostprobe.NetworkSpec{
+		Network: sysprobe.NetworkSpec{
 			ProcRoot:   procRoot,
 			Interfaces: []string{"eth0"},
 		},
@@ -124,17 +124,17 @@ func TestHostProbeHonorsCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if _, err := hostprobe.New(hostprobe.Config{}).Snapshot(ctx); err == nil {
+	if _, err := sysprobe.NewHost(sysprobe.HostConfig{}).Snapshot(ctx); err == nil {
 		t.Fatal("expected canceled context error")
 	}
 }
 
 func TestHostProbeBoundsConfiguredDiskWork(t *testing.T) {
-	disks := make([]hostprobe.DiskSpec, 32)
+	disks := make([]sysprobe.DiskSpec, 32)
 	for index := range disks {
-		disks[index] = hostprobe.DiskSpec{Name: "workspace", Path: "."}
+		disks[index] = sysprobe.DiskSpec{Name: "workspace", Path: "."}
 	}
-	snapshot, err := hostprobe.New(hostprobe.Config{
+	snapshot, err := sysprobe.NewHost(sysprobe.HostConfig{
 		CPUInterval: 10 * time.Second,
 		Disks:       disks,
 	}).Snapshot(context.Background())

@@ -73,6 +73,7 @@ go test ./...
 - `core/realtime`：实时通信抽象、网关、presence、publisher
 - `core/security`：验证码、可配置风控、安全错误码和 Gin 安全适配
 - `core/sandbox`：Docker 隔离代码执行 runtime、语言 profile、资源限制和观测接入
+- `core/sysprobe`：主机资源、工具依赖、版本范围、缓存和探针生命周期；见 [使用文档](docs/usage/sysprobe.md) 与 [模块设计](docs/modules/sysprobe.md)
 - `core/tracing`：OpenTelemetry 初始化、传播、span 工具
 - `core/tracking`：业务追踪 ID 生成与透传
 - `core/ginresponder`：Gin middleware 响应注入点

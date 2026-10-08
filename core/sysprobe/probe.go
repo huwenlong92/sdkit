@@ -1,4 +1,4 @@
-package hostprobe
+package sysprobe
 
 import (
 	"context"
@@ -24,11 +24,11 @@ const (
 	maxNetworkSpecs    = 16
 )
 
-type Probe struct {
-	config Config
+type HostProbe struct {
+	config HostConfig
 
 	mu          sync.Mutex
-	cached      Snapshot
+	cached      HostSnapshot
 	cachedAt    time.Time
 	lastNetwork networkSample
 }
@@ -39,19 +39,19 @@ type networkSample struct {
 	bytesIn  uint64
 }
 
-func New(config Config) *Probe {
-	return &Probe{config: normalizeConfig(config)}
+func NewHost(config HostConfig) *HostProbe {
+	return &HostProbe{config: normalizeConfig(config)}
 }
 
-func (p *Probe) Snapshot(ctx context.Context) (Snapshot, error) {
+func (p *HostProbe) Snapshot(ctx context.Context) (HostSnapshot, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if err := ctx.Err(); err != nil {
-		return Snapshot{}, err
+		return HostSnapshot{}, err
 	}
 	if p == nil {
-		p = New(Config{})
+		p = NewHost(HostConfig{})
 	}
 
 	p.mu.Lock()
@@ -64,15 +64,15 @@ func (p *Probe) Snapshot(ctx context.Context) (Snapshot, error) {
 
 	snapshot := p.collect(ctx)
 	if err := ctx.Err(); err != nil {
-		return Snapshot{}, err
+		return HostSnapshot{}, err
 	}
 	p.cached = snapshot
 	p.cachedAt = snapshot.CollectedAt
 	return cloneSnapshot(snapshot), nil
 }
 
-func (p *Probe) collect(ctx context.Context) Snapshot {
-	snapshot := Snapshot{
+func (p *HostProbe) collect(ctx context.Context) HostSnapshot {
+	snapshot := HostSnapshot{
 		Disks:  make([]Disk, 0, len(p.config.Disks)),
 		Issues: make([]Issue, 0),
 	}
@@ -172,7 +172,7 @@ func (p *Probe) collect(ctx context.Context) Snapshot {
 	return snapshot
 }
 
-func normalizeConfig(config Config) Config {
+func normalizeConfig(config HostConfig) HostConfig {
 	if config.CacheTTL <= 0 {
 		config.CacheTTL = defaultCacheTTL
 	}
@@ -251,7 +251,7 @@ func selectNetworkCounters(counters []gnet.IOCountersStat, interfaces []string) 
 	return total, missing, len(selected) < len(interfaces)
 }
 
-func (s *Snapshot) addIssue(component string, path string, err error) {
+func (s *HostSnapshot) addIssue(component string, path string, err error) {
 	if err == nil {
 		return
 	}
@@ -269,7 +269,7 @@ func clampPercent(value float64) float64 {
 	}
 }
 
-func cloneSnapshot(snapshot Snapshot) Snapshot {
+func cloneSnapshot(snapshot HostSnapshot) HostSnapshot {
 	snapshot.Disks = append([]Disk(nil), snapshot.Disks...)
 	snapshot.Issues = append([]Issue(nil), snapshot.Issues...)
 	return snapshot

@@ -1,6 +1,6 @@
-// Package hostprobe collects lightweight host resource snapshots for
+// Package sysprobe provides host and executable dependency snapshots for
 // operational dashboards and health inspection.
-package hostprobe
+package sysprobe
 
 import "time"
 
@@ -14,14 +14,14 @@ type NetworkSpec struct {
 	Interfaces []string `json:"-" mapstructure:"interfaces" yaml:"interfaces"`
 }
 
-type Config struct {
+type HostConfig struct {
 	CacheTTL    time.Duration `json:"-" mapstructure:"cache_ttl" yaml:"cache_ttl"`
 	CPUInterval time.Duration `json:"-" mapstructure:"cpu_interval" yaml:"cpu_interval"`
 	Disks       []DiskSpec    `json:"-" mapstructure:"disks" yaml:"disks"`
 	Network     NetworkSpec   `json:"-" mapstructure:"network" yaml:"network"`
 }
 
-type Snapshot struct {
+type HostSnapshot struct {
 	CollectedAt time.Time `json:"collected_at"`
 	Host        Host      `json:"host"`
 	CPU         CPU       `json:"cpu"`
