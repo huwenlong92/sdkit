@@ -61,7 +61,29 @@ app:
   mode: dev
 ```
 
-导入路径相对主配置文件所在目录解析。主文件会先读取，随后按 `imports` 顺序合并功能文件；后合并的文件会覆盖前面的同名 key。
+每个文件都可以声明自己的 `imports`，相对路径以声明它的文件所在目录解析，也支持绝对路径。例如：
+
+```yaml
+# configs/config.yaml
+imports:
+  - features/files.yaml
+
+# configs/features/files.yaml
+imports:
+  - drivers/cloud.yaml
+files:
+  enabled: true
+
+# configs/features/drivers/cloud.yaml
+cloud:
+  binary_path: bin/example-tool
+```
+
+配置键仍由文件内容决定，文件引入不会增加额外的包装层。
+
+主文件先读取，然后按声明顺序深度优先合并：先合并被引入文件本身，再处理它的 `imports`，最后继续下一个同级文件。后合并的文件覆盖前面的同名 key，保持原有平铺 imports 的覆盖顺序。不同分支可以引用同一个文件，每次引用仍在当前位置合并；只禁止当前引用链上的循环，包括 `../` 和符号链接指向同一文件的循环。
+
+空白 import 项会跳过。文件缺失、YAML 格式错误和循环引用都会使加载失败；错误信息包含从入口到问题文件的引用链。默认值和 `SDKITGO_` 环境变量继续按 Viper 的优先级生效。
 
 例如 `configs/worker.yaml`：
 
