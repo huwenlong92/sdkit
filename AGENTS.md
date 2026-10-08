@@ -59,15 +59,25 @@
 
 ## 文档规则
 
-新增或修改模块后，必须同步更新仓库内对应文档：
+项目文档统一维护在 Obsidian 知识库，不再在本仓库创建或维护 docs、模块 README、实施计划或 CHANGELOG 正文。本仓库 README.md 只保留简短项目介绍和知识库入口；AGENTS.md、CLAUDE.md 和工具技能仍作为仓库协作配置维护。
 
-- docs/usage/<module>.md
-- docs/modules/<module>.md
+知识库项目目录：
 
-说明：
+`/Users/huwenlong/Documents/Obsidian Vault/10 进行中/sdkit`
 
-- docs/usage/*：记录使用方式、初始化、配置、示例
-- docs/modules/*：记录模块设计、对外 API、内部约束、更新记录
+项目入口：`00 项目入口.md`。
+
+**每次本仓库有代码更新，改完并完成对应验证后，必须同步更新受影响的知识库文档，不能只改代码就结束任务。**
+
+- `09 模块设计/<module> 模块设计.md`：模块职责、对外 API、内部约束、兼容性与更新记录。
+- `10 使用指南/<module> 使用指南.md`：初始化、配置、接入方式和示例。
+- `11 实施计划/`：实施步骤、验收记录和计划状态。
+- `12 项目说明/`：项目概览、公共库职责、测试约定、示例与更新记录。
+- 有阶段进展、范围或决策变化时，同步更新项目入口、`05 决策记录.md`、`06 进度记录.md` 等对应笔记。
+- 新增、删除、拆分或重命名模块及笔记时，同步维护对应 `00 目录索引.md` 和相关链接。
+- 修改前先读取知识库根目录 AGENTS.md，并搜索已有相关笔记，优先更新原笔记；写入与 Git 操作遵循知识库自身规则，该授权仅适用于知识库，不扩展到本代码仓库。
+- 知识库暂时不可用时，明确报告待同步内容；不得恢复在本仓库写 docs，也不得把未完成的文档同步标为已完成。
+- 跨项目通用工程规范仍维护在 `/Users/huwenlong/data/lab/engineering-standards`，本项目笔记保留实现说明与入口引用。
 
 ---
 
@@ -75,15 +85,15 @@
 
 需要时再读取：
 
-- docs/usage/*
-- docs/modules/*
+- `/Users/huwenlong/Documents/Obsidian Vault/10 进行中/sdkit/00 项目入口.md`
+- 知识库项目下对应的 `09 模块设计/`、`10 使用指南/` 和 `11 实施计划/` 笔记
 
 ---
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **sdkit** (16353 symbols, 54691 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **sdkit** (16564 symbols, 55161 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
