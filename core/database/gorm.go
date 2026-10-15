@@ -3,13 +3,18 @@ package database
 import (
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 )
 
 func openGORM(cfg Config, mode string) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(cfg.DSN), &gorm.Config{
+	var dialector gorm.Dialector = postgres.Open(cfg.DSN)
+	if cfg.Driver == "sqlite" {
+		dialector = sqlite.Open(cfg.DSN)
+	}
+	db, err := gorm.Open(dialector, &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			TablePrefix:   cfg.TablePrefix,
 			SingularTable: true,

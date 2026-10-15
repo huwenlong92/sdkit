@@ -2,6 +2,8 @@ package database
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -31,14 +33,26 @@ func fromAppConfig(cfg *Config) Config {
 }
 
 func normalizeConfig(cfg Config) (Config, error) {
+	cfg.Driver = strings.ToLower(strings.TrimSpace(cfg.Driver))
 	if cfg.Driver == "" {
 		cfg.Driver = defaultDriver
+	}
+	switch cfg.Driver {
+	case "postgres", "sqlite":
+	default:
+		return cfg, fmt.Errorf("database: unsupported driver %q", cfg.Driver)
+	}
+	if cfg.Driver == "sqlite" && cfg.Schema != "" {
+		return cfg, errors.New("database: schema is only supported by postgres")
 	}
 	if cfg.DSN == "" {
 		return cfg, errors.New("database dsn is required")
 	}
 	if cfg.MaxOpenConns <= 0 {
 		cfg.MaxOpenConns = defaultMaxOpenConns
+		if cfg.Driver == "sqlite" {
+			cfg.MaxOpenConns = 1
+		}
 	}
 	if cfg.MaxIdleConns <= 0 {
 		cfg.MaxIdleConns = defaultMaxIdleConns

@@ -18,7 +18,7 @@
 | --- | --- |
 | 配置加载与拆分配置 | [core/config](core/config) |
 | 日志、链路追踪与请求标识 | [core/logger](core/logger)、[core/tracing](core/tracing)、[core/tracking](core/tracking)、[core/requestid](core/requestid) |
-| GORM、PGX、Redis 与缓存 | [core/database](core/database)、[core/redis](core/redis)、[core/cache](core/cache) |
+| GORM（PostgreSQL / SQLite）、PGX、Redis 与缓存 | [core/database](core/database)、[core/redis](core/redis)、[core/cache](core/cache) |
 | 队列、定时任务与事件总线 | [core/queue](core/queue)、[core/crontab](core/crontab)、[core/eventbus](core/eventbus) |
 | 鉴权、权限、安全与限流 | [core/auth](core/auth)、[core/casbin](core/casbin)、[core/security](core/security)、[core/ratelimit](core/ratelimit) |
 | 实时通信与 Gin 接入 | [core/realtime](core/realtime)、[core/gin](core/gin) |

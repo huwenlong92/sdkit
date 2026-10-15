@@ -55,7 +55,10 @@ func New(ctx context.Context, cfg Config, mode string) (*Database, error) {
 		return nil, err
 	}
 
-	pgxPool, err := openPGX(ctx, cfg, mode)
+	var pgxPool *pgxpool.Pool
+	if cfg.Driver == "postgres" {
+		pgxPool, err = openPGX(ctx, cfg, mode)
+	}
 	if err != nil {
 		closeGORM(gormDB)
 		return nil, err
